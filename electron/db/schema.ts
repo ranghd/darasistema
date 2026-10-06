@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS productos (
   costo_contenido REAL NOT NULL DEFAULT 0,
   maneja_envase INTEGER NOT NULL DEFAULT 0,
   fianza_envase REAL NOT NULL DEFAULT 0,
+  itbis_rate REAL NOT NULL DEFAULT 0.18,
   cuenta_ingreso_id INTEGER REFERENCES cuentas_contables(id),
   cuenta_costo_id INTEGER REFERENCES cuentas_contables(id),
   cuenta_inventario_id INTEGER REFERENCES cuentas_contables(id),

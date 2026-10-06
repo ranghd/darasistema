@@ -21,14 +21,12 @@ export default function NuevaFactura() {
   const [condicionPago, setCondicionPago] = useState<"CONTADO" | "CREDITO">("CONTADO");
   const [tipoNcf, setTipoNcf] = useState<"B01" | "B02" | "B13" | "B14" | "B15">("B02");
   const [lineas, setLineas] = useState<LineaForm[]>([]);
-  const [itbisRate, setItbisRate] = useState(0.18);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     api.clientes.listar().then(setClientes as any);
     api.productos.listar().then(setProductos as any);
-    api.config.obtener().then((c: any) => setItbisRate(c.itbis_rate));
   }, []);
 
   function agregarLinea() {
@@ -61,7 +59,7 @@ export default function NuevaFactura() {
     const detalle = lineas.map((l) => {
       const producto = productos.find((p) => p.id === l.producto_id);
       const bruto = l.cantidad * l.precio_unitario - l.descuento;
-      const itbisLinea = bruto * itbisRate;
+      const itbisLinea = bruto * (producto?.itbis_rate ?? 0.18);
       const fianzaLinea = l.modalidad === "LLENO" && producto?.maneja_envase ? producto.fianza_envase * l.cantidad : 0;
       subtotal += bruto;
       itbis += itbisLinea;
@@ -69,7 +67,7 @@ export default function NuevaFactura() {
       return { ...l, producto, bruto, itbisLinea, fianzaLinea };
     });
     return { detalle, subtotal, itbis, fianza, total: subtotal + itbis + fianza };
-  }, [lineas, productos, itbisRate]);
+  }, [lineas, productos]);
 
   async function guardar() {
     setError("");
@@ -189,7 +187,7 @@ export default function NuevaFactura() {
               <span>{formatMoney(calculo.subtotal)}</span>
             </div>
             <div className="flex justify-between text-slate-600">
-              <span>ITBIS ({(itbisRate * 100).toFixed(0)}%)</span>
+              <span>ITBIS</span>
               <span>{formatMoney(calculo.itbis)}</span>
             </div>
             {calculo.fianza > 0 && (

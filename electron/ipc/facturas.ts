@@ -70,9 +70,6 @@ export function registerFacturasIpc(db: DB) {
   ipcMain.handle("facturas:crear", (_e, input: NuevaFacturaInput) => {
     if (!input.lineas || input.lineas.length === 0) throw new Error("La factura debe tener al menos una linea");
 
-    const config = db.prepare(`SELECT * FROM company_config WHERE id = 1`).get() as { itbis_rate: number };
-    const itbisRate = config.itbis_rate;
-
     const productos = new Map<number, Producto>();
     for (const l of input.lineas) {
       if (!productos.has(l.producto_id)) {
@@ -89,7 +86,7 @@ export function registerFacturasIpc(db: DB) {
     const lineasCalc = input.lineas.map((l) => {
       const producto = productos.get(l.producto_id)!;
       const bruto = l.cantidad * l.precio_unitario - l.descuento;
-      const itbisLinea = Math.round(bruto * itbisRate * 100) / 100;
+      const itbisLinea = Math.round(bruto * (producto.itbis_rate ?? 0.18) * 100) / 100;
       const fianzaLinea = l.modalidad === "LLENO" && producto.maneja_envase ? producto.fianza_envase * l.cantidad : 0;
       subtotal += bruto;
       itbisTotal += itbisLinea;

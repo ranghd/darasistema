@@ -23,7 +23,6 @@ export default function Caja() {
   const navigate = useNavigate();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [itbisRate, setItbisRate] = useState(0.18);
   const [carrito, setCarrito] = useState<LineaCarrito[]>([]);
   const [clienteId, setClienteId] = useState<number | "">("");
   const [categoria, setCategoria] = useState("TODOS");
@@ -32,10 +31,9 @@ export default function Caja() {
   const [error, setError] = useState("");
 
   async function cargar() {
-    const [p, c, cfg] = await Promise.all([api.productos.listar(), api.clientes.listar(), api.config.obtener()]);
+    const [p, c] = await Promise.all([api.productos.listar(), api.clientes.listar()]);
     setProductos(p);
     setClientes(c);
-    setItbisRate(cfg.itbis_rate);
     const consumidorFinal = c.find((x) => x.nombre === "Consumidor Final");
     setClienteId(consumidorFinal ? consumidorFinal.id : c[0]?.id ?? "");
   }
@@ -83,7 +81,7 @@ export default function Caja() {
     const lineas = carrito.map((l) => {
       const producto = productos.find((p) => p.id === l.producto_id)!;
       const bruto = l.cantidad * producto.precio_contenido;
-      const itbisLinea = bruto * itbisRate;
+      const itbisLinea = bruto * (producto.itbis_rate ?? 0.18);
       const fianzaLinea = l.modalidad === "LLENO" && producto.maneja_envase ? producto.fianza_envase * l.cantidad : 0;
       subtotal += bruto;
       itbis += itbisLinea;
@@ -91,7 +89,7 @@ export default function Caja() {
       return { ...l, producto, bruto, itbisLinea, fianzaLinea };
     });
     return { lineas, subtotal, itbis, fianza, total: subtotal + itbis + fianza };
-  }, [carrito, productos, itbisRate]);
+  }, [carrito, productos]);
 
   const productosFiltrados = productos.filter((p) => {
     if (categoria !== "TODOS" && p.categoria !== categoria) return false;

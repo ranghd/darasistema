@@ -107,8 +107,8 @@ export function seedIfEmpty(db: DB) {
   for (const c of clientes) insertCliente.run(c);
 
   const insertProducto = db.prepare(
-    `INSERT INTO productos (codigo, nombre, categoria, unidad, precio_contenido, costo_contenido, maneja_envase, fianza_envase, cuenta_ingreso_id, cuenta_costo_id, cuenta_inventario_id, existencia, activo)
-     VALUES (@codigo, @nombre, @categoria, @unidad, @precio_contenido, @costo_contenido, @maneja_envase, @fianza_envase, @cuenta_ingreso_id, @cuenta_costo_id, @cuenta_inventario_id, @existencia, 1)`
+    `INSERT INTO productos (codigo, nombre, categoria, unidad, precio_contenido, costo_contenido, maneja_envase, fianza_envase, itbis_rate, cuenta_ingreso_id, cuenta_costo_id, cuenta_inventario_id, existencia, activo)
+     VALUES (@codigo, @nombre, @categoria, @unidad, @precio_contenido, @costo_contenido, @maneja_envase, @fianza_envase, 0.18, @cuenta_ingreso_id, @cuenta_costo_id, @cuenta_inventario_id, @existencia, 1)`
   );
   const productos = [
     { codigo: "GAS-25", nombre: "Cilindro de Gas Propano 25 lb", categoria: "GAS", unidad: "CILINDRO", precio_contenido: 650, costo_contenido: 420, maneja_envase: 1, fianza_envase: 1500, cuenta_ingreso_id: codigoToId.get("4.1.01"), cuenta_costo_id: codigoToId.get("5.1.01"), cuenta_inventario_id: codigoToId.get("1.1.04"), existencia: 40 },

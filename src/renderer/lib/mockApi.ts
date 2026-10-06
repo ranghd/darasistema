@@ -32,8 +32,8 @@ const clientes: Cliente[] = [
 ];
 
 const productos: Producto[] = [
-  { id: 1, codigo: "GAS-25", nombre: "Cilindro de Gas Propano 25 lb", categoria: "GAS", unidad: "CILINDRO", precio_contenido: 650, costo_contenido: 420, maneja_envase: 1, fianza_envase: 1500, cuenta_ingreso_id: 18, cuenta_costo_id: 21, cuenta_inventario_id: 3, existencia: 40, activo: 1 },
-  { id: 5, codigo: "AGUA-5G", nombre: "Botellon de Agua Purificada 5 Gal", categoria: "AGUA", unidad: "BOTELLON", precio_contenido: 90, costo_contenido: 35, maneja_envase: 1, fianza_envase: 350, cuenta_ingreso_id: 18, cuenta_costo_id: 21, cuenta_inventario_id: 3, existencia: 120, activo: 1 },
+  { id: 1, codigo: "GAS-25", nombre: "Cilindro de Gas Propano 25 lb", categoria: "GAS", unidad: "CILINDRO", precio_contenido: 650, costo_contenido: 420, maneja_envase: 1, fianza_envase: 1500, itbis_rate: 0.18, cuenta_ingreso_id: 18, cuenta_costo_id: 21, cuenta_inventario_id: 3, existencia: 40, activo: 1 },
+  { id: 5, codigo: "AGUA-5G", nombre: "Botellon de Agua Purificada 5 Gal", categoria: "AGUA", unidad: "BOTELLON", precio_contenido: 90, costo_contenido: 35, maneja_envase: 1, fianza_envase: 350, itbis_rate: 0.18, cuenta_ingreso_id: 18, cuenta_costo_id: 21, cuenta_inventario_id: 3, existencia: 120, activo: 1 },
 ];
 
 const facturas: Factura[] = [

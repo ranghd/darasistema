@@ -12,6 +12,7 @@ const emptyForm = {
   costo_contenido: 0,
   maneja_envase: true,
   fianza_envase: 0,
+  itbis_rate: 0.18,
   cuenta_ingreso_id: undefined as number | undefined,
   cuenta_costo_id: undefined as number | undefined,
   cuenta_inventario_id: undefined as number | undefined,
@@ -76,6 +77,7 @@ export default function ListaProductos() {
       costo_contenido: p.costo_contenido,
       maneja_envase: !!p.maneja_envase,
       fianza_envase: p.fianza_envase,
+      itbis_rate: p.itbis_rate ?? 0.18,
       cuenta_ingreso_id: p.cuenta_ingreso_id ?? undefined,
       cuenta_costo_id: p.cuenta_costo_id ?? undefined,
       cuenta_inventario_id: p.cuenta_inventario_id ?? undefined,
@@ -163,17 +165,30 @@ export default function ListaProductos() {
             <Input label="Unidad" value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })} />
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <Input label="Costo" type="number" step="0.01" value={form.costo_contenido} onChange={(e) => cambiarCosto(Number(e.target.value))} />
+            <Input label="Costo (compra)" type="number" step="0.01" value={form.costo_contenido} onChange={(e) => cambiarCosto(Number(e.target.value))} />
             <Input label="% de ganancia" type="number" step="0.01" value={margenPct} onChange={(e) => cambiarMargen(Number(e.target.value))} />
-            <Input label="Existencia" type="number" value={form.existencia} onChange={(e) => setForm({ ...form, existencia: Number(e.target.value) })} />
+            <Input
+              label="ITBIS (%)"
+              type="number"
+              step="0.01"
+              value={Math.round(form.itbis_rate * 10000) / 100}
+              onChange={(e) => setForm({ ...form, itbis_rate: Number(e.target.value) / 100 })}
+            />
           </div>
-          <Input
-            label="Precio de venta (calculado, puedes ajustarlo)"
-            type="number"
-            step="0.01"
-            value={form.precio_contenido}
-            onChange={(e) => cambiarPrecio(Number(e.target.value))}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Existencia" type="number" value={form.existencia} onChange={(e) => setForm({ ...form, existencia: Number(e.target.value) })} />
+            <Input
+              label="Precio de venta (sin ITBIS, ajustable)"
+              type="number"
+              step="0.01"
+              value={form.precio_contenido}
+              onChange={(e) => cambiarPrecio(Number(e.target.value))}
+            />
+          </div>
+          <div className="rounded-lg bg-brand-50 px-3 py-2 text-sm">
+            <span className="text-slate-600">Precio final con ITBIS: </span>
+            <span className="font-semibold text-brand-700">{formatMoney(form.precio_contenido * (1 + form.itbis_rate))}</span>
+          </div>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" checked={form.maneja_envase} onChange={(e) => setForm({ ...form, maneja_envase: e.target.checked })} />
             Maneja envase retornable (cilindro / botellon)

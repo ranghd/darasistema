@@ -14,9 +14,21 @@ export async function getDb(): Promise<DB> {
 
   db = await createDatabase(dbPath);
   db.exec(SCHEMA_SQL);
+  migrar(db);
   seedIfEmpty(db);
   seedUsuarioAdmin(db);
   db.persist();
 
   return db;
+}
+
+// Agrega columnas nuevas a bases de datos que ya existian antes de una
+// actualizacion. Como el schema usa CREATE TABLE IF NOT EXISTS, las columnas
+// nuevas no se aplican automaticamente sobre tablas ya creadas.
+function migrar(db: DB) {
+  try {
+    db.exec(`ALTER TABLE productos ADD COLUMN itbis_rate REAL NOT NULL DEFAULT 0.18`);
+  } catch {
+    // la columna ya existe
+  }
 }

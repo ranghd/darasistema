@@ -16,8 +16,8 @@ export function registerProductosIpc(db: DB) {
     const codigo = data.codigo && data.codigo.length > 0 ? data.codigo : siguienteCodigo(db, data.categoria ?? "OTRO");
     const info = db
       .prepare(
-        `INSERT INTO productos (codigo, nombre, categoria, unidad, precio_contenido, costo_contenido, maneja_envase, fianza_envase, cuenta_ingreso_id, cuenta_costo_id, cuenta_inventario_id, existencia, activo)
-         VALUES (@codigo, @nombre, @categoria, @unidad, @precio_contenido, @costo_contenido, @maneja_envase, @fianza_envase, @cuenta_ingreso_id, @cuenta_costo_id, @cuenta_inventario_id, @existencia, 1)`
+        `INSERT INTO productos (codigo, nombre, categoria, unidad, precio_contenido, costo_contenido, maneja_envase, fianza_envase, itbis_rate, cuenta_ingreso_id, cuenta_costo_id, cuenta_inventario_id, existencia, activo)
+         VALUES (@codigo, @nombre, @categoria, @unidad, @precio_contenido, @costo_contenido, @maneja_envase, @fianza_envase, @itbis_rate, @cuenta_ingreso_id, @cuenta_costo_id, @cuenta_inventario_id, @existencia, 1)`
       )
       .run({
         codigo,
@@ -28,6 +28,7 @@ export function registerProductosIpc(db: DB) {
         costo_contenido: data.costo_contenido ?? 0,
         maneja_envase: data.maneja_envase ? 1 : 0,
         fianza_envase: data.fianza_envase ?? 0,
+        itbis_rate: data.itbis_rate ?? 0.18,
         cuenta_ingreso_id: data.cuenta_ingreso_id ?? null,
         cuenta_costo_id: data.cuenta_costo_id ?? null,
         cuenta_inventario_id: data.cuenta_inventario_id ?? null,
@@ -39,7 +40,7 @@ export function registerProductosIpc(db: DB) {
   ipcMain.handle("productos:actualizar", (_e, id: number, data: Partial<Producto>) => {
     db.prepare(
       `UPDATE productos SET nombre=@nombre, categoria=@categoria, unidad=@unidad, precio_contenido=@precio_contenido,
-        costo_contenido=@costo_contenido, maneja_envase=@maneja_envase, fianza_envase=@fianza_envase,
+        costo_contenido=@costo_contenido, maneja_envase=@maneja_envase, fianza_envase=@fianza_envase, itbis_rate=@itbis_rate,
         cuenta_ingreso_id=@cuenta_ingreso_id, cuenta_costo_id=@cuenta_costo_id, cuenta_inventario_id=@cuenta_inventario_id,
         existencia=@existencia, activo=@activo WHERE id=@id`
     ).run({
@@ -51,6 +52,7 @@ export function registerProductosIpc(db: DB) {
       costo_contenido: data.costo_contenido ?? 0,
       maneja_envase: data.maneja_envase ? 1 : 0,
       fianza_envase: data.fianza_envase ?? 0,
+      itbis_rate: data.itbis_rate ?? 0.18,
       cuenta_ingreso_id: data.cuenta_ingreso_id ?? null,
       cuenta_costo_id: data.cuenta_costo_id ?? null,
       cuenta_inventario_id: data.cuenta_inventario_id ?? null,

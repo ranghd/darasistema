@@ -58,6 +58,7 @@ export interface Producto {
   costo_contenido: number;
   maneja_envase: number;
   fianza_envase: number;
+  itbis_rate: number;
   cuenta_ingreso_id: number | null;
   cuenta_costo_id: number | null;
   cuenta_inventario_id: number | null;
