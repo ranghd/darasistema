@@ -1,0 +1,44 @@
+{
+  "name": "darasistema",
+  "version": "1.0.0",
+  "description": "Sistema de Facturacion y Contabilidad - Darasistema (gas, oxigeno y agua purificada)",
+  "main": "dist-electron/main.js",
+  "author": "Darasistema",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "dev:vite": "vite",
+    "dev:electron": "tsc -p electron/tsconfig.json && cross-env NODE_ENV=development electron dist-electron/main.js",
+    "dev": "concurrently -k -n VITE,ELECTRON -c blue,green \"npm:dev:vite\" \"npm run wait-and-electron\"",
+    "wait-and-electron": "wait-on tcp:5173 && npm run dev:electron",
+    "build:renderer": "vite build",
+    "build:electron": "tsc -p electron/tsconfig.json",
+    "build": "npm run build:renderer && npm run build:electron",
+    "dist": "npm run dist:full",
+    "dist:full": "node scripts/set-variant.js full && cross-env VITE_APP_VARIANT=full npm run build && electron-builder --config electron-builder.yml",
+    "dist:caja": "node scripts/set-variant.js caja && cross-env VITE_APP_VARIANT=caja npm run build && electron-builder --config electron-builder.caja.yml"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "sql.js": "^1.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.15",
+    "@types/sql.js": "^1.4.9",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.10",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "wait-on": "^7.2.0"
+  }
+}

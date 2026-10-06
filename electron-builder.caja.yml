@@ -1,0 +1,17 @@
+appId: com.darasistema.cajapunto1
+productName: Cajapunto1
+directories:
+  output: release
+files:
+  - dist/**
+  - dist-electron/**
+  - package.json
+  - node_modules/sql.js/dist/sql-wasm.wasm
+  - node_modules/sql.js/dist/sql-wasm.js
+  - node_modules/sql.js/package.json
+win:
+  target: nsis
+  icon: build/icon-caja.png
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
