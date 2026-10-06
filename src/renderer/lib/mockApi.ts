@@ -113,15 +113,18 @@ export const mockApi = {
   },
   auth: {
     login: async (usuario: string, password: string) => {
-      if (usuario === "admin" && password === "admin") return { id: 1, usuario: "admin", nombre: "Administrador", rol: "ADMIN" as const };
-      if (usuario === "cajero" && password === "cajero") return { id: 2, usuario: "cajero", nombre: "Cajero", rol: "CAJERO" as const };
+      if ((usuario === "admin" && password === "admin") || (usuario === "dara" && password === "123")) {
+        return { id: 1, usuario, nombre: usuario === "dara" ? "Darasistema" : "Administrador", rol: "ADMIN" as const };
+      }
+      if (usuario === "venta" && password === "123") return { id: 2, usuario: "venta", nombre: "Caja / Venta", rol: "CAJERO" as const };
       throw new Error("Usuario o contrasena incorrectos");
     },
   },
   usuarios: {
     listar: async (): Promise<Usuario[]> => [
       { id: 1, usuario: "admin", nombre: "Administrador", rol: "ADMIN", activo: 1 },
-      { id: 2, usuario: "cajero", nombre: "Cajero", rol: "CAJERO", activo: 1 },
+      { id: 2, usuario: "dara", nombre: "Darasistema", rol: "ADMIN", activo: 1 },
+      { id: 3, usuario: "venta", nombre: "Caja / Venta", rol: "CAJERO", activo: 1 },
     ],
     crear: async (data: any): Promise<Usuario> => { warn(); return { id: Date.now(), usuario: data.usuario, nombre: data.nombre, rol: data.rol, activo: 1 }; },
     actualizar: async (id: number, data: any): Promise<Usuario> => { warn(); return { id, usuario: "x", nombre: data.nombre, rol: data.rol, activo: data.activo ?? 1 }; },

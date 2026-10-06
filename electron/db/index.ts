@@ -2,7 +2,7 @@ import path from "node:path";
 import { app } from "electron";
 import { createDatabase, type DB } from "./sqlite";
 import { SCHEMA_SQL } from "./schema";
-import { seedIfEmpty, seedUsuarioAdmin } from "./seed";
+import { seedIfEmpty, seedUsuarios } from "./seed";
 
 let db: DB | null = null;
 
@@ -16,7 +16,7 @@ export async function getDb(): Promise<DB> {
   db.exec(SCHEMA_SQL);
   migrar(db);
   seedIfEmpty(db);
-  seedUsuarioAdmin(db);
+  seedUsuarios(db);
   db.persist();
 
   return db;

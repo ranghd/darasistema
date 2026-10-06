@@ -121,15 +121,25 @@ export function seedIfEmpty(db: DB) {
   for (const p of productos) insertProducto.run(p);
 }
 
-// Garantiza que siempre exista al menos un administrador para poder iniciar sesion.
-// Se ejecuta en cada arranque (no solo cuando la base esta vacia) porque los
-// usuarios se gestionan de forma independiente al resto del catalogo.
-export function seedUsuarioAdmin(db: DB) {
-  const count = (db.prepare("SELECT COUNT(*) as c FROM usuarios").get() as { c: number }).c;
-  if (count > 0) return;
+// Crea los usuarios por defecto si aun no existen. Se ejecuta en cada arranque
+// (no solo cuando la base esta vacia) para que cualquier instalacion o
+// actualizacion tenga siempre estas cuentas disponibles.
+export function seedUsuarios(db: DB) {
+  const usuariosPorDefecto = [
+    { usuario: "admin", nombre: "Administrador", password: "admin", rol: "ADMIN" },
+    { usuario: "dara", nombre: "Darasistema", password: "123", rol: "ADMIN" },
+    { usuario: "venta", nombre: "Caja / Venta", password: "123", rol: "CAJERO" },
+  ] as const;
 
-  db.prepare(
+  const existe = db.prepare(`SELECT id FROM usuarios WHERE usuario = ?`);
+  const insert = db.prepare(
     `INSERT INTO usuarios (usuario, nombre, password_hash, rol, activo)
-     VALUES ('admin', 'Administrador', @password_hash, 'ADMIN', 1)`
-  ).run({ password_hash: nuevoPasswordHash("admin") });
+     VALUES (@usuario, @nombre, @password_hash, @rol, 1)`
+  );
+
+  for (const u of usuariosPorDefecto) {
+    if (!existe.get(u.usuario)) {
+      insert.run({ usuario: u.usuario, nombre: u.nombre, password_hash: nuevoPasswordHash(u.password), rol: u.rol });
+    }
+  }
 }
