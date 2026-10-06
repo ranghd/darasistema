@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog } from "electron";
+import { app } from "electron";
 import { autoUpdater } from "electron-updater";
 import { APP_VARIANT } from "./variant.generated";
 
@@ -12,20 +12,9 @@ export function configurarAutoUpdate() {
   // para que el update de Darasistema y el de Cajapunto1 no se mezclen.
   if (APP_VARIANT === "caja") autoUpdater.channel = "caja";
 
-  autoUpdater.on("update-downloaded", (info) => {
-    const ventana = BrowserWindow.getAllWindows()[0];
-    const respuesta = dialog.showMessageBoxSync(ventana, {
-      type: "info",
-      title: "Actualizacion lista",
-      message: `Se descargo la version ${info.version}. ¿Quieres instalar ahora?`,
-      detail: "La aplicacion se cerrara y reabrira con la nueva version.",
-      buttons: ["Reiniciar e instalar", "Mas tarde"],
-      defaultId: 0,
-      cancelId: 1,
-    });
-    if (respuesta === 0) {
-      autoUpdater.quitAndInstall();
-    }
+  autoUpdater.on("update-downloaded", () => {
+    // Instalacion automatica: cierra, instala la nueva version y reabre.
+    autoUpdater.quitAndInstall();
   });
 
   autoUpdater.on("error", (err) => {

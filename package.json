@@ -1,6 +1,6 @@
 {
   "name": "darasistema",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Sistema de Facturacion y Contabilidad - Darasistema (gas, oxigeno y agua purificada)",
   "main": "dist-electron/main.js",
   "author": "Darasistema",
