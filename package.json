@@ -17,7 +17,8 @@
     "dist": "npm run dist:full",
     "dist:full": "node scripts/set-variant.js full && cross-env VITE_APP_VARIANT=full npm run build && electron-builder --config electron-builder.yml",
     "dist:caja": "node scripts/set-variant.js caja && cross-env VITE_APP_VARIANT=caja npm run build && electron-builder --config electron-builder.caja.yml",
-    "push": "node scripts/push.js"
+    "push": "node scripts/push.js",
+    "release": "node scripts/release.js"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
