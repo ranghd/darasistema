@@ -1,5 +1,10 @@
 appId: com.darasistema.cajapunto1
 productName: Cajapunto1
+publish:
+  provider: github
+  owner: ranghd
+  repo: darasistema
+  channel: caja
 directories:
   output: release
 files:

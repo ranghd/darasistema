@@ -16,6 +16,7 @@ import { leerConfigRed, guardarConfigRed, normalizarServidorUrl, type ConfigRed 
 import { listarIpsLocales } from "./network/localIp";
 import { iniciarServidorHttp, type HandlerRegistry } from "./network/server";
 import { registrarProxiesRemotos } from "./network/remoteProxy";
+import { configurarAutoUpdate } from "./updater";
 import { APP_VARIANT } from "./variant.generated";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -103,6 +104,7 @@ function createWindow() {
 app.whenReady().then(async () => {
   await registerAllIpc();
   createWindow();
+  configurarAutoUpdate();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

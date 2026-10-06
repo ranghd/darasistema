@@ -1,5 +1,9 @@
 appId: com.darasistema.app
 productName: Darasistema
+publish:
+  provider: github
+  owner: ranghd
+  repo: darasistema
 directories:
   output: release
 files:
