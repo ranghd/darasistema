@@ -187,3 +187,20 @@ export interface CompanyConfig {
 export interface ApiError {
   message: string;
 }
+
+export type RolUsuario = "ADMIN" | "CAJERO";
+
+export interface Usuario {
+  id: number;
+  usuario: string;
+  nombre: string;
+  rol: RolUsuario;
+  activo: number;
+}
+
+export interface SesionUsuario {
+  id: number;
+  usuario: string;
+  nombre: string;
+  rol: RolUsuario;
+}

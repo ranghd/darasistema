@@ -54,6 +54,14 @@ const api = {
     obtener: () => invoke("config:obtener"),
     actualizar: (data: any) => invoke("config:actualizar", data),
   },
+  auth: {
+    login: (usuario: string, password: string) => invoke("auth:login", usuario, password),
+  },
+  usuarios: {
+    listar: () => invoke("usuarios:listar"),
+    crear: (data: any) => invoke("usuarios:crear", data),
+    actualizar: (id: number, data: any) => invoke("usuarios:actualizar", id, data),
+  },
   comprobantes: {
     listar: () => invoke("comprobantes:listar"),
     registrar: (data: any) => invoke("comprobantes:registrar", data),

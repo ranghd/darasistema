@@ -18,6 +18,12 @@ function envolverConEstadoDeConexion<T extends object>(obj: T): T {
   const resultado: any = {};
   for (const key of Object.keys(obj)) {
     const value = (obj as any)[key];
+    if (key === "auth") {
+      // El login no debe disparar el banner de "error de conexion": un fallo
+      // de credenciales se muestra en la pantalla de Login, no como error de red.
+      resultado[key] = value;
+      continue;
+    }
     if (typeof value === "function") {
       resultado[key] = (...args: any[]) => {
         return Promise.resolve(value(...args)).then(

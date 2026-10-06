@@ -11,6 +11,7 @@ import { registerEnvasesIpc } from "./ipc/envases";
 import { registerReportesIpc } from "./ipc/reportes";
 import { registerConfigIpc } from "./ipc/config";
 import { registerComprobantesIpc } from "./ipc/comprobantes";
+import { registerAuthIpc } from "./ipc/auth";
 import { leerConfigRed, guardarConfigRed, normalizarServidorUrl, type ConfigRed } from "./network/config";
 import { listarIpsLocales } from "./network/localIp";
 import { iniciarServidorHttp, type HandlerRegistry } from "./network/server";
@@ -50,6 +51,7 @@ async function registerAllIpc() {
     registerReportesIpc(db);
     registerConfigIpc(db);
     registerComprobantesIpc(db);
+    registerAuthIpc(db);
 
     ipcMain.handle = handleOriginal;
     iniciarServidorHttp(handlerRegistry, configRed.puerto);

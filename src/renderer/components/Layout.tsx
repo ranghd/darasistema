@@ -2,6 +2,7 @@ import React from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { isPreviewMode } from "../lib/api";
 import { esVariantCaja } from "../lib/variant";
+import { useAuth } from "../lib/auth";
 import ConnectionBanner from "./ConnectionBanner";
 
 const NAV_COMPLETO = [
@@ -74,9 +75,12 @@ const NAV_CAJA = [
   { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
 ];
 
-const NAV = esVariantCaja ? NAV_CAJA : NAV_COMPLETO;
-
 export default function Layout() {
+  const { usuario, logout } = useAuth();
+
+  const mostrarCaja = esVariantCaja || usuario?.rol === "CAJERO";
+  const nav = mostrarCaja ? NAV_CAJA : NAV_COMPLETO;
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100">
       <aside className="flex w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-950 text-slate-200 print:hidden">
@@ -88,7 +92,7 @@ export default function Layout() {
           </div>
         </div>
         <nav className="flex-1 space-y-5 overflow-y-auto px-3 pb-4">
-          {NAV.map((group) => (
+          {nav.map((group) => (
             <div key={group.section}>
               <p className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{group.section}</p>
               <div className="space-y-0.5">
@@ -113,6 +117,23 @@ export default function Layout() {
         {isPreviewMode && (
           <div className="mx-3 mb-3 rounded-lg bg-amber-500/10 px-2.5 py-2 text-[11px] text-amber-300">
             Vista previa web: datos de ejemplo, sin guardar.
+          </div>
+        )}
+        {usuario && (
+          <div className="border-t border-slate-800 px-3 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-white">{usuario.nombre}</p>
+                <p className="text-[11px] text-slate-400">{usuario.rol === "ADMIN" ? "Administrador" : "Cajero"}</p>
+              </div>
+              <button
+                onClick={logout}
+                title="Cerrar sesion"
+                className="rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-white"
+              >
+                Salir
+              </button>
+            </div>
           </div>
         )}
       </aside>

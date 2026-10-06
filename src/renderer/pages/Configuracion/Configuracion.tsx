@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
-import type { CompanyConfig, NcfSecuencia, TipoNcf } from "../../lib/types";
+import type { CompanyConfig, NcfSecuencia, RolUsuario, TipoNcf, Usuario } from "../../lib/types";
 import { formatDate } from "../../lib/format";
 import { NCF_LABELS, TODOS_LOS_TIPOS_NCF } from "../../lib/ncf";
 import { esVariantCaja } from "../../lib/variant";
+import { useAuth } from "../../lib/auth";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 
 interface ConfigRedUI {
@@ -14,12 +15,21 @@ interface ConfigRedUI {
 }
 
 export default function Configuracion() {
+  const { usuario } = useAuth();
+  const esAdmin = usuario?.rol === "ADMIN";
   const [config, setConfig] = useState<CompanyConfig | null>(null);
   const [secuencias, setSecuencias] = useState<NcfSecuencia[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ tipo: "B02" as TipoNcf, prefijo: "B02", desde: 1, hasta: 500, vencimiento: "" });
+
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [usuarioModal, setUsuarioModal] = useState(false);
+  const [usuarioForm, setUsuarioForm] = useState({ usuario: "", nombre: "", password: "", rol: "CAJERO" as RolUsuario });
+  const [usuarioError, setUsuarioError] = useState("");
+  const [passwordModal, setPasswordModal] = useState<Usuario | null>(null);
+  const [nuevaPassword, setNuevaPassword] = useState("");
 
   const [configRed, setConfigRed] = useState<ConfigRedUI | null>(null);
   const [modoRedForm, setModoRedForm] = useState<"SERVIDOR" | "CAJA_REMOTA">("SERVIDOR");
@@ -37,6 +47,9 @@ export default function Configuracion() {
     setModoRedForm((r as ConfigRedUI).modo);
     setServidorUrlForm((r as ConfigRedUI).servidorUrl ?? "");
     setPuertoForm((r as ConfigRedUI).puerto);
+    if (esAdmin) {
+      api.usuarios.listar().then(setUsuarios);
+    }
   }
 
   useEffect(() => {
@@ -86,6 +99,32 @@ export default function Configuracion() {
     await api.ncf.crear({ ...form, actual: form.desde, prefijo: form.tipo });
     setOpen(false);
     await cargar();
+  }
+
+  async function crearUsuario(e: React.FormEvent) {
+    e.preventDefault();
+    setUsuarioError("");
+    try {
+      await api.usuarios.crear(usuarioForm);
+      setUsuarioModal(false);
+      setUsuarioForm({ usuario: "", nombre: "", password: "", rol: "CAJERO" });
+      await cargar();
+    } catch (err: any) {
+      setUsuarioError(err?.message ?? "No se pudo crear el usuario");
+    }
+  }
+
+  async function toggleActivo(u: Usuario) {
+    await api.usuarios.actualizar(u.id, { activo: u.activo ? 0 : 1 });
+    await cargar();
+  }
+
+  async function cambiarPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!passwordModal || !nuevaPassword) return;
+    await api.usuarios.actualizar(passwordModal.id, { password: nuevaPassword });
+    setPasswordModal(null);
+    setNuevaPassword("");
   }
 
   if (!config) return <p className="text-sm text-slate-400">Cargando...</p>;
@@ -150,6 +189,45 @@ export default function Configuracion() {
             </Table>
           </div>
         </div>
+      )}
+
+      {esAdmin && !esVariantCaja && (
+        <Card className="mt-5 p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-700">Usuarios y permisos</h2>
+              <p className="text-xs text-slate-400">Administradores ven todo el sistema; cajeros solo la caja y facturacion.</p>
+            </div>
+            <Button size="sm" onClick={() => setUsuarioModal(true)}>
+              + Nuevo usuario
+            </Button>
+          </div>
+          <Table columns={["Usuario", "Nombre", "Rol", "Estado", "Acciones"]}>
+            {usuarios.length === 0 && <EmptyRow colSpan={5} />}
+            {usuarios.map((u) => (
+              <tr key={u.id}>
+                <td className="px-4 py-2 text-sm font-medium text-slate-800">{u.usuario}</td>
+                <td className="px-4 py-2 text-sm text-slate-600">{u.nombre}</td>
+                <td className="px-4 py-2">
+                  <Badge tone={u.rol === "ADMIN" ? "blue" : "slate"}>{u.rol === "ADMIN" ? "Administrador" : "Cajero"}</Badge>
+                </td>
+                <td className="px-4 py-2">
+                  <Badge tone={u.activo ? "green" : "red"}>{u.activo ? "Activo" : "Inactivo"}</Badge>
+                </td>
+                <td className="px-4 py-2">
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => toggleActivo(u)}>
+                      {u.activo ? "Desactivar" : "Activar"}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setPasswordModal(u)}>
+                      Cambiar clave
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </Card>
       )}
 
       <Card className="mt-5 p-5">
@@ -252,6 +330,56 @@ export default function Configuracion() {
               Cancelar
             </Button>
             <Button type="submit">Guardar</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={usuarioModal} onClose={() => setUsuarioModal(false)} title="Nuevo usuario">
+        <form onSubmit={crearUsuario} className="space-y-3">
+          <Input
+            label="Usuario"
+            value={usuarioForm.usuario}
+            onChange={(e) => setUsuarioForm({ ...usuarioForm, usuario: e.target.value })}
+            placeholder="ej. juan"
+          />
+          <Input
+            label="Nombre completo"
+            value={usuarioForm.nombre}
+            onChange={(e) => setUsuarioForm({ ...usuarioForm, nombre: e.target.value })}
+            placeholder="ej. Juan Perez"
+          />
+          <Input
+            label="Contrasena"
+            type="password"
+            value={usuarioForm.password}
+            onChange={(e) => setUsuarioForm({ ...usuarioForm, password: e.target.value })}
+          />
+          <Select label="Rol" value={usuarioForm.rol} onChange={(e) => setUsuarioForm({ ...usuarioForm, rol: e.target.value as RolUsuario })}>
+            <option value="CAJERO">Cajero (solo caja y facturacion)</option>
+            <option value="ADMIN">Administrador (todo el sistema)</option>
+          </Select>
+          {usuarioError && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{usuarioError}</p>}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setUsuarioModal(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={!usuarioForm.usuario.trim() || !usuarioForm.password}>
+              Guardar
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={!!passwordModal} onClose={() => setPasswordModal(null)} title={`Cambiar contrasena de ${passwordModal?.usuario ?? ""}`}>
+        <form onSubmit={cambiarPassword} className="space-y-3">
+          <Input label="Nueva contrasena" type="password" value={nuevaPassword} onChange={(e) => setNuevaPassword(e.target.value)} />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setPasswordModal(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={!nuevaPassword}>
+              Guardar
+            </Button>
           </div>
         </form>
       </Modal>

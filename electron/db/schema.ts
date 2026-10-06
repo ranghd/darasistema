@@ -154,4 +154,13 @@ CREATE TABLE IF NOT EXISTS company_config (
   telefono TEXT,
   itbis_rate REAL NOT NULL DEFAULT 0.18
 );
+
+CREATE TABLE IF NOT EXISTS usuarios (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  usuario TEXT NOT NULL UNIQUE,
+  nombre TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  rol TEXT NOT NULL CHECK (rol IN ('ADMIN','CAJERO')),
+  activo INTEGER NOT NULL DEFAULT 1
+);
 `;

@@ -1,4 +1,5 @@
 import type { DB } from "./sqlite";
+import { nuevoPasswordHash } from "./password";
 
 interface CuentaSeed {
   codigo: string;
@@ -118,4 +119,17 @@ export function seedIfEmpty(db: DB) {
     { codigo: "AGUA-5G-CAJA", nombre: "Agua Purificada en Fundas (caja x20)", categoria: "AGUA", unidad: "CAJA", precio_contenido: 150, costo_contenido: 70, maneja_envase: 0, fianza_envase: 0, cuenta_ingreso_id: codigoToId.get("4.1.03"), cuenta_costo_id: codigoToId.get("5.1.03"), cuenta_inventario_id: codigoToId.get("1.1.06"), existencia: 80 },
   ];
   for (const p of productos) insertProducto.run(p);
+}
+
+// Garantiza que siempre exista al menos un administrador para poder iniciar sesion.
+// Se ejecuta en cada arranque (no solo cuando la base esta vacia) porque los
+// usuarios se gestionan de forma independiente al resto del catalogo.
+export function seedUsuarioAdmin(db: DB) {
+  const count = (db.prepare("SELECT COUNT(*) as c FROM usuarios").get() as { c: number }).c;
+  if (count > 0) return;
+
+  db.prepare(
+    `INSERT INTO usuarios (usuario, nombre, password_hash, rol, activo)
+     VALUES ('admin', 'Administrador', @password_hash, 'ADMIN', 1)`
+  ).run({ password_hash: nuevoPasswordHash("admin") });
 }

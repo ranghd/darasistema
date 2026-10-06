@@ -9,6 +9,7 @@ import type {
   FacturaDetalle,
   NcfSecuencia,
   Producto,
+  Usuario,
 } from "./types";
 
 const cuentas: Cuenta[] = [
@@ -109,6 +110,21 @@ export const mockApi = {
   config: {
     obtener: async (..._args: any[]) => ({ id: 1 as const, nombre_empresa: "Darasistema SRL (vista previa)", rnc: "1-30-12345-6", direccion: "Santo Domingo", telefono: "809-555-0100", itbis_rate: 0.18 }),
     actualizar: async (data: any, ..._rest: any[]) => { warn(); return data; },
+  },
+  auth: {
+    login: async (usuario: string, password: string) => {
+      if (usuario === "admin" && password === "admin") return { id: 1, usuario: "admin", nombre: "Administrador", rol: "ADMIN" as const };
+      if (usuario === "cajero" && password === "cajero") return { id: 2, usuario: "cajero", nombre: "Cajero", rol: "CAJERO" as const };
+      throw new Error("Usuario o contrasena incorrectos");
+    },
+  },
+  usuarios: {
+    listar: async (): Promise<Usuario[]> => [
+      { id: 1, usuario: "admin", nombre: "Administrador", rol: "ADMIN", activo: 1 },
+      { id: 2, usuario: "cajero", nombre: "Cajero", rol: "CAJERO", activo: 1 },
+    ],
+    crear: async (data: any): Promise<Usuario> => { warn(); return { id: Date.now(), usuario: data.usuario, nombre: data.nombre, rol: data.rol, activo: 1 }; },
+    actualizar: async (id: number, data: any): Promise<Usuario> => { warn(); return { id, usuario: "x", nombre: data.nombre, rol: data.rol, activo: data.activo ?? 1 }; },
   },
   ncf: {
     listar: async (..._args: any[]) => ncfSecuencias,

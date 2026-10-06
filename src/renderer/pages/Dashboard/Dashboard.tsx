@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 import { formatMoney } from "../../lib/format";
 import { Card, PageHeader, StatCard } from "../../components/ui";
 import { esVariantCaja } from "../../lib/variant";
+import { useAuth } from "../../lib/auth";
 
 interface DashboardData {
   ventasMes: number;
@@ -14,6 +15,8 @@ interface DashboardData {
 }
 
 export default function Dashboard() {
+  const { usuario } = useAuth();
+  const esCajero = usuario?.rol === "CAJERO";
   const [data, setData] = useState<DashboardData | null>(null);
 
   useEffect(() => {
@@ -43,13 +46,13 @@ export default function Dashboard() {
         <Card className="p-5">
           <h2 className="mb-3 text-sm font-semibold text-slate-700">Accesos rapidos</h2>
           <div className="grid grid-cols-2 gap-2.5">
-            {esVariantCaja && <QuickLink to="/caja" label="Caja / POS" />}
+            {(esVariantCaja || esCajero) && <QuickLink to="/caja" label="Caja / POS" />}
             <QuickLink to="/facturas/nueva" label="Factura detallada" />
             <QuickLink to="/clientes" label="Clientes" />
             <QuickLink to="/productos" label="Inventario" />
-            {!esVariantCaja && <QuickLink to="/contabilidad/asientos" label="Libro Diario" />}
-            {!esVariantCaja && <QuickLink to="/reportes/resultados" label="Estado de Resultados" />}
-            <QuickLink to="/configuracion" label="Configuracion" />
+            {!esVariantCaja && !esCajero && <QuickLink to="/contabilidad/asientos" label="Libro Diario" />}
+            {!esVariantCaja && !esCajero && <QuickLink to="/reportes/resultados" label="Estado de Resultados" />}
+            {!esCajero && <QuickLink to="/configuracion" label="Configuracion" />}
           </div>
         </Card>
 
