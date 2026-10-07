@@ -25,6 +25,7 @@ import BalanceGeneral from "./pages/Reportes/BalanceGeneral";
 import ReporteItbis from "./pages/Reportes/ReporteItbis";
 import Configuracion from "./pages/Configuracion/Configuracion";
 import Comprobantes from "./pages/Comprobantes/Comprobantes";
+import UpdateBanner from "./components/UpdateBanner";
 
 // Rutas que ve cualquier usuario que inicio sesion (admin o cajero).
 const RUTAS_COMUNES = [
@@ -81,12 +82,20 @@ export default function App() {
   if (!redConfig) return null;
 
   if (redConfig.modo === "CAJA_REMOTA" && !redConfig.servidorUrl) {
-    return <ConfigurarConexion />;
+    return (
+      <>
+        <UpdateBanner />
+        <ConfigurarConexion />
+      </>
+    );
   }
 
   return (
-    <AuthProvider>
-      <RutasProtegidas />
-    </AuthProvider>
+    <>
+      <UpdateBanner />
+      <AuthProvider>
+        <RutasProtegidas />
+      </AuthProvider>
+    </>
   );
 }

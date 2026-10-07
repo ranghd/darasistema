@@ -18,9 +18,10 @@ function envolverConEstadoDeConexion<T extends object>(obj: T): T {
   const resultado: any = {};
   for (const key of Object.keys(obj)) {
     const value = (obj as any)[key];
-    if (key === "auth") {
-      // El login no debe disparar el banner de "error de conexion": un fallo
-      // de credenciales se muestra en la pantalla de Login, no como error de red.
+    if (key === "auth" || key === "updater") {
+      // auth: un fallo de login se muestra en la pantalla de Login, no como
+      // error de red. updater: onEstado es sincronico y devuelve una funcion
+      // de limpieza (no una promesa) -- envolverla la rompe.
       resultado[key] = value;
       continue;
     }

@@ -80,6 +80,13 @@ const api = {
     guardarConfig: (data: any) => invoke("red:guardarConfig", data),
     probarConexion: (url: string) => invoke("red:probarConexion", url),
   },
+  updater: {
+    onEstado: (cb: (estado: any) => void) => {
+      const listener = (_e: unknown, data: any) => cb(data);
+      ipcRenderer.on("updater:estado", listener);
+      return () => ipcRenderer.removeListener("updater:estado", listener);
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld("api", api);

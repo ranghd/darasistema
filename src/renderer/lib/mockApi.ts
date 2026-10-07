@@ -143,4 +143,8 @@ export const mockApi = {
     guardarConfig: async (data: any, ..._rest: any[]) => { warn(); return data; },
     probarConexion: async (..._args: any[]) => { warn(); return { ok: true }; },
   },
+  updater: {
+    // En vista previa no hay auto-update real: nunca se dispara el callback.
+    onEstado: (_cb: (estado: any) => void) => () => {},
+  },
 };
