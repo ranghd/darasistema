@@ -5,8 +5,9 @@
 import initSqlJs, { type Database as SqlJsDatabase } from "sql.js";
 import fs from "node:fs";
 import path from "node:path";
+import type { DB } from "./types";
 
-type Params = Record<string, unknown> | unknown[];
+export type { DB } from "./types";
 
 function toBindParams(args: unknown[]): Record<string, unknown> | unknown[] | undefined {
   if (args.length === 0) return undefined;
@@ -65,7 +66,7 @@ class RunStatement {
   }
 }
 
-export class DB {
+class SqlJsDB implements DB {
   private sqljsDb: SqlJsDatabase;
   private dbPath: string;
   private txDepth = 0;
@@ -130,7 +131,7 @@ export async function createDatabase(dbPath: string): Promise<DB> {
   const dir = path.dirname(dbPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-  const db = new DB(sqljsDb, dbPath);
+  const db = new SqlJsDB(sqljsDb, dbPath);
   if (!existing) db.persist();
   return db;
 }
