@@ -1,4 +1,4 @@
-import type { DB } from "./sqlite";
+import type { DB } from "./types";
 import { nuevoPasswordHash } from "./password";
 
 interface CuentaSeed {
@@ -47,10 +47,30 @@ const CUENTAS: CuentaSeed[] = [
   { codigo: "6.1.03", nombre: "Gastos de Combustible y Transporte", tipo: "GASTOS", naturaleza: "DEUDORA", padreCodigo: "6", esMovimiento: true },
 ];
 
+export interface DatosEmpresa {
+  nombre_empresa: string;
+  rnc?: string | null;
+  direccion?: string | null;
+  telefono?: string | null;
+}
+
+const EMPRESA_DEMO: DatosEmpresa = {
+  nombre_empresa: "Darasistema SRL",
+  rnc: "1-30-12345-6",
+  direccion: "Av. Principal, Santo Domingo",
+  telefono: "809-555-0100",
+};
+
 export function seedIfEmpty(db: DB) {
   const count = (db.prepare("SELECT COUNT(*) as c FROM cuentas_contables").get() as { c: number }).c;
   if (count > 0) return;
+  seedCatalogo(db, EMPRESA_DEMO);
+  seedDemo(db);
+}
 
+// Lo minimo que toda empresa necesita para operar: catalogo de cuentas, datos
+// de la empresa y el cliente "Consumidor Final" que usa la Caja.
+export function seedCatalogo(db: DB, empresa: DatosEmpresa) {
   const insertCuenta = db.prepare(
     `INSERT INTO cuentas_contables (codigo, nombre, tipo, padre_id, naturaleza, es_movimiento, activo)
      VALUES (@codigo, @nombre, @tipo, @padre_id, @naturaleza, @es_movimiento, 1)`
@@ -75,8 +95,25 @@ export function seedIfEmpty(db: DB) {
 
   db.prepare(
     `INSERT INTO company_config (id, nombre_empresa, rnc, direccion, telefono, itbis_rate)
-     VALUES (1, 'Darasistema SRL', '1-30-12345-6', 'Av. Principal, Santo Domingo', '809-555-0100', 0.18)`
+     VALUES (1, @nombre_empresa, @rnc, @direccion, @telefono, 0.18)`
+  ).run({
+    nombre_empresa: empresa.nombre_empresa,
+    rnc: empresa.rnc ?? null,
+    direccion: empresa.direccion ?? null,
+    telefono: empresa.telefono ?? null,
+  });
+
+  db.prepare(
+    `INSERT INTO clientes (codigo, nombre, rnc_cedula, tipo, telefono, email, direccion, activo)
+     VALUES ('CLI-0000', 'Consumidor Final', '', 'FISICA', '', '', '', 1)`
   ).run();
+}
+
+// Datos de ejemplo para demos y pruebas: secuencias NCF ficticias, clientes y
+// productos. No usar para clientes reales (sus NCF los asigna la DGII).
+export function seedDemo(db: DB) {
+  const filas = db.prepare(`SELECT id, codigo FROM cuentas_contables`).all() as { id: number; codigo: string }[];
+  const codigoToId = new Map(filas.map((f) => [f.codigo, f.id]));
 
   const insertNcf = db.prepare(
     `INSERT INTO ncf_secuencias (tipo, prefijo, desde, hasta, actual, vencimiento, activo)
@@ -98,7 +135,6 @@ export function seedIfEmpty(db: DB) {
      VALUES (@codigo, @nombre, @rnc_cedula, @tipo, @telefono, @email, @direccion, 1)`
   );
   const clientes = [
-    { codigo: "CLI-0000", nombre: "Consumidor Final", rnc_cedula: "", tipo: "FISICA", telefono: "", email: "", direccion: "" },
     { codigo: "CLI-0001", nombre: "Colmado Dona Maria", rnc_cedula: "001-1234567-8", tipo: "FISICA", telefono: "809-555-1201", email: "", direccion: "Calle Duarte #45, Villa Mella" },
     { codigo: "CLI-0002", nombre: "Clinica San Rafael SRL", rnc_cedula: "1-01-98765-2", tipo: "JURIDICA", telefono: "809-555-1340", email: "compras@sanrafael.do", direccion: "Av. Independencia #120, Santo Domingo" },
     { codigo: "CLI-0003", nombre: "Restaurante El Fogon", rnc_cedula: "1-30-55667-9", tipo: "JURIDICA", telefono: "809-555-1560", email: "", direccion: "Av. 27 de Febrero #880" },

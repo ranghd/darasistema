@@ -7,3 +7,9 @@ release
 *.db-wal
 *.db-shm
 .DS_Store
+
+# Servidor en la nube: secretos locales
+cloud/.dev.vars
+cloud/.admin-key
+cloud/.wrangler
+cloud/node_modules

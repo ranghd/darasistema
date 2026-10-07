@@ -1,0 +1,21 @@
+name = "darasistema"
+main = "src/worker.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Los handlers de negocio (../electron/ipc/*.ts) importan `ipcMain` de
+# "electron"; aqui se reemplaza por un registro propio del Durable Object.
+[alias]
+"electron" = "./src/electron-shim.ts"
+
+[[durable_objects.bindings]]
+name = "EMPRESAS"
+class_name = "Empresa"
+
+[[durable_objects.bindings]]
+name = "REGISTRO"
+class_name = "Registro"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Empresa", "Registro"]

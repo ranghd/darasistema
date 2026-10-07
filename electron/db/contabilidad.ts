@@ -1,4 +1,4 @@
-import type { DB } from "./sqlite";
+import type { DB } from "./types";
 import type { AsientoLineaInput } from "../shared/types";
 
 export interface NuevoAsientoInput {

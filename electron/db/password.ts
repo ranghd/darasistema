@@ -5,7 +5,7 @@ export function hashPassword(password: string, salt: string): string {
 }
 
 export function nuevoPasswordHash(password: string): string {
-  const salt = randomBytes(16).toString("hex");
+  const salt = Array.from(randomBytes(16), (b) => b.toString(16).padStart(2, "0")).join("");
   return `${salt}$${hashPassword(password, salt)}`;
 }
 

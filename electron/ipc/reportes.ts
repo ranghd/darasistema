@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import type { DB } from "../db/sqlite";
+import type { DB } from "../db/types";
 
 function rangoClause(desde?: string, hasta?: string) {
   const where: string[] = [];

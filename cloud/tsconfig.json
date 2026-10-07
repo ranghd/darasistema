@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": ["@cloudflare/workers-types", "node"],
+    "typeRoots": ["./node_modules/@types", "../node_modules/@types", "./node_modules"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "paths": {
+      "electron": ["./src/electron-shim.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

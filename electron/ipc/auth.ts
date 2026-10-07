@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import type { DB } from "../db/sqlite";
+import type { DB } from "../db/types";
 import { nuevoPasswordHash, verificarPassword } from "../db/password";
 
 export type RolUsuario = "ADMIN" | "CAJERO";

@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import type { DB } from "../db/sqlite";
+import type { DB } from "../db/types";
 import type { Cuenta } from "../shared/types";
 
 export function registerCuentasIpc(db: DB) {

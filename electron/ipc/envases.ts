@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import type { DB } from "../db/sqlite";
+import type { DB } from "../db/types";
 import { crearAsiento } from "../db/contabilidad";
 
 const CODIGO_CAJA = "1.1.01";

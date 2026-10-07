@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import type { DB } from "../db/sqlite";
+import type { DB } from "../db/types";
 import { crearAsiento } from "../db/contabilidad";
 import type { ComprobanteVarios, NuevoComprobanteVariosInput } from "../shared/types";
 

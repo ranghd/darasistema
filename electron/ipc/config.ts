@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import type { DB } from "../db/sqlite";
+import type { DB } from "../db/types";
 import type { CompanyConfig, NcfSecuencia } from "../shared/types";
 
 export function registerConfigIpc(db: DB) {

@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import type { DB } from "../db/sqlite";
+import type { DB } from "../db/types";
 import type { Producto } from "../shared/types";
 
 function siguienteCodigo(db: DB, categoria: string): string {
