@@ -26,6 +26,7 @@ const NAV_COMPLETO = [
     section: "Inventario",
     items: [
       { to: "/productos", label: "Productos" },
+      { to: "/compras", label: "Compras" },
       { to: "/envases", label: "Control de Envases" },
     ],
   },

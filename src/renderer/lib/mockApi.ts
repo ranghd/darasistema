@@ -93,6 +93,15 @@ export const mockApi = {
     listarPorFactura: async (..._args: any[]) => [],
     crear: async (data: any, ..._rest: any[]) => { warn(); return { id: Date.now(), ...data }; },
   },
+  compras: {
+    listar: async (..._args: any[]) => [],
+    obtener: async (..._args: any[]) => undefined,
+    crear: async (data: any, ..._rest: any[]) => { warn(); return { id: Date.now(), numero: 1, estado: "PENDIENTE", ...data }; },
+  },
+  pagosCompra: {
+    listarPorCompra: async (..._args: any[]) => [],
+    crear: async (data: any, ..._rest: any[]) => { warn(); return { id: Date.now(), ...data }; },
+  },
   envases: {
     saldos: async (..._args: any[]) => [
       { cliente_id: 1, cliente_nombre: clientes[0].nombre, producto_id: 1, producto_nombre: productos[0].nombre, cantidad: 3, fianza_total: 4500 },

@@ -25,6 +25,7 @@ import BalanceGeneral from "./pages/Reportes/BalanceGeneral";
 import ReporteItbis from "./pages/Reportes/ReporteItbis";
 import Configuracion from "./pages/Configuracion/Configuracion";
 import Comprobantes from "./pages/Comprobantes/Comprobantes";
+import Compras from "./pages/Compras/Compras";
 import UpdateBanner from "./components/UpdateBanner";
 
 // Rutas que ve cualquier usuario que inicio sesion (admin o cajero).
@@ -43,6 +44,7 @@ const RUTAS_COMUNES = [
 
 // Rutas adicionales solo para administradores (no cajeros, no la variante Caja).
 const RUTAS_ADMIN_EXTRA = [
+  { path: "/compras", element: <Compras /> },
   { path: "/contabilidad/cuentas", element: <CatalogoCuentas /> },
   { path: "/contabilidad/asientos", element: <Asientos /> },
   { path: "/contabilidad/libro-mayor", element: <LibroMayor /> },

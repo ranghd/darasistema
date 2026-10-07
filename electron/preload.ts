@@ -38,6 +38,15 @@ const api = {
     listarPorFactura: (facturaId: number) => invoke("cobros:listarPorFactura", facturaId),
     crear: (data: any) => invoke("cobros:crear", data),
   },
+  compras: {
+    listar: () => invoke("compras:listar"),
+    obtener: (id: number) => invoke("compras:obtener", id),
+    crear: (data: any) => invoke("compras:crear", data),
+  },
+  pagosCompra: {
+    listarPorCompra: (compraId: number) => invoke("pagosCompra:listarPorCompra", compraId),
+    crear: (data: any) => invoke("pagosCompra:crear", data),
+  },
   envases: {
     saldos: () => invoke("envases:saldos"),
     movimientos: (clienteId?: number) => invoke("envases:movimientos", clienteId),

@@ -105,6 +105,36 @@ CREATE TABLE IF NOT EXISTS comprobantes_varios (
   creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
+CREATE TABLE IF NOT EXISTS compras (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  numero INTEGER NOT NULL UNIQUE,
+  fecha TEXT NOT NULL,
+  proveedor TEXT NOT NULL,
+  condicion_pago TEXT NOT NULL CHECK (condicion_pago IN ('CONTADO','CREDITO')),
+  total REAL NOT NULL DEFAULT 0,
+  estado TEXT NOT NULL CHECK (estado IN ('PENDIENTE','PAGADA')) DEFAULT 'PENDIENTE',
+  asiento_id INTEGER REFERENCES asientos(id),
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS compra_lineas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  compra_id INTEGER NOT NULL REFERENCES compras(id) ON DELETE CASCADE,
+  producto_id INTEGER NOT NULL REFERENCES productos(id),
+  cantidad REAL NOT NULL,
+  costo_unitario REAL NOT NULL,
+  subtotal REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS pagos_compra (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  compra_id INTEGER NOT NULL REFERENCES compras(id),
+  fecha TEXT NOT NULL,
+  monto REAL NOT NULL,
+  metodo TEXT NOT NULL CHECK (metodo IN ('EFECTIVO','TRANSFERENCIA','TARJETA','CHEQUE')),
+  asiento_id INTEGER REFERENCES asientos(id)
+);
+
 CREATE TABLE IF NOT EXISTS factura_lineas (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   factura_id INTEGER NOT NULL REFERENCES facturas(id) ON DELETE CASCADE,

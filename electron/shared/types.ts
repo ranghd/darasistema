@@ -138,6 +138,52 @@ export interface Cobro {
   nota: string | null;
 }
 
+export interface CompraLineaInput {
+  producto_id: number;
+  cantidad: number;
+  costo_unitario: number;
+  actualizarCosto: boolean;
+}
+
+export interface CompraLinea extends CompraLineaInput {
+  id: number;
+  subtotal: number;
+  producto_nombre?: string;
+}
+
+export interface NuevaCompraInput {
+  fecha: string;
+  proveedor: string;
+  condicion_pago: "CONTADO" | "CREDITO";
+  lineas: CompraLineaInput[];
+}
+
+export interface Compra {
+  id: number;
+  numero: number;
+  fecha: string;
+  proveedor: string;
+  condicion_pago: "CONTADO" | "CREDITO";
+  total: number;
+  estado: "PENDIENTE" | "PAGADA";
+  asiento_id: number | null;
+  creado_en: string;
+  pagado?: number;
+}
+
+export interface CompraDetalle extends Compra {
+  lineas: CompraLinea[];
+}
+
+export interface PagoCompra {
+  id: number;
+  compra_id: number;
+  fecha: string;
+  monto: number;
+  metodo: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE";
+  asiento_id: number | null;
+}
+
 export type TipoComprobanteVarios = "B11" | "B12" | "B16";
 
 export interface NuevoComprobanteVariosInput {
