@@ -178,9 +178,20 @@ export default function Compras() {
                   <div className="col-span-3">
                     <Input type="number" step="0.01" value={l.costo_unitario} onChange={(e) => actualizarLinea(l.key, { costo_unitario: Number(e.target.value) })} />
                   </div>
-                  <div className="col-span-2 flex items-center gap-1.5 text-xs text-slate-600">
-                    <input type="checkbox" checked={l.actualizarCosto} onChange={(e) => actualizarLinea(l.key, { actualizarCosto: e.target.checked })} />
-                    Actualizar costo
+                  <div className="col-span-2 text-xs leading-tight text-slate-500">
+                    {(() => {
+                      const prod = productos.find((x) => x.id === l.producto_id);
+                      if (!prod) return null;
+                      const total = prod.existencia + l.cantidad;
+                      const promedio = prod.existencia > 0 && total > 0 ? (prod.existencia * prod.costo_contenido + l.cantidad * l.costo_unitario) / total : l.costo_unitario;
+                      return (
+                        <>
+                          Costo promedio
+                          <br />
+                          <span className="font-medium text-slate-700">{formatMoney(promedio)}</span>
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className="col-span-1 text-right">
                     <button type="button" className="text-xs text-red-500 hover:underline" onClick={() => setLineas(lineas.filter((x) => x.key !== l.key))}>

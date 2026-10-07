@@ -1,6 +1,6 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
-import { crearAsiento } from "../db/contabilidad";
+import { crearAsiento, fechaHoyRD } from "../db/contabilidad";
 import type { Factura, FacturaDetalle, NuevaFacturaInput, Producto, TipoNcf } from "../shared/types";
 
 const CODIGO_CAJA = "1.1.01";
@@ -234,7 +234,7 @@ export function registerFacturasIpc(db: DB) {
           : `Anulacion de factura ${factura.ncf}: ${motivo}`;
         const reversa = original.map((l) => ({ cuenta_id: l.cuenta_id, debito: l.credito, credito: l.debito, descripcion: concepto }));
         crearAsiento(db, {
-          fecha: new Date().toISOString().slice(0, 10),
+          fecha: fechaHoyRD(),
           concepto,
           origen: "AJUSTE",
           referencia_id: id,
@@ -263,10 +263,10 @@ export function registerFacturasIpc(db: DB) {
       const run = db.transaction(() => {
         const ncf = tomarSiguienteNcf(db, "B03");
         const concepto = `Nota de Debito ${ncf} - Factura ${factura.ncf}: ${input.concepto}`;
-        const cuentaCobro = factura.condicion_pago === "CONTADO" ? CODIGO_CAJA : CODIGO_CXC;
+        const cuentaCobro = factura.condicion_pago === "CONTADO" ? (factura.metodo_pago === "TRANSFERENCIA" ? CODIGO_BANCO : CODIGO_CAJA) : CODIGO_CXC;
 
         crearAsiento(db, {
-          fecha: new Date().toISOString().slice(0, 10),
+          fecha: fechaHoyRD(),
           concepto,
           origen: "AJUSTE",
           referencia_id: input.factura_id,
@@ -305,10 +305,10 @@ export function registerFacturasIpc(db: DB) {
       const run = db.transaction(() => {
         const ncf = tomarSiguienteNcf(db, "B04");
         const concepto = `Nota de Credito ${ncf} - Factura ${factura.ncf}: ${input.concepto}`;
-        const cuentaCobro = factura.condicion_pago === "CONTADO" ? CODIGO_CAJA : CODIGO_CXC;
+        const cuentaCobro = factura.condicion_pago === "CONTADO" ? (factura.metodo_pago === "TRANSFERENCIA" ? CODIGO_BANCO : CODIGO_CAJA) : CODIGO_CXC;
 
         crearAsiento(db, {
-          fecha: new Date().toISOString().slice(0, 10),
+          fecha: fechaHoyRD(),
           concepto,
           origen: "AJUSTE",
           referencia_id: input.factura_id,

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
-import type { Cobro, CompanyConfig, Cuenta, FacturaDetalle } from "../../lib/types";
+import type { AsientoConLineas, Cobro, CompanyConfig, Cuenta, FacturaDetalle } from "../../lib/types";
+import { useAuth } from "../../lib/auth";
+import { esVariantCaja } from "../../lib/variant";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { Badge, Button, Card, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 
@@ -15,6 +17,9 @@ const METODO_PAGO_LABELS: Record<string, string> = {
 export default function DetalleFactura() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { usuario } = useAuth();
+  const verContabilidad = !esVariantCaja && usuario?.rol === "ADMIN";
+  const [asientos, setAsientos] = useState<AsientoConLineas[]>([]);
   const [factura, setFactura] = useState<FacturaDetalle | null>(null);
   const [cobros, setCobros] = useState<Cobro[]>([]);
   const [empresa, setEmpresa] = useState<CompanyConfig | null>(null);
@@ -43,6 +48,7 @@ export default function DetalleFactura() {
     setFactura(f);
     const c = await api.cobros.listarPorFactura(Number(id));
     setCobros(c as Cobro[]);
+    if (verContabilidad) setAsientos(await api.asientos.deFactura(Number(id)));
   }
 
   useEffect(() => {
@@ -278,6 +284,48 @@ export default function DetalleFactura() {
           </Card>
         )}
       </div>
+
+      {verContabilidad && asientos.length > 0 && (
+        <Card className="mt-5 p-5 print:hidden">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-700">Registro contable de esta factura</h2>
+              <p className="text-xs text-slate-400">
+                Asi se reflejo en el Catalogo de Cuentas. El sistema lo hace solo: los debitos siempre suman igual que los creditos.
+              </p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => navigate("/contabilidad/cuentas")}>
+              Ver Catalogo de Cuentas
+            </Button>
+          </div>
+          <div className="space-y-4">
+            {asientos.map((a) => (
+              <div key={a.id}>
+                <p className="mb-1 text-xs text-slate-500">
+                  <span className="font-mono">Asiento #{a.numero}</span> · {formatDate(a.fecha)} · {a.concepto}
+                </p>
+                <Table columns={["Cuenta", "Debito", "Credito"]}>
+                  {a.lineas.map((l) => (
+                    <tr key={l.id}>
+                      <td className="px-4 py-2 text-slate-700">
+                        <span className="mr-2 font-mono text-xs text-slate-400">{l.cuenta_codigo}</span>
+                        {l.cuenta_nombre}
+                      </td>
+                      <td className="px-4 py-2 tabular-nums">{l.debito ? formatMoney(l.debito) : ""}</td>
+                      <td className="px-4 py-2 tabular-nums">{l.credito ? formatMoney(l.credito) : ""}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-slate-50 text-xs font-semibold text-slate-600">
+                    <td className="px-4 py-2">Total</td>
+                    <td className="px-4 py-2 tabular-nums">{formatMoney(a.lineas.reduce((x, l) => x + l.debito, 0))}</td>
+                    <td className="px-4 py-2 tabular-nums">{formatMoney(a.lineas.reduce((x, l) => x + l.credito, 0))}</td>
+                  </tr>
+                </Table>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Modal open={openDebito} onClose={() => setOpenDebito(false)} title="Agregar Nota de Debito (B03)">
         <form onSubmit={confirmarDebito} className="space-y-3">

@@ -16,8 +16,10 @@ export function formatDate(value: string | null | undefined): string {
   return d.toLocaleDateString("es-DO", { year: "numeric", month: "short", day: "2-digit" });
 }
 
+// Fecha local (no UTC): en RD, despues de las 8:00 pm toISOString ya daria el dia siguiente.
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export function firstDayOfMonthIso(): string {

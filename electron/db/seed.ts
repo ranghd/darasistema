@@ -1,5 +1,6 @@
 import type { DB } from "./types";
 import { nuevoPasswordHash } from "./password";
+import { cuadrarInventarioContable } from "./contabilidad";
 
 interface CuentaSeed {
   codigo: string;
@@ -155,6 +156,7 @@ export function seedDemo(db: DB) {
     { codigo: "AGUA-5G-CAJA", nombre: "Agua Purificada en Fundas (caja x20)", categoria: "AGUA", unidad: "CAJA", precio_contenido: 150, costo_contenido: 70, maneja_envase: 0, fianza_envase: 0, cuenta_ingreso_id: codigoToId.get("4.1.03"), cuenta_costo_id: codigoToId.get("5.1.03"), cuenta_inventario_id: codigoToId.get("1.1.06"), existencia: 80 },
   ];
   for (const p of productos) insertProducto.run(p);
+  cuadrarInventarioContable(db, "Inventario inicial (datos de ejemplo)");
 }
 
 // Crea los usuarios por defecto si aun no existen. Se ejecuta en cada arranque

@@ -7,12 +7,14 @@ const api = {
     listar: () => invoke("cuentas:listar"),
     crear: (data: any) => invoke("cuentas:crear", data),
     actualizar: (id: number, data: any) => invoke("cuentas:actualizar", id, data),
+    saldos: (desde?: string, hasta?: string) => invoke("cuentas:saldos", desde, hasta),
   },
   asientos: {
     listar: (desde?: string, hasta?: string) => invoke("asientos:listar", desde, hasta),
     crear: (data: any) => invoke("asientos:crear", data),
     libroMayor: (cuentaId: number, desde?: string, hasta?: string) => invoke("asientos:libroMayor", cuentaId, desde, hasta),
     balanceComprobacion: (desde?: string, hasta?: string) => invoke("asientos:balanceComprobacion", desde, hasta),
+    deFactura: (facturaId: number) => invoke("asientos:deFactura", facturaId),
   },
   clientes: {
     listar: () => invoke("clientes:listar"),

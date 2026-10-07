@@ -1,5 +1,6 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
+import { fechaHoyRD } from "../db/contabilidad";
 
 function rangoClause(desde?: string, hasta?: string) {
   const where: string[] = [];
@@ -146,7 +147,7 @@ export function registerReportesIpc(db: DB) {
   });
 
   ipcMain.handle("reportes:dashboard", () => {
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = fechaHoyRD();
     const inicioMes = hoy.slice(0, 7) + "-01";
 
     const ventasMes = db

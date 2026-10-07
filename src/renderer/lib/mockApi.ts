@@ -3,12 +3,15 @@
 // visualmente las pantallas en el navegador integrado durante el desarrollo.
 // La app real siempre usa window.api expuesto por electron/preload.ts.
 import type {
+  AsientoConLineas,
   Cliente,
   Cuenta,
   Factura,
   FacturaDetalle,
+  MovimientoMayor,
   NcfSecuencia,
   Producto,
+  SaldoCuenta,
   Usuario,
 } from "./types";
 
@@ -55,11 +58,13 @@ export const mockApi = {
     listar: async () => cuentas,
     crear: async (data: any) => { warn(); return { id: Date.now(), ...data }; },
     actualizar: async (_id: number, data: any) => { warn(); return data; },
+    saldos: async (..._args: any[]): Promise<SaldoCuenta[]> => [],
   },
   asientos: {
     listar: async (..._args: any[]) => [],
     crear: async (..._args: any[]) => { warn(); return 1; },
-    libroMayor: async (..._args: any[]) => [],
+    libroMayor: async (..._args: any[]): Promise<MovimientoMayor[]> => [],
+    deFactura: async (..._args: any[]): Promise<AsientoConLineas[]> => [],
     balanceComprobacion: async (..._args: any[]) =>
       cuentas
         .filter((c) => c.es_movimiento)

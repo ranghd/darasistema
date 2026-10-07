@@ -33,6 +33,24 @@ export interface AsientoConLineas extends Asiento {
   lineas: (AsientoLineaInput & { id: number; cuenta_codigo: string; cuenta_nombre: string })[];
 }
 
+export interface SaldoCuenta {
+  cuenta_id: number;
+  debito: number;
+  credito: number;
+  movimientos: number;
+  ultima_fecha: string | null;
+}
+
+export interface MovimientoMayor {
+  fecha: string;
+  numero: number;
+  concepto: string;
+  debito: number;
+  credito: number;
+  descripcion: string | null;
+  saldo: number;
+}
+
 export interface Cliente {
   id: number;
   codigo: string;

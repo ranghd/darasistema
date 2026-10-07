@@ -77,10 +77,19 @@ export function registerComprasIpc(db: DB) {
       for (const l of lineasCalc) {
         insertLinea.run({ compra_id: compraId, producto_id: l.producto_id, cantidad: l.cantidad, costo_unitario: l.costo_unitario, subtotal: l.subtotal });
 
-        db.prepare(`UPDATE productos SET existencia = existencia + ? WHERE id = ?`).run(l.cantidad, l.producto_id);
-        if (l.actualizarCosto) {
-          db.prepare(`UPDATE productos SET costo_contenido = ? WHERE id = ?`).run(l.costo_unitario, l.producto_id);
-        }
+        // Costo promedio ponderado: mezcla lo que habia con lo que entra, asi el
+        // inventario en la contabilidad siempre es existencia x costo.
+        const actual = db.prepare(`SELECT existencia, costo_contenido FROM productos WHERE id = ?`).get(l.producto_id) as { existencia: number; costo_contenido: number };
+        const nuevaExistencia = actual.existencia + l.cantidad;
+        const costoPromedio =
+          actual.existencia > 0 && nuevaExistencia > 0
+            ? (actual.existencia * actual.costo_contenido + l.subtotal) / nuevaExistencia
+            : l.costo_unitario;
+        db.prepare(`UPDATE productos SET existencia = ?, costo_contenido = ? WHERE id = ?`).run(
+          nuevaExistencia,
+          Math.round(costoPromedio * 10000) / 10000,
+          l.producto_id
+        );
 
         if (l.producto.cuenta_inventario_id) {
           inventarioPorCuenta.set(l.producto.cuenta_inventario_id, (inventarioPorCuenta.get(l.producto.cuenta_inventario_id) ?? 0) + l.subtotal);

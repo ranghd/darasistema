@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import type { Producto } from "../shared/types";
+import { registrarAjusteInventario } from "../db/contabilidad";
 
 function siguienteCodigo(db: DB, categoria: string): string {
   const count = (db.prepare(`SELECT COUNT(*) as c FROM productos`).get() as { c: number }).c;
@@ -12,7 +13,7 @@ export function registerProductosIpc(db: DB) {
     return db.prepare(`SELECT * FROM productos ORDER BY categoria, nombre`).all() as Producto[];
   });
 
-  ipcMain.handle("productos:crear", (_e, data: Partial<Producto>) => {
+  ipcMain.handle("productos:crear", (_e, data: Partial<Producto>) => db.transaction(() => {
     const codigo = data.codigo && data.codigo.length > 0 ? data.codigo : siguienteCodigo(db, data.categoria ?? "OTRO");
     const info = db
       .prepare(
@@ -34,10 +35,14 @@ export function registerProductosIpc(db: DB) {
         cuenta_inventario_id: data.cuenta_inventario_id ?? null,
         existencia: data.existencia ?? 0,
       });
-    return db.prepare(`SELECT * FROM productos WHERE id = ?`).get(info.lastInsertRowid) as Producto;
-  });
+    const creado = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(info.lastInsertRowid) as Producto;
+    registrarAjusteInventario(db, creado.cuenta_inventario_id, creado.existencia * creado.costo_contenido, `Existencia inicial: ${creado.nombre}`);
+    return creado;
+  })());
 
-  ipcMain.handle("productos:actualizar", (_e, id: number, data: Partial<Producto>) => {
+  ipcMain.handle("productos:actualizar", (_e, id: number, data: Partial<Producto>) => db.transaction(() => {
+    const anterior = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(id) as Producto | undefined;
+    if (!anterior) throw new Error("Producto no encontrado");
     db.prepare(
       `UPDATE productos SET nombre=@nombre, categoria=@categoria, unidad=@unidad, precio_contenido=@precio_contenido,
         costo_contenido=@costo_contenido, maneja_envase=@maneja_envase, fianza_envase=@fianza_envase, itbis_rate=@itbis_rate,
@@ -59,6 +64,17 @@ export function registerProductosIpc(db: DB) {
       existencia: data.existencia ?? 0,
       activo: data.activo ?? 1,
     });
-    return db.prepare(`SELECT * FROM productos WHERE id = ?`).get(id) as Producto;
-  });
+    const actualizado = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(id) as Producto;
+    // Cambiar la existencia a mano (conteo fisico) tambien mueve la contabilidad.
+    const diferencia = actualizado.existencia - anterior.existencia;
+    if (diferencia !== 0) {
+      registrarAjusteInventario(
+        db,
+        actualizado.cuenta_inventario_id,
+        diferencia * actualizado.costo_contenido,
+        `Ajuste de existencia ${actualizado.nombre}: ${anterior.existencia} -> ${actualizado.existencia}`
+      );
+    }
+    return actualizado;
+  })());
 }
