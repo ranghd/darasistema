@@ -10,7 +10,7 @@ export function nuevoPasswordHash(password: string): string {
 }
 
 export function verificarPassword(password: string, almacenado: string): boolean {
-  const [salt] = almacenado.split("$");
-  if (!salt) return false;
-  return hashPassword(password, salt) === almacenado;
+  const [salt, hash] = almacenado.split("$");
+  if (!salt || !hash) return false;
+  return hashPassword(password, salt) === hash;
 }

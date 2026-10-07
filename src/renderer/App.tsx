@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, useRoutes } from "react-router-dom";
 import { api } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { esVariantCaja } from "./lib/variant";
@@ -26,63 +26,49 @@ import ReporteItbis from "./pages/Reportes/ReporteItbis";
 import Configuracion from "./pages/Configuracion/Configuracion";
 import Comprobantes from "./pages/Comprobantes/Comprobantes";
 
-function RutasCaja() {
-  return (
-    <>
-      <Route path="/" element={<Dashboard />} />
-      <Route path="/caja" element={<Caja />} />
-      <Route path="/facturas" element={<ListaFacturas />} />
-      <Route path="/facturas/nueva" element={<NuevaFactura />} />
-      <Route path="/facturas/:id" element={<DetalleFactura />} />
-      <Route path="/cuentas-por-cobrar" element={<CuentasPorCobrar />} />
-      <Route path="/clientes" element={<ListaClientes />} />
-      <Route path="/clientes/:id" element={<DetalleCliente />} />
-      <Route path="/productos" element={<ListaProductos />} />
-      <Route path="/envases" element={<ControlEnvases />} />
-      <Route path="*" element={<Navigate to="/caja" replace />} />
-    </>
-  );
-}
+// Rutas que ve cualquier usuario que inicio sesion (admin o cajero).
+const RUTAS_COMUNES = [
+  { path: "/", element: <Dashboard /> },
+  { path: "/caja", element: <Caja /> },
+  { path: "/facturas", element: <ListaFacturas /> },
+  { path: "/facturas/nueva", element: <NuevaFactura /> },
+  { path: "/facturas/:id", element: <DetalleFactura /> },
+  { path: "/cuentas-por-cobrar", element: <CuentasPorCobrar /> },
+  { path: "/clientes", element: <ListaClientes /> },
+  { path: "/clientes/:id", element: <DetalleCliente /> },
+  { path: "/productos", element: <ListaProductos /> },
+  { path: "/envases", element: <ControlEnvases /> },
+];
 
-function RutasAdmin() {
-  return (
-    <>
-      <Route path="/" element={<Dashboard />} />
-      <Route path="/caja" element={<Caja />} />
-      <Route path="/facturas" element={<ListaFacturas />} />
-      <Route path="/facturas/nueva" element={<NuevaFactura />} />
-      <Route path="/facturas/:id" element={<DetalleFactura />} />
-      <Route path="/cuentas-por-cobrar" element={<CuentasPorCobrar />} />
-      <Route path="/clientes" element={<ListaClientes />} />
-      <Route path="/clientes/:id" element={<DetalleCliente />} />
-      <Route path="/productos" element={<ListaProductos />} />
-      <Route path="/envases" element={<ControlEnvases />} />
-      <Route path="/contabilidad/cuentas" element={<CatalogoCuentas />} />
-      <Route path="/contabilidad/asientos" element={<Asientos />} />
-      <Route path="/contabilidad/libro-mayor" element={<LibroMayor />} />
-      <Route path="/contabilidad/balance-comprobacion" element={<BalanceComprobacion />} />
-      <Route path="/reportes/resultados" element={<EstadoResultados />} />
-      <Route path="/reportes/balance-general" element={<BalanceGeneral />} />
-      <Route path="/reportes/itbis" element={<ReporteItbis />} />
-      <Route path="/comprobantes" element={<Comprobantes />} />
-      <Route path="/configuracion" element={<Configuracion />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </>
-  );
-}
+// Rutas adicionales solo para administradores (no cajeros, no la variante Caja).
+const RUTAS_ADMIN_EXTRA = [
+  { path: "/contabilidad/cuentas", element: <CatalogoCuentas /> },
+  { path: "/contabilidad/asientos", element: <Asientos /> },
+  { path: "/contabilidad/libro-mayor", element: <LibroMayor /> },
+  { path: "/contabilidad/balance-comprobacion", element: <BalanceComprobacion /> },
+  { path: "/reportes/resultados", element: <EstadoResultados /> },
+  { path: "/reportes/balance-general", element: <BalanceGeneral /> },
+  { path: "/reportes/itbis", element: <ReporteItbis /> },
+  { path: "/comprobantes", element: <Comprobantes /> },
+  { path: "/configuracion", element: <Configuracion /> },
+];
 
 function RutasProtegidas() {
   const { usuario } = useAuth();
+  const restringido = esVariantCaja || usuario?.rol === "CAJERO";
+
+  const hijos = usuario
+    ? [
+        ...RUTAS_COMUNES,
+        ...(restringido ? [] : RUTAS_ADMIN_EXTRA),
+        { path: "*", element: <Navigate to={restringido ? "/caja" : "/"} replace /> },
+      ]
+    : [];
+
+  const elemento = useRoutes([{ element: <Layout />, children: hijos }]);
 
   if (!usuario) return <Login />;
-
-  const restringido = esVariantCaja || usuario.rol === "CAJERO";
-
-  return (
-    <Routes>
-      <Route element={<Layout />}>{restringido ? <RutasCaja /> : <RutasAdmin />}</Route>
-    </Routes>
-  );
+  return elemento;
 }
 
 export default function App() {

@@ -4,6 +4,7 @@ publish:
   provider: github
   owner: ranghd
   repo: darasistema
+  releaseType: release
 directories:
   output: release
 files:

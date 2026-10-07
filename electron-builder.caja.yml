@@ -5,6 +5,7 @@ publish:
   owner: ranghd
   repo: darasistema
   channel: caja
+  releaseType: release
 directories:
   output: release
 files:
