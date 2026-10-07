@@ -37,7 +37,7 @@ const productos: Producto[] = [
 ];
 
 const facturas: Factura[] = [
-  { id: 1, numero: 1, ncf: "B0100000001", cliente_id: 1, fecha: new Date().toISOString().slice(0, 10), condicion_pago: "CONTADO", subtotal: 650, itbis: 117, fianza_total: 1500, total: 2267, estado: "PAGADA", asiento_id: 1, nota_credito_ncf: null, nota_debito_ncf: null, creado_en: new Date().toISOString(), cliente_nombre: clientes[0].nombre, cobrado: 0 },
+  { id: 1, numero: 1, ncf: "B0100000001", cliente_id: 1, fecha: new Date().toISOString().slice(0, 10), condicion_pago: "CONTADO", metodo_pago: "EFECTIVO", subtotal: 650, itbis: 117, fianza_total: 1500, total: 2267, estado: "PAGADA", asiento_id: 1, nota_credito_ncf: null, nota_debito_ncf: null, creado_en: new Date().toISOString(), cliente_nombre: clientes[0].nombre, cobrado: 0 },
 ];
 
 const ncfSecuencias: NcfSecuencia[] = [

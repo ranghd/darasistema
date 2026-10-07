@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS facturas (
   cliente_id INTEGER NOT NULL REFERENCES clientes(id),
   fecha TEXT NOT NULL,
   condicion_pago TEXT NOT NULL CHECK (condicion_pago IN ('CONTADO','CREDITO')),
+  metodo_pago TEXT,
   subtotal REAL NOT NULL DEFAULT 0,
   itbis REAL NOT NULL DEFAULT 0,
   fianza_total REAL NOT NULL DEFAULT 0,

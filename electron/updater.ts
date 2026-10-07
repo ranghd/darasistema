@@ -34,7 +34,10 @@ export function configurarAutoUpdate() {
   autoUpdater.on("update-downloaded", (info) => {
     enviarATodasLasVentanas({ estado: "descargado", version: info.version });
     // Se le da un momento al usuario para ver el aviso antes de cerrar la app.
-    setTimeout(() => autoUpdater.quitAndInstall(), 3000);
+    // isSilent=true, isForceRunAfter=true: sin esto, el instalador de NSIS abre
+    // su propia ventana pidiendo "Siguiente"/"Instalar" y se queda esperando a
+    // que alguien le haga clic -- la actualizacion nunca termina sola.
+    setTimeout(() => autoUpdater.quitAndInstall(true, true), 3000);
   });
 
   autoUpdater.on("error", (err) => {

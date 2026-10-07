@@ -103,6 +103,7 @@ export interface Factura {
   cliente_id: number;
   fecha: string;
   condicion_pago: "CONTADO" | "CREDITO";
+  metodo_pago: MetodoPago | null;
   subtotal: number;
   itbis: number;
   fianza_total: number;
@@ -120,10 +121,13 @@ export interface FacturaDetalle extends Factura {
   lineas: FacturaLinea[];
 }
 
+export type MetodoPago = "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE";
+
 export interface NuevaFacturaInput {
   cliente_id: number;
   fecha: string;
   condicion_pago: "CONTADO" | "CREDITO";
+  metodo_pago?: MetodoPago;
   tipo_ncf: "B01" | "B02" | "B13" | "B14" | "B15";
   lineas: FacturaLineaInput[];
 }

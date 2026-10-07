@@ -4,7 +4,13 @@ import { crearAsiento } from "../db/contabilidad";
 import type { Factura, FacturaDetalle, NuevaFacturaInput, Producto, TipoNcf } from "../shared/types";
 
 const CODIGO_CAJA = "1.1.01";
+const CODIGO_BANCO = "1.1.02";
 const CODIGO_CXC = "1.1.03";
+
+function cuentaCobroContado(db: DB, metodoPago?: string): number {
+  const codigo = metodoPago === "TRANSFERENCIA" ? CODIGO_BANCO : CODIGO_CAJA;
+  return cuentaIdPorCodigo(db, codigo);
+}
 const CODIGO_ITBIS_PAGAR = "2.1.02";
 const CODIGO_DEPOSITOS_GARANTIA = "2.1.03";
 
@@ -103,8 +109,8 @@ export function registerFacturasIpc(db: DB) {
 
       const infoFactura = db
         .prepare(
-          `INSERT INTO facturas (numero, ncf, cliente_id, fecha, condicion_pago, subtotal, itbis, fianza_total, total, estado)
-           VALUES (@numero, @ncf, @cliente_id, @fecha, @condicion_pago, @subtotal, @itbis, @fianza_total, @total, @estado)`
+          `INSERT INTO facturas (numero, ncf, cliente_id, fecha, condicion_pago, metodo_pago, subtotal, itbis, fianza_total, total, estado)
+           VALUES (@numero, @ncf, @cliente_id, @fecha, @condicion_pago, @metodo_pago, @subtotal, @itbis, @fianza_total, @total, @estado)`
         )
         .run({
           numero: maxNumero + 1,
@@ -112,6 +118,7 @@ export function registerFacturasIpc(db: DB) {
           cliente_id: input.cliente_id,
           fecha: input.fecha,
           condicion_pago: input.condicion_pago,
+          metodo_pago: input.condicion_pago === "CONTADO" ? input.metodo_pago ?? "EFECTIVO" : null,
           estado: estadoInicial,
           subtotal,
           itbis: itbisTotal,
@@ -167,8 +174,8 @@ export function registerFacturasIpc(db: DB) {
       }
 
       const lineasAsiento = [];
-      const cuentaCobro = input.condicion_pago === "CONTADO" ? CODIGO_CAJA : CODIGO_CXC;
-      lineasAsiento.push({ cuenta_id: cuentaIdPorCodigo(db, cuentaCobro), debito: total, credito: 0, descripcion: `Factura ${ncf}` });
+      const cuentaCobroId = input.condicion_pago === "CONTADO" ? cuentaCobroContado(db, input.metodo_pago) : cuentaIdPorCodigo(db, CODIGO_CXC);
+      lineasAsiento.push({ cuenta_id: cuentaCobroId, debito: total, credito: 0, descripcion: `Factura ${ncf}` });
       for (const [cuentaId, monto] of ingresoPorCuenta) {
         lineasAsiento.push({ cuenta_id: cuentaId, debito: 0, credito: Math.round(monto * 100) / 100, descripcion: `Factura ${ncf}` });
       }

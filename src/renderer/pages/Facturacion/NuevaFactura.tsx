@@ -19,6 +19,7 @@ export default function NuevaFactura() {
   const [clienteId, setClienteId] = useState<number | "">("");
   const [fecha, setFecha] = useState(todayIso());
   const [condicionPago, setCondicionPago] = useState<"CONTADO" | "CREDITO">("CONTADO");
+  const [metodoPago, setMetodoPago] = useState<"EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE">("EFECTIVO");
   const [tipoNcf, setTipoNcf] = useState<"B01" | "B02" | "B13" | "B14" | "B15">("B02");
   const [lineas, setLineas] = useState<LineaForm[]>([]);
   const [enviando, setEnviando] = useState(false);
@@ -80,6 +81,7 @@ export default function NuevaFactura() {
         cliente_id: clienteId,
         fecha,
         condicion_pago: condicionPago,
+        metodo_pago: condicionPago === "CONTADO" ? metodoPago : undefined,
         tipo_ncf: tipoNcf,
         lineas: lineas.map(({ key, ...rest }) => rest),
       });
@@ -110,6 +112,14 @@ export default function NuevaFactura() {
             <option value="CONTADO">Contado</option>
             <option value="CREDITO">Credito</option>
           </Select>
+          {condicionPago === "CONTADO" && (
+            <Select label="Metodo de pago" value={metodoPago} onChange={(e) => setMetodoPago(e.target.value as any)}>
+              <option value="EFECTIVO">Efectivo</option>
+              <option value="TRANSFERENCIA">Transferencia (Banco)</option>
+              <option value="TARJETA">Tarjeta</option>
+              <option value="CHEQUE">Cheque</option>
+            </Select>
+          )}
           <Select label="Tipo de comprobante (NCF)" value={tipoNcf} onChange={(e) => setTipoNcf(e.target.value as any)}>
             {TIPOS_NCF_VENTA.map((t) => (
               <option key={t} value={t}>

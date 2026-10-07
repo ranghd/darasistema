@@ -31,4 +31,9 @@ function migrar(db: DB) {
   } catch {
     // la columna ya existe
   }
+  try {
+    db.exec(`ALTER TABLE facturas ADD COLUMN metodo_pago TEXT`);
+  } catch {
+    // la columna ya existe
+  }
 }

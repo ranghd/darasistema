@@ -5,6 +5,13 @@ import type { Cobro, CompanyConfig, Cuenta, FacturaDetalle } from "../../lib/typ
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { Badge, Button, Card, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 
+const METODO_PAGO_LABELS: Record<string, string> = {
+  EFECTIVO: "Efectivo",
+  TRANSFERENCIA: "Transferencia",
+  TARJETA: "Tarjeta",
+  CHEQUE: "Cheque",
+};
+
 export default function DetalleFactura() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -144,7 +151,7 @@ export default function DetalleFactura() {
     <div>
       <PageHeader
         title={`Factura ${factura.ncf ?? factura.numero}`}
-        subtitle={`${formatDate(factura.fecha)} · ${factura.cliente_nombre} · ${factura.condicion_pago === "CONTADO" ? "Contado" : "Credito"}`}
+        subtitle={`${formatDate(factura.fecha)} · ${factura.cliente_nombre} · ${factura.condicion_pago === "CONTADO" ? `Contado (${METODO_PAGO_LABELS[factura.metodo_pago ?? "EFECTIVO"]})` : "Credito"}`}
         actions={
           <div className="flex gap-2 print:hidden">
             <Button variant="secondary" onClick={() => window.print()}>
