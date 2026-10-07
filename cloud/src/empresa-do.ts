@@ -43,16 +43,7 @@ export class Empresa extends DurableObject {
   constructor(ctx: DurableObjectState, env: unknown) {
     super(ctx, env as any);
     this.db = new DurableObjectDB(ctx.storage);
-    this.db.exec(SCHEMA_SQL);
-    this.db.exec(`CREATE TABLE IF NOT EXISTS _meta (clave TEXT PRIMARY KEY, valor TEXT)`);
-    this.db.exec(
-      `CREATE TABLE IF NOT EXISTS _login_intentos (
-         usuario TEXT PRIMARY KEY,
-         fallos INTEGER NOT NULL DEFAULT 0,
-         bloqueado_hasta INTEGER NOT NULL DEFAULT 0
-       )`
-    );
-    migrar(this.db);
+    this.prepararEsquema();
 
     const db = this.db;
     conRegistro(this.handlers, () => {
@@ -69,6 +60,19 @@ export class Empresa extends DurableObject {
       registerAuthIpc(db);
       registerComprasIpc(db);
     });
+  }
+
+  private prepararEsquema() {
+    this.db.exec(SCHEMA_SQL);
+    this.db.exec(`CREATE TABLE IF NOT EXISTS _meta (clave TEXT PRIMARY KEY, valor TEXT)`);
+    this.db.exec(
+      `CREATE TABLE IF NOT EXISTS _login_intentos (
+         usuario TEXT PRIMARY KEY,
+         fallos INTEGER NOT NULL DEFAULT 0,
+         bloqueado_hasta INTEGER NOT NULL DEFAULT 0
+       )`
+    );
+    migrar(this.db);
   }
 
   private inicializada(): boolean {
@@ -138,5 +142,12 @@ export class Empresa extends DurableObject {
       resultado[name] = this.db.prepare(`SELECT * FROM "${name}"`).all();
     }
     return resultado;
+  }
+
+  // Borra todos los datos de la empresa (cuando un cliente deja el sistema).
+  // Cloudflare guarda 30 dias de historial, asi que se puede recuperar si fue un error.
+  async borrar(): Promise<void> {
+    await this.ctx.storage.deleteAll();
+    this.prepararEsquema();
   }
 }

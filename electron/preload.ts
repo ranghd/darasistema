@@ -64,7 +64,8 @@ const api = {
     actualizar: (data: any) => invoke("config:actualizar", data),
   },
   auth: {
-    login: (usuario: string, password: string) => invoke("auth:login", usuario, password),
+    login: (usuario: string, password: string, empresa?: string) => invoke("auth:login", usuario, password, empresa),
+    logout: () => invoke("auth:logout"),
   },
   usuarios: {
     listar: () => invoke("usuarios:listar"),

@@ -7,11 +7,30 @@ import { esVariantCaja } from "../../lib/variant";
 import { useAuth } from "../../lib/auth";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 
+type ModoRed = "SERVIDOR" | "CAJA_REMOTA" | "NUBE";
+
 interface ConfigRedUI {
-  modo: "SERVIDOR" | "CAJA_REMOTA";
+  modo: ModoRed;
   puerto: number;
   servidorUrl?: string;
+  nubeUrl?: string;
   ips: string[];
+}
+
+const OPCIONES_RED: { modo: ModoRed; titulo: string; detalle: string }[] = [
+  { modo: "NUBE", titulo: "Nube", detalle: "Datos en internet, desde cualquier lugar" },
+  { modo: "SERVIDOR", titulo: "Servidor local", detalle: "Esta computadora tiene los datos" },
+  { modo: "CAJA_REMOTA", titulo: "Caja Remota", detalle: "Se conecta a otra computadora de la red" },
+];
+
+const NOMBRE_MODO: Record<ModoRed, string> = { NUBE: "Nube", SERVIDOR: "Servidor local", CAJA_REMOTA: "Caja Remota" };
+
+function codigoEmpresaActual(): string {
+  try {
+    return localStorage.getItem("darasistema.codigoEmpresa") ?? "";
+  } catch {
+    return "";
+  }
 }
 
 export default function Configuracion() {
@@ -32,7 +51,7 @@ export default function Configuracion() {
   const [nuevaPassword, setNuevaPassword] = useState("");
 
   const [configRed, setConfigRed] = useState<ConfigRedUI | null>(null);
-  const [modoRedForm, setModoRedForm] = useState<"SERVIDOR" | "CAJA_REMOTA">("SERVIDOR");
+  const [modoRedForm, setModoRedForm] = useState<ModoRed>("SERVIDOR");
   const [servidorUrlForm, setServidorUrlForm] = useState("");
   const [puertoForm, setPuertoForm] = useState(4500);
   const [probando, setProbando] = useState(false);
@@ -73,7 +92,7 @@ export default function Configuracion() {
     setProbando(true);
     setResultadoPrueba(null);
     try {
-      const r = await api.red.probarConexion(servidorUrlForm);
+      const r = await api.red.probarConexion(modoRedForm === "NUBE" ? configRed?.nubeUrl ?? "" : servidorUrlForm);
       setResultadoPrueba(r as any);
     } finally {
       setProbando(false);
@@ -87,6 +106,7 @@ export default function Configuracion() {
         modo: modoRedForm,
         puerto: puertoForm,
         servidorUrl: modoRedForm === "CAJA_REMOTA" ? servidorUrlForm : undefined,
+        nubeUrl: configRed?.nubeUrl,
       });
       await api.app.reiniciar();
     } finally {
@@ -231,56 +251,68 @@ export default function Configuracion() {
       )}
 
       <Card className="mt-5 p-5">
-        <h2 className="mb-1 text-sm font-semibold text-slate-700">Red / Conexion en Caja</h2>
+        <h2 className="mb-1 text-sm font-semibold text-slate-700">Donde se guardan los datos</h2>
         <p className="mb-3 text-sm text-slate-500">
-          Decide si esta computadora guarda los datos (Servidor) o si se conecta a otra computadora de la red para facturar (Caja Remota).
-          Util solo si vas a usar mas de una computadora al mismo tiempo (una en la oficina, otra en el mostrador).
+          En <b>Nube</b> los datos de tu empresa estan en internet: Darasistema y Cajapunto1 los ven al instante desde cualquier computadora,
+          iniciando sesion con el codigo de empresa. Servidor local y Caja Remota funcionan solo dentro de la misma red.
         </p>
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <div className="space-y-3">
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setModoRedForm("SERVIDOR")}
-                className={`flex-1 rounded-lg border px-3 py-2.5 text-left text-sm ${modoRedForm === "SERVIDOR" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
-              >
-                <span className="block font-medium">Servidor</span>
-                <span className="block text-xs text-slate-400">Esta computadora tiene los datos</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setModoRedForm("CAJA_REMOTA")}
-                className={`flex-1 rounded-lg border px-3 py-2.5 text-left text-sm ${modoRedForm === "CAJA_REMOTA" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
-              >
-                <span className="block font-medium">Caja Remota</span>
-                <span className="block text-xs text-slate-400">Se conecta a otra computadora</span>
-              </button>
+              {OPCIONES_RED.map((op) => (
+                <button
+                  key={op.modo}
+                  type="button"
+                  onClick={() => {
+                    setModoRedForm(op.modo);
+                    setResultadoPrueba(null);
+                  }}
+                  className={`flex-1 rounded-lg border px-3 py-2.5 text-left text-sm ${modoRedForm === op.modo ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}
+                >
+                  <span className="block font-medium">{op.titulo}</span>
+                  <span className="block text-xs text-slate-400">{op.detalle}</span>
+                </button>
+              ))}
             </div>
+
+            {modoRedForm === "NUBE" && configRed?.modo !== "NUBE" && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                Al cambiar a Nube la app trabajara con los datos de tu empresa en internet (pide tu codigo de empresa al proveedor del
+                sistema). Los datos locales de esta computadora no se borran: puedes volver a Servidor local cuando quieras.
+              </p>
+            )}
 
             {modoRedForm === "SERVIDOR" && (
               <Input label="Puerto" type="number" value={puertoForm} onChange={(e) => setPuertoForm(Number(e.target.value))} />
             )}
 
             {modoRedForm === "CAJA_REMOTA" && (
-              <>
-                <Input
-                  label="Direccion del servidor"
-                  placeholder="http://192.168.1.45:4500"
-                  value={servidorUrlForm}
-                  onChange={(e) => setServidorUrlForm(e.target.value)}
-                />
-                <div className="flex items-center gap-2">
-                  <Button type="button" variant="secondary" size="sm" onClick={probarConexion} disabled={probando || !servidorUrlForm}>
-                    {probando ? "Probando..." : "Probar conexion"}
-                  </Button>
-                  {resultadoPrueba && (
-                    <span className={`text-sm ${resultadoPrueba.ok ? "text-emerald-600" : "text-red-600"}`}>
-                      {resultadoPrueba.ok ? "Conexion exitosa" : resultadoPrueba.error ?? "No se pudo conectar"}
-                    </span>
-                  )}
-                </div>
-              </>
+              <Input
+                label="Direccion del servidor"
+                placeholder="http://192.168.1.45:4500"
+                value={servidorUrlForm}
+                onChange={(e) => setServidorUrlForm(e.target.value)}
+              />
+            )}
+
+            {modoRedForm !== "SERVIDOR" && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={probarConexion}
+                  disabled={probando || (modoRedForm === "CAJA_REMOTA" && !servidorUrlForm)}
+                >
+                  {probando ? "Probando..." : "Probar conexion"}
+                </Button>
+                {resultadoPrueba && (
+                  <span className={`text-sm ${resultadoPrueba.ok ? "text-emerald-600" : "text-red-600"}`}>
+                    {resultadoPrueba.ok ? "Conexion exitosa" : resultadoPrueba.error ?? "No se pudo conectar"}
+                  </span>
+                )}
+              </div>
             )}
 
             <Button onClick={guardarConfigRed} disabled={guardandoRed || (modoRedForm === "CAJA_REMOTA" && !servidorUrlForm)}>
@@ -291,8 +323,13 @@ export default function Configuracion() {
           <div className="rounded-lg bg-slate-50 p-4 text-sm">
             <p className="font-medium text-slate-700">Estado actual</p>
             <p className="mt-1 text-slate-500">
-              Modo: <span className="font-semibold text-slate-700">{configRed?.modo === "CAJA_REMOTA" ? "Caja Remota" : "Servidor"}</span>
+              Modo: <span className="font-semibold text-slate-700">{configRed ? NOMBRE_MODO[configRed.modo] : ""}</span>
             </p>
+            {configRed?.modo === "NUBE" && (
+              <p className="mt-2 text-slate-500">
+                Empresa: <span className="font-mono text-xs font-semibold text-brand-700">{codigoEmpresaActual() || "-"}</span>
+              </p>
+            )}
             {configRed?.modo === "SERVIDOR" && (
               <>
                 <p className="mt-2 text-slate-500">Otras cajas se pueden conectar a:</p>

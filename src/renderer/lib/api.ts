@@ -7,6 +7,15 @@ declare global {
   }
 }
 
+export const EVENTO_SESION_EXPIRADA = "darasistema:sesion-expirada";
+
+// Electron antepone "Error invoking remote method 'canal': Error: " a los
+// errores que vienen del proceso principal; para el usuario solo importa el final.
+export function mensajeDeError(err: any, porDefecto = "No se pudo completar la operacion"): string {
+  const crudo: string = err?.message ?? porDefecto;
+  return crudo.replace(/^Error invoking remote method '[^']*':\s*/, "").replace(/^Error:\s*/, "");
+}
+
 export const isPreviewMode = typeof window !== "undefined" && !window.api;
 
 const apiBase: typeof mockApi = typeof window !== "undefined" && window.api ? (window.api as typeof mockApi) : mockApi;
@@ -33,8 +42,13 @@ function envolverConEstadoDeConexion<T extends object>(obj: T): T {
             return r;
           },
           (err) => {
-            reportarErrorConexion(err?.message ?? "No se pudo completar la operacion");
-            throw err;
+            const mensaje = mensajeDeError(err);
+            if (mensaje.startsWith("Sesion expirada")) {
+              window.dispatchEvent(new Event(EVENTO_SESION_EXPIRADA));
+            } else {
+              reportarErrorConexion(mensaje);
+            }
+            throw new Error(mensaje);
           }
         );
       };

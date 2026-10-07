@@ -80,7 +80,7 @@ export default function Layout() {
   const { usuario, logout } = useAuth();
 
   const mostrarCaja = esVariantCaja || usuario?.rol === "CAJERO";
-  const nav = mostrarCaja ? NAV_CAJA : NAV_COMPLETO;
+  const nav = (mostrarCaja ? NAV_CAJA : NAV_COMPLETO).filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN");
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100">

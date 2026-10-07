@@ -121,7 +121,8 @@ export const mockApi = {
     actualizar: async (data: any, ..._rest: any[]) => { warn(); return data; },
   },
   auth: {
-    login: async (usuario: string, password: string) => {
+    logout: async () => {},
+    login: async (usuario: string, password: string, _empresa?: string) => {
       if ((usuario === "admin" && password === "admin") || (usuario === "dara" && password === "123")) {
         return { id: 1, usuario, nombre: usuario === "dara" ? "Darasistema" : "Administrador", rol: "ADMIN" as const };
       }
@@ -148,7 +149,7 @@ export const mockApi = {
     reiniciar: async (..._args: any[]) => { warn(); },
   },
   red: {
-    obtenerConfig: async (..._args: any[]) => ({ modo: "SERVIDOR" as const, puerto: 4500, servidorUrl: undefined, ips: ["192.168.1.50"] }),
+    obtenerConfig: async (..._args: any[]) => ({ modo: "SERVIDOR" as "SERVIDOR" | "CAJA_REMOTA" | "NUBE", puerto: 4500, servidorUrl: undefined as string | undefined, nubeUrl: "https://darasistema.ranghd732.workers.dev", ips: ["192.168.1.50"] }),
     guardarConfig: async (data: any, ..._rest: any[]) => { warn(); return data; },
     probarConexion: async (..._args: any[]) => { warn(); return { ok: true }; },
   },

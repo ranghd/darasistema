@@ -16,7 +16,7 @@ import { registerComprasIpc } from "./ipc/compras";
 import { leerConfigRed, guardarConfigRed, normalizarServidorUrl, type ConfigRed } from "./network/config";
 import { listarIpsLocales } from "./network/localIp";
 import { iniciarServidorHttp, type HandlerRegistry } from "./network/server";
-import { registrarProxiesRemotos } from "./network/remoteProxy";
+import { cerrarSesionNube, registrarProxiesNube, registrarProxiesRemotos } from "./network/remoteProxy";
 import { configurarAutoUpdate } from "./updater";
 import { APP_VARIANT } from "./variant.generated";
 
@@ -27,7 +27,11 @@ app.setName(APP_VARIANT === "caja" ? "Cajapunto1" : "Darasistema");
 async function registerAllIpc() {
   const configRed = leerConfigRed();
 
-  if (configRed.modo === "CAJA_REMOTA") {
+  if (configRed.modo === "NUBE") {
+    // Los datos viven en la nube (una base privada por empresa): esta
+    // computadora no abre ninguna base local ni levanta el servidor de red.
+    registrarProxiesNube(configRed.nubeUrl!);
+  } else if (configRed.modo === "CAJA_REMOTA") {
     // Si todavia no hay direccion de servidor configurada (primer arranque del
     // instalador "Caja"), no se registra ningun canal de negocio: el renderer
     // debe mostrar la pantalla de configuracion de conexion antes que nada.
@@ -60,6 +64,7 @@ async function registerAllIpc() {
     iniciarServidorHttp(handlerRegistry, configRed.puerto);
   }
 
+  ipcMain.handle("auth:logout", () => cerrarSesionNube());
   ipcMain.handle("red:obtenerConfig", () => ({ ...leerConfigRed(), ips: listarIpsLocales() }));
   ipcMain.handle("red:guardarConfig", (_e, nuevaConfig: ConfigRed) => {
     guardarConfigRed(nuevaConfig);

@@ -56,29 +56,32 @@ const RUTAS_ADMIN_EXTRA = [
   { path: "/configuracion", element: <Configuracion /> },
 ];
 
-function RutasProtegidas() {
+function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
   const { usuario } = useAuth();
   const restringido = esVariantCaja || usuario?.rol === "CAJERO";
+
+  // En Cajapunto1 el administrador entra a Configuracion solo para la conexion.
+  const rutaConexionCaja = esVariantCaja && usuario?.rol === "ADMIN" ? RUTAS_ADMIN_EXTRA.filter((r) => r.path === "/configuracion") : [];
 
   const hijos = usuario
     ? [
         ...RUTAS_COMUNES,
-        ...(restringido ? [] : RUTAS_ADMIN_EXTRA),
+        ...(restringido ? rutaConexionCaja : RUTAS_ADMIN_EXTRA),
         { path: "*", element: <Navigate to={restringido ? "/caja" : "/"} replace /> },
       ]
     : [];
 
   const elemento = useRoutes([{ element: <Layout />, children: hijos }]);
 
-  if (!usuario) return <Login />;
+  if (!usuario) return <Login modoNube={modoNube} />;
   return elemento;
 }
 
 export default function App() {
-  const [redConfig, setRedConfig] = useState<{ modo: "SERVIDOR" | "CAJA_REMOTA"; servidorUrl?: string } | null>(null);
+  const [redConfig, setRedConfig] = useState<{ modo: "SERVIDOR" | "CAJA_REMOTA" | "NUBE"; servidorUrl?: string } | null>(null);
 
   useEffect(() => {
-    api.red.obtenerConfig().then(setRedConfig as any);
+    api.red.obtenerConfig().then(setRedConfig);
   }, []);
 
   if (!redConfig) return null;
@@ -96,7 +99,7 @@ export default function App() {
     <>
       <UpdateBanner />
       <AuthProvider>
-        <RutasProtegidas />
+        <RutasProtegidas modoNube={redConfig.modo === "NUBE"} />
       </AuthProvider>
     </>
   );

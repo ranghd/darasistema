@@ -126,6 +126,15 @@ async function enrutar(req: Request, env: Env): Promise<Response> {
     await exigirAdmin(req, env);
     return json({ resultado: await registro(env).listar() });
   }
+  const borrar = ruta.match(/^\/admin\/empresas\/([^/]+)$/);
+  if (borrar && req.method === "DELETE") {
+    await exigirAdmin(req, env);
+    const codigo = normalizarCodigo(decodeURIComponent(borrar[1]));
+    if (!(await registro(env).existe(codigo))) throw new ErrorHttp(404, "Empresa no encontrada");
+    await empresa(env, codigo).borrar();
+    await registro(env).quitar(codigo);
+    return json({ resultado: { codigo, borrada: true } });
+  }
   const exportar = ruta.match(/^\/admin\/empresas\/([^/]+)\/exportar$/);
   if (exportar && req.method === "GET") {
     await exigirAdmin(req, env);
