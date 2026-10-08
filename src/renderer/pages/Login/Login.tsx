@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../../lib/auth";
 import { esVariantCaja } from "../../lib/variant";
 import { Button, Input } from "../../components/ui";
+import { api } from "../../lib/api";
 import Logo from "../../components/Logo";
 
 const CLAVE_EMPRESA = "darasistema.codigoEmpresa";
@@ -21,6 +22,12 @@ export default function Login({ modoNube = false }: { modoNube?: boolean }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
+
+  // Sale del modo red local sin tener que entrar primero (la pantalla de Configuracion pide sesion).
+  async function conectarANube() {
+    await api.red.guardarConfig({ modo: "NUBE", puerto: 4500 });
+    await api.app.reiniciar();
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,6 +95,14 @@ export default function Login({ modoNube = false }: { modoNube?: boolean }) {
           />
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
+          {!modoNube && /No se pudo conectar al servidor/.test(error) && (
+            <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs text-brand-800">
+              Si tu empresa ya trabaja en la nube, esta computadora todavia esta buscando un servidor en la red local.
+              <button type="button" className="mt-2 block w-full rounded-lg bg-brand-600 px-3 py-1.5 font-semibold text-white hover:bg-brand-700" onClick={conectarANube}>
+                Conectar a la nube
+              </button>
+            </div>
+          )}
 
           <Button type="submit" className="w-full" disabled={cargando || !usuario.trim() || !password || (modoNube && !empresa.trim())}>
             {cargando ? "Entrando..." : "Entrar"}
