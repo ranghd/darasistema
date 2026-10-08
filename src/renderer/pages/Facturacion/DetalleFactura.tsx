@@ -20,7 +20,7 @@ export default function DetalleFactura() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { usuario } = useAuth();
-  const { sesion } = useCaja();
+  const { sesion, usaCaja } = useCaja();
   const verContabilidad = !esVariantCaja && usuario?.rol === "ADMIN";
   const [asientos, setAsientos] = useState<AsientoConLineas[]>([]);
   const [imprimiendo, setImprimiendo] = useState(false);
@@ -94,7 +94,7 @@ export default function DetalleFactura() {
     setGuardando(true);
     setError("");
     try {
-      if (metodo === "EFECTIVO" && !sesion) throw new Error("La caja esta cerrada: para cobrar en efectivo abre la caja en Cierre de Caja.");
+      if (usaCaja && metodo === "EFECTIVO" && !sesion) throw new Error("La caja esta cerrada: para cobrar en efectivo abre la caja en Cierre de Caja.");
       await api.cobros.crear({ factura_id: factura.id, fecha: todayIso(), monto, metodo, caja_sesion_id: sesion?.id ?? null });
       setOpenCobro(false);
       await cargar();

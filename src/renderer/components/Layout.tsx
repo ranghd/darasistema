@@ -21,10 +21,7 @@ const NAV_COMPLETO = [
   },
   {
     section: "Caja",
-    items: [
-      { to: "/cierre-caja", label: "Cierre de Caja" },
-      { to: "/cierres-caja", label: "Cierres de Caja" },
-    ],
+    items: [{ to: "/cierres-caja", label: "Cierres de Caja" }],
   },
   {
     section: "Clientes",
@@ -69,7 +66,7 @@ const NAV_CAJA = [
     section: "Venta Rapida",
     items: [
       { to: "/caja", label: "Caja / POS" },
-      { to: "/cierre-caja", label: "Cierre de Caja" },
+      ...(esVariantCaja ? [{ to: "/cierre-caja", label: "Cierre de Caja" }] : []),
     ],
   },
   {

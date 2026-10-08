@@ -37,7 +37,8 @@ import UpdateBanner from "./components/UpdateBanner";
 const RUTAS_COMUNES = [
   { path: "/", element: <Dashboard /> },
   { path: "/caja", element: <Caja /> },
-  { path: "/cierre-caja", element: <CierreCaja /> },
+  // Abrir y cerrar caja solo en Cajapunto1; Darasistema solo consulta los cierres.
+  ...(esVariantCaja ? [{ path: "/cierre-caja", element: <CierreCaja /> }] : []),
   { path: "/facturas", element: <ListaFacturas /> },
   { path: "/facturas/nueva", element: <NuevaFactura /> },
   { path: "/facturas/:id", element: <DetalleFactura /> },

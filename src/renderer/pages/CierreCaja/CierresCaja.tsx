@@ -154,7 +154,7 @@ export default function CierresCaja() {
     <div>
       <PageHeader
         title="Cierres de Caja"
-        subtitle="Consulta las jornadas de cada caja: ventas, efectivo y diferencias. Los cierres no se editan; las correcciones quedan registradas."
+        subtitle="Consulta de las jornadas de cada caja. Las cajas se abren y se cierran desde Cajapunto1; aqui solo se revisan (las correcciones quedan registradas)."
         actions={
           <div className="flex gap-2">
             <Button variant="secondary" onClick={exportar} disabled={!lista?.cierres.length}>

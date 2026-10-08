@@ -17,7 +17,7 @@ let keySeq = 1;
 
 export default function NuevaFactura() {
   const { usuario } = useAuth();
-  const { sesion } = useCaja();
+  const { sesion, usaCaja } = useCaja();
   const navigate = useNavigate();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -80,7 +80,7 @@ export default function NuevaFactura() {
     if (!clienteId) return setError("Seleccione un cliente");
     if (lineas.length === 0) return setError("Agregue al menos un producto");
     // Al contado entra dinero: tiene que quedar en la jornada de una caja abierta.
-    if (condicionPago === "CONTADO" && !sesion) return setError("La caja esta cerrada. Abre la caja en Cierre de Caja para cobrar al contado (a credito si se puede facturar).");
+    if (usaCaja && condicionPago === "CONTADO" && !sesion) return setError("La caja esta cerrada. Abre la caja en Cierre de Caja para cobrar al contado (a credito si se puede facturar).");
 
     setEnviando(true);
     try {

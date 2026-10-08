@@ -25,7 +25,7 @@ const CATEGORIAS = [
 
 export default function Caja() {
   const { usuario } = useAuth();
-  const { sesion, recargar: recargarCaja } = useCaja();
+  const { sesion, usaCaja, recargar: recargarCaja } = useCaja();
   const [metodoPago, setMetodoPago] = useState<"EFECTIVO" | "TARJETA" | "TRANSFERENCIA">("EFECTIVO");
   const navigate = useNavigate();
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -108,7 +108,7 @@ export default function Caja() {
     setError("");
     if (!clienteId) return setError("Seleccione un cliente");
     if (carrito.length === 0) return setError("Agregue al menos un producto");
-    if (!sesion) return setError("La caja esta cerrada. Abre la caja en Cierre de Caja para poder cobrar.");
+    if (usaCaja && !sesion) return setError("La caja esta cerrada. Abre la caja en Cierre de Caja para poder cobrar.");
     setCobrando(true);
     try {
       const factura = await api.facturas.crear({
@@ -118,7 +118,7 @@ export default function Caja() {
         metodo_pago: metodoPago,
         tipo_ncf: "B02",
         creado_por: usuario?.nombre,
-        caja_sesion_id: sesion.id,
+        caja_sesion_id: sesion?.id ?? null,
         lineas: carrito.map((l) => ({ producto_id: l.producto_id, modalidad: l.modalidad, cantidad: l.cantidad, precio_unitario: productos.find((p) => p.id === l.producto_id)!.precio_contenido, descuento: 0 })),
       });
       setCarrito([]);
@@ -278,7 +278,7 @@ export default function Caja() {
             <Button variant="secondary" onClick={vaciarCarrito} disabled={carrito.length === 0}>
               Vaciar
             </Button>
-            <Button className="flex-1" onClick={cobrar} disabled={cobrando || carrito.length === 0 || !sesion}>
+            <Button className="flex-1" onClick={cobrar} disabled={cobrando || carrito.length === 0 || (usaCaja && !sesion)}>
               {cobrando ? "Cobrando..." : "Cobrar"}
             </Button>
           </div>

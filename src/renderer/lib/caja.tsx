@@ -1,10 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api } from "./api";
 import { useAuth } from "./auth";
+import { esVariantCaja } from "./variant";
 import type { Autor, Caja, SesionCaja } from "./types";
 
 // Caja de esta computadora y su jornada abierta. Cada computadora recuerda que caja
 // es (ej. "Caja principal", "Mostrador"); la jornada vive en la base de datos.
+// Solo Cajapunto1 opera la caja (abrir, cobrar, cerrar). Darasistema solo consulta
+// los cierres: sus ventas no se mezclan con la gaveta de ninguna caja.
 
 const CLAVE_CAJA = "darasistema.cajaId";
 
@@ -23,6 +26,8 @@ interface CajaContextValue {
   caja: Caja | null;
   /** Jornada abierta de la caja de esta computadora, o null si esta cerrada. */
   sesion: SesionCaja | null;
+  /** true en Cajapunto1: para cobrar hay que tener la caja abierta. */
+  usaCaja: boolean;
   cargando: boolean;
   seleccionarCaja: (id: number) => void;
   recargar: () => Promise<SesionCaja | null>;
@@ -45,7 +50,7 @@ export function CajaProvider({ children }: { children: React.ReactNode }) {
       setCajas(lista);
       const id = lista.some((c) => c.id === cajaId) ? cajaId : lista[0]?.id ?? null;
       if (id !== cajaId) setCajaId(id);
-      const s = id ? await api.caja.sesionActual(id) : null;
+      const s = esVariantCaja && id ? await api.caja.sesionActual(id) : null;
       setSesion(s);
       return s;
     } catch {
@@ -71,7 +76,7 @@ export function CajaProvider({ children }: { children: React.ReactNode }) {
   const autor = useCallback((): Autor => ({ id: usuario?.id ?? null, nombre: usuario?.nombre ?? "", rol: usuario?.rol }), [usuario]);
 
   return (
-    <CajaContext.Provider value={{ cajas, cajaId, caja: cajas.find((c) => c.id === cajaId) ?? null, sesion, cargando, seleccionarCaja, recargar, autor }}>
+    <CajaContext.Provider value={{ cajas, cajaId, caja: cajas.find((c) => c.id === cajaId) ?? null, sesion, usaCaja: esVariantCaja, cargando, seleccionarCaja, recargar, autor }}>
       {children}
     </CajaContext.Provider>
   );

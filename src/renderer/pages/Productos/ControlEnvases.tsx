@@ -30,7 +30,7 @@ export default function ControlEnvases() {
   const [seleccion, setSeleccion] = useState<Saldo | null>(null);
   const [cantidad, setCantidad] = useState(1);
   const [reembolsar, setReembolsar] = useState(true);
-  const { sesion } = useCaja();
+  const { sesion, usaCaja } = useCaja();
   const [errorDevolucion, setErrorDevolucion] = useState("");
   const [guardando, setGuardando] = useState(false);
 
@@ -56,7 +56,7 @@ export default function ControlEnvases() {
     if (!seleccion) return;
     setErrorDevolucion("");
     // Devolver el deposito saca efectivo de la gaveta: tiene que ser con la caja abierta.
-    if (reembolsar && !sesion) return setErrorDevolucion("La caja esta cerrada: para devolver el deposito en efectivo abre la caja en Cierre de Caja (o desmarca el reembolso).");
+    if (usaCaja && reembolsar && !sesion) return setErrorDevolucion("La caja esta cerrada: para devolver el deposito en efectivo abre la caja en Cierre de Caja (o desmarca el reembolso).");
     setGuardando(true);
     try {
       await api.envases.devolucion({
