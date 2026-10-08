@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../../lib/auth";
 import { esVariantCaja } from "../../lib/variant";
 import { Button, Input } from "../../components/ui";
+import Logo from "../../components/Logo";
 
 const CLAVE_EMPRESA = "darasistema.codigoEmpresa";
 
@@ -48,7 +49,7 @@ export default function Login({ modoNube = false }: { modoNube?: boolean }) {
     <div className="flex h-screen w-screen items-center justify-center bg-slate-100">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand-500 text-base font-bold text-white">DS</div>
+          <Logo size={44} />
           <div>
             <p className="text-lg font-semibold text-slate-900">{esVariantCaja ? "Cajapunto1" : "Darasistema"}</p>
             <p className="text-xs text-slate-400">Gas · Oxigeno · Agua</p>

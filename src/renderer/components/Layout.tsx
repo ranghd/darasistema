@@ -4,6 +4,7 @@ import { isPreviewMode } from "../lib/api";
 import { esVariantCaja } from "../lib/variant";
 import { useAuth } from "../lib/auth";
 import ConnectionBanner from "./ConnectionBanner";
+import Logo from "./Logo";
 
 const NAV_COMPLETO = [
   {
@@ -100,7 +101,7 @@ export default function Layout() {
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100">
       <aside className="flex w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-950 text-slate-200 print:hidden">
         <div className="flex items-center gap-2 px-5 py-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">DS</div>
+          <Logo size={36} className="rounded-[8px] ring-1 ring-white/15" />
           <div>
             <p className="text-sm font-semibold text-white">{esVariantCaja ? "Cajapunto1" : "Darasistema"}</p>
             <p className="text-[11px] text-slate-400">Gas · Oxigeno · Agua</p>

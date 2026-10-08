@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../../lib/api";
 import { Button, Card, Input } from "../../components/ui";
+import Logo from "../../components/Logo";
 
 export default function ConfigurarConexion() {
   const [servidorUrl, setServidorUrl] = useState("");
@@ -34,7 +35,7 @@ export default function ConfigurarConexion() {
     <div className="flex h-screen w-screen items-center justify-center bg-slate-100">
       <Card className="w-full max-w-md p-6">
         <div className="mb-4 flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">DS</div>
+          <Logo size={36} />
           <div>
             <p className="text-sm font-semibold text-slate-900">Cajapunto1</p>
             <p className="text-xs text-slate-400">Primer arranque</p>
