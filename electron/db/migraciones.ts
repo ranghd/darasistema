@@ -1,5 +1,6 @@
 import type { DB } from "./types";
 import { cuadrarInventarioContable } from "./contabilidad";
+import { proveedoresDesdeComprasAnteriores } from "./proveedores";
 
 // Agrega columnas nuevas a bases de datos que ya existian antes de una
 // actualizacion. Como el schema usa CREATE TABLE IF NOT EXISTS, las columnas
@@ -9,6 +10,7 @@ export function migrar(db: DB) {
     `ALTER TABLE productos ADD COLUMN itbis_rate REAL NOT NULL DEFAULT 0.18`,
     `ALTER TABLE facturas ADD COLUMN metodo_pago TEXT`,
     `ALTER TABLE facturas ADD COLUMN creado_por TEXT`,
+    `ALTER TABLE compras ADD COLUMN proveedor_id INTEGER REFERENCES proveedores(id)`,
   ];
   for (const sql of columnas) {
     try {
@@ -27,6 +29,8 @@ export function migrar(db: DB) {
     // Antes la existencia inicial de los productos nunca se registraba en la
     // contabilidad, asi que las cuentas de inventario quedaban en negativo al vender.
     ["inventario-inicial-contable", () => cuadrarInventarioContable(db, "Saldo inicial de inventario (existencia registrada antes de la contabilidad)")],
+    // Las compras viejas tenian el proveedor como texto libre: se crean los proveedores y sus relaciones.
+    ["proveedores-desde-compras", () => proveedoresDesdeComprasAnteriores(db)],
   ];
   for (const [nombre, aplicar] of datos) {
     if (yaAplicada.get(nombre)) continue;

@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
-import type { Compra, CompraLineaInput, PagoCompra, Producto } from "../../lib/types";
+import type { Compra, CompraLineaInput, PagoCompra, Producto, Proveedor, RelacionProductoProveedor } from "../../lib/types";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
+import { ProveedorFormModal } from "../Proveedores/componentes";
 
 interface LineaForm extends CompraLineaInput {
   key: number;
+  /** El usuario escribio el precio a mano: no se reemplaza al cambiar de proveedor. */
+  precioEditado: boolean;
 }
 
 let keySeq = 1;
@@ -15,7 +19,10 @@ export default function Compras() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [open, setOpen] = useState(false);
   const [fecha, setFecha] = useState(todayIso());
-  const [proveedor, setProveedor] = useState("");
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const [relaciones, setRelaciones] = useState<RelacionProductoProveedor[]>([]);
+  const [proveedorId, setProveedorId] = useState<number | "">("");
+  const [nuevoProveedor, setNuevoProveedor] = useState(false);
   const [condicionPago, setCondicionPago] = useState<"CONTADO" | "CREDITO">("CONTADO");
   const [lineas, setLineas] = useState<LineaForm[]>([]);
   const [error, setError] = useState("");
@@ -28,9 +35,11 @@ export default function Compras() {
   const [guardandoPago, setGuardandoPago] = useState(false);
 
   async function cargar() {
-    const [c, p] = await Promise.all([api.compras.listar(), api.productos.listar()]);
+    const [c, p, provs, rel] = await Promise.all([api.compras.listar(), api.productos.listar(), api.proveedores.listar(), api.proveedores.relaciones()]);
     setCompras(c);
     setProductos(p);
+    setProveedores(provs.filter((x) => x.activo));
+    setRelaciones(rel);
   }
 
   useEffect(() => {
@@ -39,17 +48,32 @@ export default function Compras() {
 
   function abrirNueva() {
     setFecha(todayIso());
-    setProveedor("");
+    setProveedorId("");
     setCondicionPago("CONTADO");
     setLineas([]);
     setError("");
     setOpen(true);
   }
 
+  function relacion(productoId: number, provId: number | "") {
+    return provId ? relaciones.find((r) => r.producto_id === productoId && r.proveedor_id === provId) : undefined;
+  }
+
+  // Precio sugerido: lo ultimo que se le pago a ese proveedor por ese producto, o lo cotizado, o el costo actual.
+  function precioSugerido(productoId: number, provId: number | ""): number {
+    const r = relacion(productoId, provId);
+    return r?.ultimo_precio ?? r?.precio_referencia ?? productos.find((x) => x.id === productoId)?.costo_contenido ?? 0;
+  }
+
+  function cambiarProveedor(nuevo: number | "", lineasActuales = lineas) {
+    setProveedorId(nuevo);
+    setLineas(lineasActuales.map((l) => (l.precioEditado ? l : { ...l, costo_unitario: precioSugerido(l.producto_id, nuevo) })));
+  }
+
   function agregarLinea() {
     if (productos.length === 0) return;
     const p = productos[0];
-    setLineas([...lineas, { key: keySeq++, producto_id: p.id, cantidad: 1, costo_unitario: p.costo_contenido, actualizarCosto: false }]);
+    setLineas([...lineas, { key: keySeq++, producto_id: p.id, cantidad: 1, costo_unitario: precioSugerido(p.id, proveedorId), precioEditado: false }]);
   }
 
   function actualizarLinea(key: number, cambios: Partial<LineaForm>) {
@@ -59,22 +83,22 @@ export default function Compras() {
   function cambiarProducto(key: number, productoId: number) {
     const p = productos.find((x) => x.id === productoId);
     if (!p) return;
-    actualizarLinea(key, { producto_id: p.id, costo_unitario: p.costo_contenido });
+    actualizarLinea(key, { producto_id: p.id, costo_unitario: precioSugerido(p.id, proveedorId), precioEditado: false });
   }
 
   const total = lineas.reduce((s, l) => s + l.cantidad * l.costo_unitario, 0);
 
   async function guardar() {
     setError("");
-    if (!proveedor.trim()) return setError("El proveedor es obligatorio");
+    if (!proveedorId) return setError("Selecciona el proveedor (o crea uno nuevo)");
     if (lineas.length === 0) return setError("Agregue al menos un producto");
     setGuardando(true);
     try {
       await api.compras.crear({
         fecha,
-        proveedor: proveedor.trim(),
+        proveedor_id: proveedorId,
         condicion_pago: condicionPago,
-        lineas: lineas.map(({ key, ...rest }) => rest),
+        lineas: lineas.map(({ key, precioEditado, ...rest }) => rest),
       });
       setOpen(false);
       await cargar();
@@ -122,7 +146,15 @@ export default function Compras() {
           <tr key={c.id} className="hover:bg-slate-50">
             <td className="px-4 py-2.5 text-slate-500">{c.numero}</td>
             <td className="px-4 py-2.5">{formatDate(c.fecha)}</td>
-            <td className="px-4 py-2.5 font-medium text-slate-800">{c.proveedor}</td>
+            <td className="px-4 py-2.5 font-medium text-slate-800">
+              {c.proveedor_id ? (
+                <Link to={`/proveedores/${c.proveedor_id}`} className="hover:text-brand-700 hover:underline">
+                  {c.proveedor}
+                </Link>
+              ) : (
+                c.proveedor
+              )}
+            </td>
             <td className="px-4 py-2.5">{c.condicion_pago === "CONTADO" ? "Contado" : "Credito"}</td>
             <td className="px-4 py-2.5">{formatMoney(c.total)}</td>
             <td className="px-4 py-2.5">
@@ -143,7 +175,19 @@ export default function Compras() {
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-3">
             <Input label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-            <Input label="Proveedor" value={proveedor} onChange={(e) => setProveedor(e.target.value)} placeholder="Nombre del proveedor" />
+            <div>
+              <Select label="Proveedor" value={proveedorId} onChange={(e) => cambiarProveedor(e.target.value ? Number(e.target.value) : "")}>
+                <option value="">Selecciona un proveedor...</option>
+                {proveedores.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </Select>
+              <button type="button" className="mt-1 text-xs font-medium text-brand-600 hover:underline" onClick={() => setNuevoProveedor(true)}>
+                + Agregar nuevo proveedor
+              </button>
+            </div>
             <Select label="Condicion de pago" value={condicionPago} onChange={(e) => setCondicionPago(e.target.value as any)}>
               <option value="CONTADO">Contado</option>
               <option value="CREDITO">Credito</option>
@@ -159,6 +203,14 @@ export default function Compras() {
 
           {lineas.length === 0 && <p className="py-4 text-center text-sm text-slate-400">Agregue los productos que recibio del proveedor</p>}
 
+          {lineas.length > 0 && (
+            <div className="grid grid-cols-12 gap-2 px-3 text-xs font-semibold uppercase text-slate-400">
+              <span className="col-span-4">Producto</span>
+              <span className="col-span-2">Cantidad</span>
+              <span className="col-span-3">Precio de compra</span>
+              <span className="col-span-3" />
+            </div>
+          )}
           <div className="space-y-2">
             {lineas.map((l) => (
               <div key={l.key} className="rounded-lg border border-slate-200 p-3">
@@ -176,7 +228,7 @@ export default function Compras() {
                     <Input type="number" min={0.01} step="0.01" value={l.cantidad} onChange={(e) => actualizarLinea(l.key, { cantidad: Number(e.target.value) })} />
                   </div>
                   <div className="col-span-3">
-                    <Input type="number" step="0.01" value={l.costo_unitario} onChange={(e) => actualizarLinea(l.key, { costo_unitario: Number(e.target.value) })} />
+                    <Input type="number" step="0.01" value={l.costo_unitario} onChange={(e) => actualizarLinea(l.key, { costo_unitario: Number(e.target.value), precioEditado: true })} />
                   </div>
                   <div className="col-span-2 text-xs leading-tight text-slate-500">
                     {(() => {
@@ -199,7 +251,21 @@ export default function Compras() {
                     </button>
                   </div>
                 </div>
-                <div className="mt-1 text-right text-xs text-slate-500">Subtotal: {formatMoney(l.cantidad * l.costo_unitario)}</div>
+                <div className="mt-2 flex flex-wrap items-start justify-between gap-2 text-xs">
+                  <div className="space-y-1">
+                    <ReferenciaPrecio
+                      relacion={relacion(l.producto_id, proveedorId)}
+                      nombreProveedor={proveedores.find((x) => x.id === proveedorId)?.nombre}
+                      precioActual={l.costo_unitario}
+                      onUsar={(precio) => actualizarLinea(l.key, { costo_unitario: precio, precioEditado: false })}
+                    />
+                    <OtrosProveedores
+                      relaciones={relaciones.filter((r) => r.producto_id === l.producto_id && r.proveedor_id !== proveedorId && r.proveedor_activo && (r.ultimo_precio ?? r.precio_referencia) !== null)}
+                      onElegir={(provId) => cambiarProveedor(provId, lineas.map((x) => (x.key === l.key ? { ...x, precioEditado: false } : x)))}
+                    />
+                  </div>
+                  <span className="text-slate-500">Subtotal: {formatMoney(l.cantidad * l.costo_unitario)}</span>
+                </div>
               </div>
             ))}
           </div>
@@ -254,6 +320,64 @@ export default function Compras() {
           </form>
         )}
       </Modal>
+      <ProveedorFormModal
+        open={nuevoProveedor}
+        onClose={() => setNuevoProveedor(false)}
+        onGuardado={(p) => {
+          setProveedores((prev) => [...prev, p].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+          cambiarProveedor(p.id);
+        }}
+      />
+    </div>
+  );
+}
+
+// Ultimo precio pagado a este proveedor por este producto (referencia; se puede cambiar).
+function ReferenciaPrecio({
+  relacion,
+  nombreProveedor,
+  precioActual,
+  onUsar,
+}: {
+  relacion?: RelacionProductoProveedor;
+  nombreProveedor?: string;
+  precioActual: number;
+  onUsar: (precio: number) => void;
+}) {
+  if (!nombreProveedor) return <p className="text-slate-400">Selecciona el proveedor para ver su ultimo precio.</p>;
+  const ultimo = relacion?.ultimo_precio;
+  if (ultimo === null || ultimo === undefined) {
+    return <p className="text-slate-500">Primera vez que le compras este producto a {nombreProveedor}: quedaran asociados al guardar.</p>;
+  }
+  return (
+    <p className="text-slate-600">
+      Ultimo precio con {nombreProveedor}: <b>{formatMoney(ultimo)}</b> ({formatDate(relacion?.ultima_fecha)})
+      {Math.abs(ultimo - precioActual) > 0.004 && (
+        <button type="button" className="ml-2 text-brand-600 hover:underline" onClick={() => onUsar(ultimo)}>
+          usar ese precio
+        </button>
+      )}
+    </p>
+  );
+}
+
+// Otros proveedores que venden el producto, con su ultimo precio. Al elegir uno, la compra pasa a ese proveedor.
+function OtrosProveedores({ relaciones, onElegir }: { relaciones: RelacionProductoProveedor[]; onElegir: (proveedorId: number) => void }) {
+  if (relaciones.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <span className="text-slate-400">Otros proveedores:</span>
+      {relaciones.map((r) => (
+        <button
+          key={r.proveedor_id}
+          type="button"
+          title="Comprar a este proveedor con su ultimo precio"
+          className="rounded-full border border-slate-200 px-2 py-0.5 text-slate-600 hover:border-brand-400 hover:text-brand-700"
+          onClick={() => onElegir(r.proveedor_id)}
+        >
+          {r.proveedor_nombre} — {formatMoney(r.ultimo_precio ?? r.precio_referencia)}
+        </button>
+      ))}
     </div>
   );
 }

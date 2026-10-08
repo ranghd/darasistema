@@ -4,6 +4,7 @@
 // La app real siempre usa window.api expuesto por electron/preload.ts.
 import type {
   AsientoConLineas,
+  Compra,
   Cliente,
   Cuenta,
   Factura,
@@ -12,6 +13,10 @@ import type {
   HistorialCliente,
   MovimientoMayor,
   NcfSecuencia,
+  PrecioHistorico,
+  Proveedor,
+  ProveedorConResumen,
+  RelacionProductoProveedor,
   Producto,
   ResumenCliente,
   SaldoCuenta,
@@ -104,9 +109,21 @@ export const mockApi = {
     crear: async (data: any, ..._rest: any[]) => { warn(); return { id: Date.now(), ...data }; },
   },
   compras: {
-    listar: async (..._args: any[]) => [],
+    listar: async (_proveedorId?: number): Promise<Compra[]> => [],
     obtener: async (..._args: any[]) => undefined,
     crear: async (data: any, ..._rest: any[]) => { warn(); return { id: Date.now(), numero: 1, estado: "PENDIENTE", ...data }; },
+  },
+  proveedores: {
+    listar: async (): Promise<ProveedorConResumen[]> => [],
+    obtener: async (_id: number): Promise<Proveedor | undefined> => undefined,
+    crear: async (data: any): Promise<Proveedor> => { warn(); return { id: Date.now(), telefono: null, direccion: null, rnc: null, contacto: null, notas: null, activo: 1, creado_en: "", ...data }; },
+    actualizar: async (_id: number, data: any): Promise<Proveedor> => { warn(); return data; },
+    relaciones: async (): Promise<RelacionProductoProveedor[]> => [],
+    productos: async (_proveedorId: number): Promise<RelacionProductoProveedor[]> => [],
+    deProducto: async (_productoId: number): Promise<RelacionProductoProveedor[]> => [],
+    historialPrecios: async (_filtro: { producto_id?: number; proveedor_id?: number }): Promise<PrecioHistorico[]> => [],
+    vincular: async (data: any): Promise<RelacionProductoProveedor | undefined> => { warn(); return data; },
+    desvincular: async (_productoId: number, _proveedorId: number): Promise<boolean> => { warn(); return true; },
   },
   pagosCompra: {
     listarPorCompra: async (..._args: any[]) => [],

@@ -106,6 +106,33 @@ CREATE TABLE IF NOT EXISTS comprobantes_varios (
   creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
+CREATE TABLE IF NOT EXISTS proveedores (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre TEXT NOT NULL,
+  telefono TEXT,
+  direccion TEXT,
+  rnc TEXT,
+  contacto TEXT,
+  notas TEXT,
+  activo INTEGER NOT NULL DEFAULT 1,
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- Relacion muchos a muchos producto <-> proveedor. El historial de precios sale
+-- de compra_lineas; aqui se guarda lo propio de la relacion (codigo del proveedor,
+-- precio cotizado) y el ultimo precio pagado para sugerirlo rapido.
+CREATE TABLE IF NOT EXISTS producto_proveedor (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  producto_id INTEGER NOT NULL REFERENCES productos(id),
+  proveedor_id INTEGER NOT NULL REFERENCES proveedores(id),
+  codigo_proveedor TEXT,
+  precio_referencia REAL,
+  ultimo_precio REAL,
+  ultima_fecha TEXT,
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  UNIQUE(producto_id, proveedor_id)
+);
+
 CREATE TABLE IF NOT EXISTS compras (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   numero INTEGER NOT NULL UNIQUE,

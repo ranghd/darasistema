@@ -18,6 +18,7 @@ import { registerConfigIpc } from "../../electron/ipc/config";
 import { registerComprobantesIpc } from "../../electron/ipc/comprobantes";
 import { registerAuthIpc } from "../../electron/ipc/auth";
 import { registerComprasIpc } from "../../electron/ipc/compras";
+import { registerProveedoresIpc } from "../../electron/ipc/proveedores";
 
 export interface InicializarEmpresa {
   empresa: DatosEmpresa;
@@ -60,6 +61,7 @@ export class Empresa extends DurableObject {
       registerComprobantesIpc(db);
       registerAuthIpc(db);
       registerComprasIpc(db);
+      registerProveedoresIpc(db);
     });
   }
 

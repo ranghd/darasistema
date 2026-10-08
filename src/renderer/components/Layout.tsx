@@ -27,6 +27,7 @@ const NAV_COMPLETO = [
     items: [
       { to: "/productos", label: "Productos" },
       { to: "/compras", label: "Compras" },
+      { to: "/proveedores", label: "Proveedores" },
       { to: "/envases", label: "Control de Envases" },
     ],
   },

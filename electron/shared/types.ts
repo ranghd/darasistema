@@ -199,7 +199,7 @@ export interface CompraLineaInput {
   producto_id: number;
   cantidad: number;
   costo_unitario: number;
-  actualizarCosto: boolean;
+  actualizarCosto?: boolean;
 }
 
 export interface CompraLinea extends CompraLineaInput {
@@ -210,7 +210,9 @@ export interface CompraLinea extends CompraLineaInput {
 
 export interface NuevaCompraInput {
   fecha: string;
-  proveedor: string;
+  /** Proveedor guardado. Si no viene, se busca o se crea por nombre. */
+  proveedor_id?: number;
+  proveedor?: string;
   condicion_pago: "CONTADO" | "CREDITO";
   lineas: CompraLineaInput[];
 }
@@ -220,6 +222,7 @@ export interface Compra {
   numero: number;
   fecha: string;
   proveedor: string;
+  proveedor_id?: number | null;
   condicion_pago: "CONTADO" | "CREDITO";
   total: number;
   estado: "PENDIENTE" | "PAGADA";
@@ -230,6 +233,58 @@ export interface Compra {
 
 export interface CompraDetalle extends Compra {
   lineas: CompraLinea[];
+}
+
+export interface Proveedor {
+  id: number;
+  nombre: string;
+  telefono: string | null;
+  direccion: string | null;
+  rnc: string | null;
+  contacto: string | null;
+  notas: string | null;
+  activo: number;
+  creado_en: string;
+}
+
+export interface ProveedorConResumen extends Proveedor {
+  compras: number;
+  total_comprado: number;
+  ultima_compra: string | null;
+  por_pagar: number;
+  productos: number;
+}
+
+/** Datos de la relacion producto <-> proveedor, con lo calculado del historial de compras. */
+export interface RelacionProductoProveedor {
+  producto_id: number;
+  producto_nombre: string;
+  producto_codigo: string;
+  costo_promedio: number;
+  proveedor_id: number;
+  proveedor_nombre: string;
+  proveedor_activo: number;
+  codigo_proveedor: string | null;
+  precio_referencia: number | null;
+  ultimo_precio: number | null;
+  ultima_fecha: string | null;
+  cantidad_total: number;
+  veces: number;
+  precio_min: number | null;
+  precio_max: number | null;
+}
+
+export interface PrecioHistorico {
+  compra_id: number;
+  compra_numero: number;
+  fecha: string;
+  proveedor_id: number | null;
+  proveedor_nombre: string;
+  producto_id: number;
+  producto_nombre: string;
+  cantidad: number;
+  costo_unitario: number;
+  subtotal: number;
 }
 
 export interface PagoCompra {

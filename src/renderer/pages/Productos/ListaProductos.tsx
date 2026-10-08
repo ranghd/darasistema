@@ -3,6 +3,9 @@ import { api } from "../../lib/api";
 import type { Cuenta, Producto } from "../../lib/types";
 import { formatMoney } from "../../lib/format";
 import { Badge, Button, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
+import { useAuth } from "../../lib/auth";
+import { esVariantCaja } from "../../lib/variant";
+import { ProveedoresDeProductoModal } from "../Proveedores/componentes";
 
 const emptyForm = {
   nombre: "",
@@ -33,6 +36,9 @@ function calcularPrecio(costo: number, margenPct: number): number {
 }
 
 export default function ListaProductos() {
+  const { usuario } = useAuth();
+  const verProveedores = !esVariantCaja && usuario?.rol === "ADMIN";
+  const [proveedoresDe, setProveedoresDe] = useState<Producto | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
   const [open, setOpen] = useState(false);
@@ -143,7 +149,12 @@ export default function ListaProductos() {
             <td className="px-4 py-2.5">
               <span className={p.existencia <= 10 ? "font-semibold text-red-600" : "text-slate-700"}>{p.existencia}</span>
             </td>
-            <td className="px-4 py-2.5 text-right">
+            <td className="whitespace-nowrap px-4 py-2.5 text-right">
+              {verProveedores && (
+                <Button size="sm" variant="ghost" onClick={() => setProveedoresDe(p)}>
+                  Proveedores
+                </Button>
+              )}
               <Button size="sm" variant="secondary" onClick={() => abrirEditar(p)}>
                 Editar
               </Button>
@@ -209,6 +220,7 @@ export default function ListaProductos() {
           </div>
         </form>
       </Modal>
+      <ProveedoresDeProductoModal producto={proveedoresDe} onClose={() => setProveedoresDe(null)} />
     </div>
   );
 }

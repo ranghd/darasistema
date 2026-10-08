@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { crearAsiento } from "../db/contabilidad";
+import { buscarOCrearProveedor, registrarPrecioProveedor } from "../db/proveedores";
 import type { Compra, CompraDetalle, NuevaCompraInput, PagoCompra, Producto } from "../shared/types";
 
 const CODIGO_CAJA = "1.1.01";
@@ -14,13 +15,17 @@ function cuentaIdPorCodigo(db: DB, codigo: string): number {
 }
 
 export function registerComprasIpc(db: DB) {
-  ipcMain.handle("compras:listar", () => {
+  ipcMain.handle("compras:listar", (_e, proveedorId?: number) => {
     return db
       .prepare(
-        `SELECT c.*, COALESCE((SELECT SUM(monto) FROM pagos_compra WHERE compra_id = c.id), 0) as pagado
-         FROM compras c ORDER BY c.numero DESC`
+        `SELECT c.id, c.numero, c.fecha, COALESCE(pr.nombre, c.proveedor) AS proveedor, c.proveedor_id, c.condicion_pago,
+                c.total, c.estado, c.asiento_id, c.creado_en,
+                COALESCE((SELECT SUM(monto) FROM pagos_compra WHERE compra_id = c.id), 0) as pagado
+         FROM compras c LEFT JOIN proveedores pr ON pr.id = c.proveedor_id
+         ${proveedorId ? "WHERE c.proveedor_id = @proveedor_id" : ""}
+         ORDER BY c.numero DESC`
       )
-      .all() as Compra[];
+      .all(proveedorId ? { proveedor_id: proveedorId } : {}) as Compra[];
   });
 
   ipcMain.handle("compras:obtener", (_e, id: number) => {
@@ -42,7 +47,15 @@ export function registerComprasIpc(db: DB) {
 
   ipcMain.handle("compras:crear", (_e, input: NuevaCompraInput) => {
     if (!input.lineas || input.lineas.length === 0) throw new Error("La compra debe tener al menos una linea");
-    if (!input.proveedor?.trim()) throw new Error("El proveedor es obligatorio");
+    let nombreProveedor = "";
+    if (input.proveedor_id) {
+      const p = db.prepare(`SELECT nombre FROM proveedores WHERE id = ?`).get(input.proveedor_id) as { nombre: string } | undefined;
+      if (!p) throw new Error("El proveedor seleccionado no existe");
+      nombreProveedor = p.nombre;
+    } else {
+      nombreProveedor = input.proveedor?.trim() ?? "";
+      if (!nombreProveedor) throw new Error("El proveedor es obligatorio");
+    }
 
     const productos = new Map<number, Producto>();
     for (const l of input.lineas) {
@@ -58,15 +71,18 @@ export function registerComprasIpc(db: DB) {
     const total = lineasCalc.reduce((s, l) => s + l.subtotal, 0);
 
     const run = db.transaction(() => {
+      const proveedorId = input.proveedor_id ?? buscarOCrearProveedor(db, nombreProveedor);
+      // Usar el nombre tal como esta guardado (aunque lo hayan escrito con otro formato).
+      nombreProveedor = (db.prepare(`SELECT nombre FROM proveedores WHERE id = ?`).get(proveedorId) as { nombre: string }).nombre;
       const maxNumero = (db.prepare(`SELECT COALESCE(MAX(numero), 0) as m FROM compras`).get() as { m: number }).m;
       const estado = input.condicion_pago === "CONTADO" ? "PAGADA" : "PENDIENTE";
 
       const infoCompra = db
         .prepare(
-          `INSERT INTO compras (numero, fecha, proveedor, condicion_pago, total, estado)
-           VALUES (@numero, @fecha, @proveedor, @condicion_pago, @total, @estado)`
+          `INSERT INTO compras (numero, fecha, proveedor, proveedor_id, condicion_pago, total, estado)
+           VALUES (@numero, @fecha, @proveedor, @proveedor_id, @condicion_pago, @total, @estado)`
         )
-        .run({ numero: maxNumero + 1, fecha: input.fecha, proveedor: input.proveedor.trim(), condicion_pago: input.condicion_pago, total, estado });
+        .run({ numero: maxNumero + 1, fecha: input.fecha, proveedor: nombreProveedor, proveedor_id: proveedorId, condicion_pago: input.condicion_pago, total, estado });
       const compraId = Number(infoCompra.lastInsertRowid);
 
       const insertLinea = db.prepare(
@@ -76,6 +92,7 @@ export function registerComprasIpc(db: DB) {
 
       for (const l of lineasCalc) {
         insertLinea.run({ compra_id: compraId, producto_id: l.producto_id, cantidad: l.cantidad, costo_unitario: l.costo_unitario, subtotal: l.subtotal });
+        registrarPrecioProveedor(db, proveedorId, l.producto_id, l.costo_unitario, input.fecha);
 
         // Costo promedio ponderado: mezcla lo que habia con lo que entra, asi el
         // inventario en la contabilidad siempre es existencia x costo.
@@ -99,13 +116,13 @@ export function registerComprasIpc(db: DB) {
       const cuentaContrapartida = input.condicion_pago === "CONTADO" ? CODIGO_CAJA : CODIGO_CXP;
       const lineasAsiento = [];
       for (const [cuentaId, monto] of inventarioPorCuenta) {
-        lineasAsiento.push({ cuenta_id: cuentaId, debito: Math.round(monto * 100) / 100, credito: 0, descripcion: `Compra #${maxNumero + 1} - ${input.proveedor}` });
+        lineasAsiento.push({ cuenta_id: cuentaId, debito: Math.round(monto * 100) / 100, credito: 0, descripcion: `Compra #${maxNumero + 1} - ${nombreProveedor}` });
       }
-      lineasAsiento.push({ cuenta_id: cuentaIdPorCodigo(db, cuentaContrapartida), debito: 0, credito: Math.round(total * 100) / 100, descripcion: `Compra #${maxNumero + 1} - ${input.proveedor}` });
+      lineasAsiento.push({ cuenta_id: cuentaIdPorCodigo(db, cuentaContrapartida), debito: 0, credito: Math.round(total * 100) / 100, descripcion: `Compra #${maxNumero + 1} - ${nombreProveedor}` });
 
       const asientoId = crearAsiento(db, {
         fecha: input.fecha,
-        concepto: `Compra de mercancia #${maxNumero + 1} a ${input.proveedor}`,
+        concepto: `Compra de mercancia #${maxNumero + 1} a ${nombreProveedor}`,
         origen: "AJUSTE",
         referencia_id: compraId,
         lineas: lineasAsiento,

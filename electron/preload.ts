@@ -43,9 +43,21 @@ const api = {
     crear: (data: any) => invoke("cobros:crear", data),
   },
   compras: {
-    listar: () => invoke("compras:listar"),
+    listar: (proveedorId?: number) => invoke("compras:listar", proveedorId),
     obtener: (id: number) => invoke("compras:obtener", id),
     crear: (data: any) => invoke("compras:crear", data),
+  },
+  proveedores: {
+    listar: () => invoke("proveedores:listar"),
+    obtener: (id: number) => invoke("proveedores:obtener", id),
+    crear: (data: any) => invoke("proveedores:crear", data),
+    actualizar: (id: number, data: any) => invoke("proveedores:actualizar", id, data),
+    relaciones: () => invoke("proveedores:relaciones"),
+    productos: (proveedorId: number) => invoke("proveedores:productos", proveedorId),
+    deProducto: (productoId: number) => invoke("proveedores:deProducto", productoId),
+    historialPrecios: (filtro: any) => invoke("proveedores:historialPrecios", filtro),
+    vincular: (data: any) => invoke("proveedores:vincular", data),
+    desvincular: (productoId: number, proveedorId: number) => invoke("proveedores:desvincular", productoId, proveedorId),
   },
   pagosCompra: {
     listarPorCompra: (compraId: number) => invoke("pagosCompra:listarPorCompra", compraId),
