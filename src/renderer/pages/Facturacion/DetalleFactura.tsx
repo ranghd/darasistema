@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import type { AsientoConLineas, Cobro, CompanyConfig, Cuenta, FacturaDetalle } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
@@ -22,7 +22,8 @@ export default function DetalleFactura() {
   const verContabilidad = !esVariantCaja && usuario?.rol === "ADMIN";
   const [asientos, setAsientos] = useState<AsientoConLineas[]>([]);
   const [imprimiendo, setImprimiendo] = useState(false);
-  const [avisoImpresion, setAvisoImpresion] = useState<{ ok: boolean; texto: string } | null>(null);
+  const location = useLocation();
+  const [avisoImpresion, setAvisoImpresion] = useState<{ ok: boolean; texto: string } | null>((location.state as any)?.avisoImpresion ?? null);
   const [formatoImpresion, setFormatoImpresion] = useState<"TICKET" | "CARTA">("TICKET");
   const [factura, setFactura] = useState<FacturaDetalle | null>(null);
   const [cobros, setCobros] = useState<Cobro[]>([]);
@@ -74,8 +75,7 @@ export default function DetalleFactura() {
     if (formatoImpresion === "CARTA") return window.print();
     setImprimiendo(true);
     setAvisoImpresion(null);
-    const error = await imprimirReciboFactura(factura!.id);
-    setAvisoImpresion(error ? { ok: false, texto: error } : { ok: true, texto: "Recibo enviado a la impresora." });
+    setAvisoImpresion(await imprimirReciboFactura(factura!.id));
     setImprimiendo(false);
   }
 

@@ -3,7 +3,7 @@ import { api, mensajeDeError } from "./api";
 import { html } from "./exportar";
 import { formatDate, formatMoney } from "./format";
 import { NCF_LABELS } from "./ncf";
-import type { Cliente, Cobro, CompanyConfig, ConfigImpresion, FacturaDetalle, TipoNcf } from "./types";
+import type { Cliente, Cobro, CompanyConfig, ConfigImpresion, FacturaDetalle, ResultadoImpresion, TipoNcf } from "./types";
 
 const METODOS: Record<string, string> = { EFECTIVO: "Efectivo", TRANSFERENCIA: "Transferencia", TARJETA: "Tarjeta", CHEQUE: "Cheque" };
 
@@ -64,9 +64,20 @@ export function htmlTicket(f: FacturaDetalle, empresa: CompanyConfig | null, cli
   </body></html>`;
 }
 
+export interface AvisoImpresion {
+  ok: boolean;
+  texto: string;
+}
+
+// Texto para el usuario segun lo que Windows confirmo (no decimos "impreso" sin saberlo).
+export function avisoDeResultado(r: ResultadoImpresion): AvisoImpresion {
+  return r.entregado
+    ? { ok: true, texto: `Windows entrego el recibo a la impresora "${r.impresora}". Si no salio el papel, revisa que tenga papel puesto por el lado correcto y la tapa cerrada.` }
+    : { ok: true, texto: `Se mando el recibo a "${r.impresora || "la impresora predeterminada"}", pero Windows no confirmo la entrega. Revisa que haya salido.` };
+}
+
 // Imprime el recibo de una factura en la impresora de esta computadora.
-// Devuelve un mensaje de error para mostrar, o null si salio bien.
-export async function imprimirReciboFactura(facturaId: number, config?: ConfigImpresion): Promise<string | null> {
+export async function imprimirReciboFactura(facturaId: number, config?: ConfigImpresion): Promise<AvisoImpresion> {
   try {
     const [cfg, f, empresa, cobros] = await Promise.all([
       config ? Promise.resolve(config) : api.impresion.obtenerConfig(),
@@ -75,10 +86,9 @@ export async function imprimirReciboFactura(facturaId: number, config?: ConfigIm
       api.cobros.listarPorFactura(facturaId) as Promise<Cobro[]>,
     ]);
     const cliente = ((await api.clientes.obtener(f.cliente_id)) as Cliente | undefined) ?? null;
-    await api.impresion.imprimirTicket(htmlTicket(f, empresa, cliente, cobros, cfg.anchoMm));
-    return null;
+    return avisoDeResultado(await api.impresion.imprimirTicket(htmlTicket(f, empresa, cliente, cobros, cfg.anchoMm)));
   } catch (err) {
-    return mensajeDeError(err, "No se pudo imprimir");
+    return { ok: false, texto: `No se imprimio: ${mensajeDeError(err, "error desconocido")}` };
   }
 }
 

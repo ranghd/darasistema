@@ -389,6 +389,23 @@ export interface ConfigImpresion {
   imprimirAlCobrar: boolean;
 }
 
+export interface ResultadoImpresion {
+  impresora: string;
+  /** true: Windows confirmo que entrego el trabajo a la impresora. */
+  entregado: boolean;
+}
+
+export interface EstadoImpresora {
+  verificado: boolean;
+  existe: boolean;
+  nombre: string;
+  desconectada: boolean;
+  problema: string | null;
+  trabajosPendientes: number;
+  /** Explicacion para el usuario si no va a poder imprimir, o null. */
+  mensaje: string | null;
+}
+
 export interface ImpresoraInfo {
   nombre: string;
   descripcion: string;

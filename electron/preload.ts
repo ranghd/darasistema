@@ -111,6 +111,8 @@ const api = {
     guardarConfig: (data: any) => invoke("impresion:guardarConfig", data),
     listar: () => invoke("impresion:listar"),
     imprimirTicket: (html: string) => invoke("impresion:imprimirTicket", html),
+    estado: () => invoke("impresion:estado"),
+    limpiarCola: () => invoke("impresion:limpiarCola"),
   },
   updater: {
     onEstado: (cb: (estado: any) => void) => {

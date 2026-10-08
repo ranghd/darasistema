@@ -5,7 +5,9 @@
 import type {
   AsientoConLineas,
   ConfigImpresion,
+  EstadoImpresora,
   ImpresoraInfo,
+  ResultadoImpresion,
   Compra,
   Cliente,
   Cuenta,
@@ -187,7 +189,9 @@ export const mockApi = {
     guardarConfig: async (data: Partial<ConfigImpresion>): Promise<ConfigImpresion> => { warn(); return { impresora: "", anchoMm: 80, formato: "TICKET", imprimirAlCobrar: false, ...data }; },
     listar: async (): Promise<ImpresoraInfo[]> => [{ nombre: "Microsoft Print to PDF", descripcion: "Microsoft Print to PDF", predeterminada: true }],
     // En el navegador no hay impresion directa: se abre la vista de impresion normal.
-    imprimirTicket: async (_html: string): Promise<true> => { window.print(); return true; },
+    imprimirTicket: async (_html: string): Promise<ResultadoImpresion> => { window.print(); return { impresora: "Vista previa", entregado: false }; },
+    estado: async (): Promise<EstadoImpresora> => ({ verificado: false, existe: true, nombre: "Vista previa", desconectada: false, problema: null, trabajosPendientes: 0, mensaje: null }),
+    limpiarCola: async (): Promise<boolean> => true,
   },
   updater: {
     // En vista previa no hay auto-update real: nunca se dispara el callback.

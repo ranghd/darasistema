@@ -116,11 +116,10 @@ export default function Caja() {
       });
       setCarrito([]);
       const cfgImpresion = await api.impresion.obtenerConfig().catch(() => null);
-      if (cfgImpresion?.formato === "TICKET" && cfgImpresion.imprimirAlCobrar) {
-        // Si la impresora falla, la venta ya quedo guardada: se puede reimprimir desde la factura.
-        await imprimirReciboFactura((factura as any).id, cfgImpresion);
-      }
-      navigate(`/facturas/${(factura as any).id}`);
+      // Si la impresora falla, la venta ya quedo guardada: el aviso sale en la factura y se puede reimprimir.
+      const avisoImpresion =
+        cfgImpresion?.formato === "TICKET" && cfgImpresion.imprimirAlCobrar ? await imprimirReciboFactura((factura as any).id, cfgImpresion) : null;
+      navigate(`/facturas/${(factura as any).id}`, { state: { avisoImpresion } });
     } catch (e: any) {
       setError(e?.message ?? "No se pudo cobrar la venta");
     } finally {
