@@ -1,15 +1,20 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { crearAsiento, fechaHoyRD } from "../db/contabilidad";
+import { validarSesionAbierta } from "./caja";
 import type { Factura, FacturaDetalle, NuevaFacturaInput, Producto, TipoNcf } from "../shared/types";
 
 const CODIGO_CAJA = "1.1.01";
 const CODIGO_BANCO = "1.1.02";
 const CODIGO_CXC = "1.1.03";
 
+// Solo el efectivo entra a la gaveta (Caja General); tarjeta, transferencia y cheque llegan al banco.
+function codigoCobroContado(metodoPago?: string | null): string {
+  return !metodoPago || metodoPago === "EFECTIVO" ? CODIGO_CAJA : CODIGO_BANCO;
+}
+
 function cuentaCobroContado(db: DB, metodoPago?: string): number {
-  const codigo = metodoPago === "TRANSFERENCIA" ? CODIGO_BANCO : CODIGO_CAJA;
-  return cuentaIdPorCodigo(db, codigo);
+  return cuentaIdPorCodigo(db, codigoCobroContado(metodoPago));
 }
 const CODIGO_ITBIS_PAGAR = "2.1.02";
 const CODIGO_DEPOSITOS_GARANTIA = "2.1.03";
@@ -75,6 +80,7 @@ export function registerFacturasIpc(db: DB) {
 
   ipcMain.handle("facturas:crear", (_e, input: NuevaFacturaInput) => {
     if (!input.lineas || input.lineas.length === 0) throw new Error("La factura debe tener al menos una linea");
+    const cajaSesionId = validarSesionAbierta(db, input.caja_sesion_id);
 
     const productos = new Map<number, Producto>();
     for (const l of input.lineas) {
@@ -109,8 +115,8 @@ export function registerFacturasIpc(db: DB) {
 
       const infoFactura = db
         .prepare(
-          `INSERT INTO facturas (numero, ncf, cliente_id, fecha, condicion_pago, metodo_pago, subtotal, itbis, fianza_total, total, estado, creado_por)
-           VALUES (@numero, @ncf, @cliente_id, @fecha, @condicion_pago, @metodo_pago, @subtotal, @itbis, @fianza_total, @total, @estado, @creado_por)`
+          `INSERT INTO facturas (numero, ncf, cliente_id, fecha, condicion_pago, metodo_pago, subtotal, itbis, fianza_total, total, estado, creado_por, caja_sesion_id)
+           VALUES (@numero, @ncf, @cliente_id, @fecha, @condicion_pago, @metodo_pago, @subtotal, @itbis, @fianza_total, @total, @estado, @creado_por, @caja_sesion_id)`
         )
         .run({
           numero: maxNumero + 1,
@@ -125,6 +131,7 @@ export function registerFacturasIpc(db: DB) {
           fianza_total: fianzaTotal,
           total,
           creado_por: input.creado_por?.trim() || null,
+          caja_sesion_id: cajaSesionId,
         });
       const facturaId = Number(infoFactura.lastInsertRowid);
 
@@ -210,10 +217,12 @@ export function registerFacturasIpc(db: DB) {
     return db.prepare(`SELECT * FROM facturas WHERE id = ?`).get(facturaId) as Factura;
   });
 
-  ipcMain.handle("facturas:anular", (_e, id: number, motivo: string) => {
+  ipcMain.handle("facturas:anular", (_e, id: number, motivo: string, cajaSesionId?: number | null) => {
     const factura = db.prepare(`SELECT * FROM facturas WHERE id = ?`).get(id) as Factura | undefined;
     if (!factura) throw new Error("Factura no encontrada");
     if (factura.estado === "ANULADA") return factura;
+    // Si se anula con la caja abierta, la devolucion sale de esa jornada.
+    const sesionAnulacion = validarSesionAbierta(db, cajaSesionId);
 
     const run = db.transaction(() => {
       const lineas = db.prepare(`SELECT * FROM factura_lineas WHERE factura_id = ?`).all(id) as any[];
@@ -243,7 +252,7 @@ export function registerFacturasIpc(db: DB) {
         });
       }
 
-      db.prepare(`UPDATE facturas SET estado = 'ANULADA', nota_credito_ncf = ? WHERE id = ?`).run(notaCreditoNcf, id);
+      db.prepare(`UPDATE facturas SET estado = 'ANULADA', nota_credito_ncf = ?, anulada_sesion_id = ? WHERE id = ?`).run(notaCreditoNcf, sesionAnulacion, id);
     });
     run();
     return db.prepare(`SELECT * FROM facturas WHERE id = ?`).get(id) as Factura;
@@ -264,7 +273,7 @@ export function registerFacturasIpc(db: DB) {
       const run = db.transaction(() => {
         const ncf = tomarSiguienteNcf(db, "B03");
         const concepto = `Nota de Debito ${ncf} - Factura ${factura.ncf}: ${input.concepto}`;
-        const cuentaCobro = factura.condicion_pago === "CONTADO" ? (factura.metodo_pago === "TRANSFERENCIA" ? CODIGO_BANCO : CODIGO_CAJA) : CODIGO_CXC;
+        const cuentaCobro = factura.condicion_pago === "CONTADO" ? codigoCobroContado(factura.metodo_pago) : CODIGO_CXC;
 
         crearAsiento(db, {
           fecha: fechaHoyRD(),
@@ -306,7 +315,7 @@ export function registerFacturasIpc(db: DB) {
       const run = db.transaction(() => {
         const ncf = tomarSiguienteNcf(db, "B04");
         const concepto = `Nota de Credito ${ncf} - Factura ${factura.ncf}: ${input.concepto}`;
-        const cuentaCobro = factura.condicion_pago === "CONTADO" ? (factura.metodo_pago === "TRANSFERENCIA" ? CODIGO_BANCO : CODIGO_CAJA) : CODIGO_CXC;
+        const cuentaCobro = factura.condicion_pago === "CONTADO" ? codigoCobroContado(factura.metodo_pago) : CODIGO_CXC;
 
         crearAsiento(db, {
           fecha: fechaHoyRD(),

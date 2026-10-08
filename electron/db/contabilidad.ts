@@ -120,3 +120,19 @@ export function cuadrarInventarioContable(db: DB, concepto: string): void {
     registrarAjusteInventario(db, f.cuenta_id, f.valor_real - f.valor_libros, concepto, primera ?? fechaHoyRD());
   }
 }
+
+// Fecha y hora de Republica Dominicana, "AAAA-MM-DD HH:MM:SS" (tambien en la nube, que corre en UTC).
+export function ahoraRD(): string {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Santo_Domingo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  })
+    .format(new Date())
+    .replace("T", " ");
+}

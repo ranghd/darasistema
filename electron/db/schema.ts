@@ -214,6 +214,76 @@ CREATE TABLE IF NOT EXISTS company_config (
   itbis_rate REAL NOT NULL DEFAULT 0.18
 );
 
+-- Cajas fisicas (gavetas de dinero). Una caja puede tener una sola jornada abierta a la vez.
+CREATE TABLE IF NOT EXISTS cajas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre TEXT NOT NULL,
+  activa INTEGER NOT NULL DEFAULT 1,
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- Jornada de caja: desde la apertura hasta el cierre. Al cerrar se guarda una
+-- foto del resumen (resumen, en JSON) que ya no cambia: es el comprobante del cierre.
+CREATE TABLE IF NOT EXISTS caja_sesiones (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  caja_id INTEGER NOT NULL REFERENCES cajas(id),
+  estado TEXT NOT NULL CHECK (estado IN ('ABIERTA','CERRADA')) DEFAULT 'ABIERTA',
+  abierta_en TEXT NOT NULL,
+  abierta_por_id INTEGER,
+  abierta_por_nombre TEXT NOT NULL,
+  monto_inicial REAL NOT NULL DEFAULT 0,
+  cerrada_en TEXT,
+  cerrada_por_id INTEGER,
+  cerrada_por_nombre TEXT,
+  efectivo_esperado REAL,
+  efectivo_contado REAL,
+  diferencia REAL,
+  observaciones TEXT,
+  resumen TEXT,
+  asiento_diferencia_id INTEGER REFERENCES asientos(id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_caja_una_jornada_abierta ON caja_sesiones(caja_id) WHERE estado = 'ABIERTA';
+
+-- Entradas y salidas de efectivo que no son ventas (fondo, depositos, gastos menores...).
+CREATE TABLE IF NOT EXISTS caja_movimientos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sesion_id INTEGER NOT NULL REFERENCES caja_sesiones(id),
+  tipo TEXT NOT NULL CHECK (tipo IN ('ENTRADA','SALIDA')),
+  motivo TEXT NOT NULL,
+  concepto TEXT,
+  monto REAL NOT NULL,
+  usuario_id INTEGER,
+  usuario_nombre TEXT NOT NULL,
+  asiento_id INTEGER REFERENCES asientos(id),
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- Correcciones administrativas de un cierre: el cierre original nunca se edita.
+CREATE TABLE IF NOT EXISTS caja_correcciones (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sesion_id INTEGER NOT NULL REFERENCES caja_sesiones(id),
+  usuario_id INTEGER,
+  usuario_nombre TEXT NOT NULL,
+  motivo TEXT NOT NULL,
+  efectivo_contado_anterior REAL NOT NULL,
+  efectivo_contado_nuevo REAL NOT NULL,
+  diferencia_nueva REAL NOT NULL,
+  asiento_id INTEGER REFERENCES asientos(id),
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- Registro de auditoria: quien hizo que y cuando (solo se agregan filas).
+CREATE TABLE IF NOT EXISTS auditoria (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fecha TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  usuario_id INTEGER,
+  usuario_nombre TEXT NOT NULL,
+  accion TEXT NOT NULL,
+  entidad TEXT NOT NULL,
+  entidad_id INTEGER,
+  detalle TEXT
+);
+
 CREATE TABLE IF NOT EXISTS usuarios (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   usuario TEXT NOT NULL UNIQUE,

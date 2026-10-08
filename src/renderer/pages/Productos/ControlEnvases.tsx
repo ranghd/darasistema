@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { api } from "../../lib/api";
+import { api, mensajeDeError } from "../../lib/api";
+import { useCaja } from "../../lib/caja";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { Badge, Button, EmptyRow, Input, Modal, PageHeader, Table } from "../../components/ui";
 
@@ -29,6 +30,8 @@ export default function ControlEnvases() {
   const [seleccion, setSeleccion] = useState<Saldo | null>(null);
   const [cantidad, setCantidad] = useState(1);
   const [reembolsar, setReembolsar] = useState(true);
+  const { sesion } = useCaja();
+  const [errorDevolucion, setErrorDevolucion] = useState("");
   const [guardando, setGuardando] = useState(false);
 
   async function cargar() {
@@ -51,9 +54,13 @@ export default function ControlEnvases() {
   async function confirmarDevolucion(e: React.FormEvent) {
     e.preventDefault();
     if (!seleccion) return;
+    setErrorDevolucion("");
+    // Devolver el deposito saca efectivo de la gaveta: tiene que ser con la caja abierta.
+    if (reembolsar && !sesion) return setErrorDevolucion("La caja esta cerrada: para devolver el deposito en efectivo abre la caja en Cierre de Caja (o desmarca el reembolso).");
     setGuardando(true);
     try {
       await api.envases.devolucion({
+        caja_sesion_id: reembolsar ? sesion?.id ?? null : null,
         cliente_id: seleccion.cliente_id,
         producto_id: seleccion.producto_id,
         cantidad,
@@ -62,6 +69,8 @@ export default function ControlEnvases() {
       });
       setOpen(false);
       await cargar();
+    } catch (err) {
+      setErrorDevolucion(mensajeDeError(err));
     } finally {
       setGuardando(false);
     }
@@ -137,6 +146,7 @@ export default function ControlEnvases() {
               <input type="checkbox" checked={reembolsar} onChange={(e) => setReembolsar(e.target.checked)} />
               Reembolsar fianza en efectivo
             </label>
+            {errorDevolucion && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{errorDevolucion}</p>}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
                 Cancelar

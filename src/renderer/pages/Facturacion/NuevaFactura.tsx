@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { useCaja } from "../../lib/caja";
+import CajaCerradaAviso from "../../components/CajaCerradaAviso";
 import type { Cliente, FacturaLineaInput, Producto } from "../../lib/types";
 import { formatMoney, todayIso } from "../../lib/format";
 import { NCF_LABELS, TIPOS_NCF_VENTA } from "../../lib/ncf";
@@ -15,6 +17,7 @@ let keySeq = 1;
 
 export default function NuevaFactura() {
   const { usuario } = useAuth();
+  const { sesion } = useCaja();
   const navigate = useNavigate();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -76,6 +79,8 @@ export default function NuevaFactura() {
     setError("");
     if (!clienteId) return setError("Seleccione un cliente");
     if (lineas.length === 0) return setError("Agregue al menos un producto");
+    // Al contado entra dinero: tiene que quedar en la jornada de una caja abierta.
+    if (condicionPago === "CONTADO" && !sesion) return setError("La caja esta cerrada. Abre la caja en Cierre de Caja para cobrar al contado (a credito si se puede facturar).");
 
     setEnviando(true);
     try {
@@ -86,6 +91,7 @@ export default function NuevaFactura() {
         metodo_pago: condicionPago === "CONTADO" ? metodoPago : undefined,
         tipo_ncf: tipoNcf,
         creado_por: usuario?.nombre,
+        caja_sesion_id: sesion?.id ?? null,
         lineas: lineas.map(({ key, ...rest }) => rest),
       });
       navigate(`/facturas/${(factura as any).id}`);
@@ -99,6 +105,7 @@ export default function NuevaFactura() {
   return (
     <div>
       <PageHeader title="Nueva Factura" subtitle="Venta de gas, oxigeno o agua purificada con ITBIS y NCF" />
+      {condicionPago === "CONTADO" && <CajaCerradaAviso mensaje="La caja esta cerrada: para facturar al contado hay que abrirla. A credito si se puede facturar." />}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Card className="space-y-3 p-5 lg:col-span-1">

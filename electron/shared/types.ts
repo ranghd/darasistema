@@ -133,6 +133,8 @@ export interface NuevaFacturaInput {
   lineas: FacturaLineaInput[];
   /** Nombre del usuario que hizo la venta. */
   creado_por?: string;
+  /** Jornada de caja abierta en la que se cobra la venta. */
+  caja_sesion_id?: number | null;
 }
 
 export interface FiltrosHistorial {
@@ -362,4 +364,147 @@ export interface SesionUsuario {
   usuario: string;
   nombre: string;
   rol: RolUsuario;
+}
+
+// ---------- Caja: aperturas, cierres y movimientos ----------
+
+export type MetodoCaja = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "CHEQUE";
+
+/** Quien hace la operacion. En la nube lo pone el servidor desde la sesion. */
+export interface Autor {
+  id?: number | null;
+  nombre: string;
+  rol?: "ADMIN" | "CAJERO";
+}
+
+export interface Caja {
+  id: number;
+  nombre: string;
+  activa: number;
+  creado_en: string;
+  /** Jornada abierta ahora mismo, si hay. */
+  sesion_abierta_id?: number | null;
+  abierta_por_nombre?: string | null;
+  abierta_en?: string | null;
+}
+
+export type MotivoMovimientoCaja = "FONDO_BANCO" | "APORTE" | "DEPOSITO_BANCO" | "GASTO" | "RETIRO_DUENO";
+
+export interface MovimientoCaja {
+  id: number;
+  sesion_id: number;
+  tipo: "ENTRADA" | "SALIDA";
+  motivo: MotivoMovimientoCaja;
+  concepto: string | null;
+  monto: number;
+  usuario_nombre: string;
+  creado_en: string;
+}
+
+/** Totales de una jornada. Al cerrar se guarda tal cual y ya no cambia. */
+export interface ResumenCaja {
+  monto_inicial: number;
+  ventas: {
+    cantidad: number;
+    total_general: number;
+    subtotal: number;
+    descuentos: number;
+    itbis: number;
+    fianzas: number;
+    por_metodo: Record<MetodoCaja | "CREDITO", number>;
+  };
+  anuladas: { cantidad: number; total: number };
+  /** Facturas de jornadas anteriores anuladas en esta, pagadas en efectivo: salio dinero de esta caja. */
+  devoluciones_efectivo: number;
+  cobros: Record<MetodoCaja, number> & { total: number };
+  entradas: number;
+  salidas: number;
+  reembolsos_envases: number;
+  efectivo_esperado: number;
+}
+
+export type ResultadoCierre = "CUADRE" | "SOBRANTE" | "FALTANTE";
+
+export interface SesionCaja {
+  id: number;
+  caja_id: number;
+  caja_nombre?: string;
+  estado: "ABIERTA" | "CERRADA";
+  abierta_en: string;
+  abierta_por_id: number | null;
+  abierta_por_nombre: string;
+  monto_inicial: number;
+  cerrada_en: string | null;
+  cerrada_por_id: number | null;
+  cerrada_por_nombre: string | null;
+  efectivo_esperado: number | null;
+  efectivo_contado: number | null;
+  diferencia: number | null;
+  observaciones: string | null;
+  /** Resumen congelado al cerrar (o calculado en vivo si esta abierta). */
+  resumen: ResumenCaja;
+  /** Resultado considerando la ultima correccion administrativa, si la hubo. */
+  resultado: ResultadoCierre | null;
+  diferencia_final: number | null;
+  efectivo_contado_final: number | null;
+  correcciones: number;
+}
+
+export interface CorreccionCierre {
+  id: number;
+  sesion_id: number;
+  usuario_nombre: string;
+  motivo: string;
+  efectivo_contado_anterior: number;
+  efectivo_contado_nuevo: number;
+  diferencia_nueva: number;
+  creado_en: string;
+}
+
+export interface RegistroAuditoria {
+  id: number;
+  fecha: string;
+  usuario_nombre: string;
+  accion: string;
+  entidad: string;
+  entidad_id: number | null;
+  detalle: string | null;
+}
+
+export interface DetalleCierre extends SesionCaja {
+  facturas: { id: number; numero: number; ncf: string | null; cliente_nombre: string; condicion_pago: string; metodo_pago: string | null; total: number; estado: string; creado_en: string; creado_por: string | null }[];
+  anuladas_detalle: { id: number; numero: number; ncf: string | null; total: number; metodo_pago: string | null; condicion_pago: string; de_otra_jornada: number }[];
+  cobros_detalle: { id: number; factura_id: number; ncf: string | null; monto: number; metodo: string; fecha: string }[];
+  movimientos: MovimientoCaja[];
+  reembolsos: { id: number; cliente_nombre: string; producto_nombre: string; cantidad: number; monto_reembolsado: number; fecha: string }[];
+  historial_correcciones: CorreccionCierre[];
+  auditoria: RegistroAuditoria[];
+}
+
+export interface FiltrosCierres {
+  desde?: string;
+  hasta?: string;
+  cajero?: string;
+  caja_id?: number;
+  estado?: "ABIERTA" | ResultadoCierre;
+  metodo?: MetodoCaja | "CREDITO";
+}
+
+export interface ListaCierres {
+  cierres: SesionCaja[];
+  totales: {
+    jornadas: number;
+    ventas: number;
+    efectivo: number;
+    tarjeta: number;
+    transferencia: number;
+    cheque: number;
+    credito: number;
+    devoluciones: number;
+    entradas: number;
+    salidas: number;
+    sobrantes: number;
+    faltantes: number;
+  };
+  cajeros: string[];
 }

@@ -19,6 +19,13 @@ const NAV_COMPLETO = [
     ],
   },
   {
+    section: "Caja",
+    items: [
+      { to: "/cierre-caja", label: "Cierre de Caja" },
+      { to: "/cierres-caja", label: "Cierres de Caja" },
+    ],
+  },
+  {
     section: "Clientes",
     items: [{ to: "/clientes", label: "Clientes" }],
   },
@@ -57,7 +64,13 @@ const NAV_COMPLETO = [
 
 const NAV_CAJA = [
   { section: "General", items: [{ to: "/", label: "Panel Principal", end: true }] },
-  { section: "Venta Rapida", items: [{ to: "/caja", label: "Caja / POS" }] },
+  {
+    section: "Venta Rapida",
+    items: [
+      { to: "/caja", label: "Caja / POS" },
+      { to: "/cierre-caja", label: "Cierre de Caja" },
+    ],
+  },
   {
     section: "Facturacion",
     items: [

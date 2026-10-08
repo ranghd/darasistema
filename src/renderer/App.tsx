@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Navigate, useRoutes } from "react-router-dom";
 import { api } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { CajaProvider } from "./lib/caja";
+import CierreCaja from "./pages/CierreCaja/CierreCaja";
+import CierresCaja from "./pages/CierreCaja/CierresCaja";
 import { esVariantCaja } from "./lib/variant";
 import Layout from "./components/Layout";
 import Login from "./pages/Login/Login";
@@ -34,6 +37,7 @@ import UpdateBanner from "./components/UpdateBanner";
 const RUTAS_COMUNES = [
   { path: "/", element: <Dashboard /> },
   { path: "/caja", element: <Caja /> },
+  { path: "/cierre-caja", element: <CierreCaja /> },
   { path: "/facturas", element: <ListaFacturas /> },
   { path: "/facturas/nueva", element: <NuevaFactura /> },
   { path: "/facturas/:id", element: <DetalleFactura /> },
@@ -47,6 +51,7 @@ const RUTAS_COMUNES = [
 // Rutas adicionales solo para administradores (no cajeros, no la variante Caja).
 const RUTAS_ADMIN_EXTRA = [
   { path: "/compras", element: <Compras /> },
+  { path: "/cierres-caja", element: <CierresCaja /> },
   { path: "/proveedores", element: <Proveedores /> },
   { path: "/proveedores/:id", element: <DetalleProveedor /> },
   { path: "/contabilidad/cuentas", element: <CatalogoCuentas /> },
@@ -103,7 +108,9 @@ export default function App() {
     <>
       <UpdateBanner />
       <AuthProvider>
-        <RutasProtegidas modoNube={redConfig.modo === "NUBE"} />
+        <CajaProvider>
+          <RutasProtegidas modoNube={redConfig.modo === "NUBE"} />
+        </CajaProvider>
       </AuthProvider>
     </>
   );

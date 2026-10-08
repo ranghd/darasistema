@@ -46,6 +46,7 @@ const CUENTAS: CuentaSeed[] = [
   { codigo: "6.1.01", nombre: "Gastos de Administracion", tipo: "GASTOS", naturaleza: "DEUDORA", padreCodigo: "6", esMovimiento: true },
   { codigo: "6.1.02", nombre: "Gastos de Venta", tipo: "GASTOS", naturaleza: "DEUDORA", padreCodigo: "6", esMovimiento: true },
   { codigo: "6.1.03", nombre: "Gastos de Combustible y Transporte", tipo: "GASTOS", naturaleza: "DEUDORA", padreCodigo: "6", esMovimiento: true },
+  { codigo: "6.1.04", nombre: "Diferencias de Caja (faltantes y sobrantes)", tipo: "GASTOS", naturaleza: "DEUDORA", padreCodigo: "6", esMovimiento: true },
 ];
 
 export interface DatosEmpresa {

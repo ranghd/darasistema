@@ -5,6 +5,7 @@ import type { AsientoConLineas, Cobro, CompanyConfig, Cuenta, FacturaDetalle } f
 import { useAuth } from "../../lib/auth";
 import { esVariantCaja } from "../../lib/variant";
 import { imprimirReciboFactura } from "../../lib/ticket";
+import { useCaja } from "../../lib/caja";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { Badge, Button, Card, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 
@@ -19,6 +20,7 @@ export default function DetalleFactura() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { usuario } = useAuth();
+  const { sesion } = useCaja();
   const verContabilidad = !esVariantCaja && usuario?.rol === "ADMIN";
   const [asientos, setAsientos] = useState<AsientoConLineas[]>([]);
   const [imprimiendo, setImprimiendo] = useState(false);
@@ -92,7 +94,8 @@ export default function DetalleFactura() {
     setGuardando(true);
     setError("");
     try {
-      await api.cobros.crear({ factura_id: factura.id, fecha: todayIso(), monto, metodo });
+      if (metodo === "EFECTIVO" && !sesion) throw new Error("La caja esta cerrada: para cobrar en efectivo abre la caja en Cierre de Caja.");
+      await api.cobros.crear({ factura_id: factura.id, fecha: todayIso(), monto, metodo, caja_sesion_id: sesion?.id ?? null });
       setOpenCobro(false);
       await cargar();
     } catch (err: any) {
@@ -159,9 +162,11 @@ export default function DetalleFactura() {
     if (!factura) return;
     setGuardando(true);
     try {
-      await api.facturas.anular(factura.id, motivo || "Sin motivo especificado");
+      await api.facturas.anular(factura.id, motivo || "Sin motivo especificado", sesion?.id ?? null);
       setOpenAnular(false);
       await cargar();
+    } catch (err: any) {
+      setError(err?.message ?? "No se pudo anular la factura");
     } finally {
       setGuardando(false);
     }

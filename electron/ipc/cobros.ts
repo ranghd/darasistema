@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { crearAsiento } from "../db/contabilidad";
+import { validarSesionAbierta } from "./caja";
 import type { Cobro, Factura } from "../shared/types";
 
 const CODIGO_CAJA = "1.1.01";
@@ -20,7 +21,8 @@ export function registerCobrosIpc(db: DB) {
 
   ipcMain.handle(
     "cobros:crear",
-    (_e, input: { factura_id: number; fecha: string; monto: number; metodo: Cobro["metodo"]; nota?: string }) => {
+    (_e, input: { factura_id: number; fecha: string; monto: number; metodo: Cobro["metodo"]; nota?: string; caja_sesion_id?: number | null }) => {
+      const cajaSesionId = validarSesionAbierta(db, input.caja_sesion_id);
       const factura = db.prepare(`SELECT * FROM facturas WHERE id = ?`).get(input.factura_id) as Factura | undefined;
       if (!factura) throw new Error("Factura no encontrada");
       if (factura.estado === "ANULADA") throw new Error("No se puede cobrar una factura anulada");
@@ -32,7 +34,8 @@ export function registerCobrosIpc(db: DB) {
       if (input.monto <= 0) throw new Error("El monto del cobro debe ser mayor a cero");
       if (input.monto > saldoPendiente + 0.005) throw new Error(`El monto excede el saldo pendiente (RD$ ${saldoPendiente.toFixed(2)})`);
 
-      const cuentaOrigen = input.metodo === "TRANSFERENCIA" ? CODIGO_BANCO : CODIGO_CAJA;
+      // Solo el efectivo entra a la gaveta; tarjeta, transferencia y cheque van al banco.
+      const cuentaOrigen = input.metodo === "EFECTIVO" ? CODIGO_CAJA : CODIGO_BANCO;
 
       const run = db.transaction(() => {
         const asientoId = crearAsiento(db, {
@@ -48,9 +51,9 @@ export function registerCobrosIpc(db: DB) {
 
         const info = db
           .prepare(
-            `INSERT INTO cobros (factura_id, fecha, monto, metodo, asiento_id, nota) VALUES (@factura_id, @fecha, @monto, @metodo, @asiento_id, @nota)`
+            `INSERT INTO cobros (factura_id, fecha, monto, metodo, asiento_id, nota, caja_sesion_id) VALUES (@factura_id, @fecha, @monto, @metodo, @asiento_id, @nota, @caja_sesion_id)`
           )
-          .run({ factura_id: input.factura_id, fecha: input.fecha, monto: input.monto, metodo: input.metodo, asiento_id: asientoId, nota: input.nota ?? null });
+          .run({ factura_id: input.factura_id, fecha: input.fecha, monto: input.monto, metodo: input.metodo, asiento_id: asientoId, nota: input.nota ?? null, caja_sesion_id: cajaSesionId });
 
         if (input.monto >= saldoPendiente - 0.005) {
           db.prepare(`UPDATE facturas SET estado = 'PAGADA' WHERE id = ?`).run(input.factura_id);

@@ -19,6 +19,7 @@ import { registerComprobantesIpc } from "../../electron/ipc/comprobantes";
 import { registerAuthIpc } from "../../electron/ipc/auth";
 import { registerComprasIpc } from "../../electron/ipc/compras";
 import { registerProveedoresIpc } from "../../electron/ipc/proveedores";
+import { registerCajaIpc } from "../../electron/ipc/caja";
 
 export interface InicializarEmpresa {
   empresa: DatosEmpresa;
@@ -35,6 +36,17 @@ export interface SesionEmpresa {
 
 const MAX_FALLOS = 5;
 const CANALES_CON_AUTOR = new Set(["facturas:crear"]);
+// Canales de caja: en que argumento va el objeto donde se inyecta { autor } desde la sesion.
+const CANALES_CAJA_AUTOR: Record<string, number> = {
+  "caja:abrir": 0,
+  "caja:cerrar": 0,
+  "caja:movimiento": 0,
+  "caja:misCierres": 0,
+  "caja:detalle": 1,
+  "cajas:crear": 0,
+  "cajas:actualizar": 1,
+  "cierres:corregir": 0,
+};
 const BLOQUEO_MS = 10 * 60 * 1000;
 
 // Una instancia por empresa cliente: su propia base SQLite, aislada del resto.
@@ -62,6 +74,7 @@ export class Empresa extends DurableObject {
       registerAuthIpc(db);
       registerComprasIpc(db);
       registerProveedoresIpc(db);
+      registerCajaIpc(db);
     });
   }
 
@@ -138,6 +151,14 @@ export class Empresa extends DurableObject {
     if (CANALES_CON_AUTOR.has(canal) && lista[0] && typeof lista[0] === "object") {
       const u = uid ? (this.db.prepare(`SELECT nombre FROM usuarios WHERE id = ?`).get(uid) as { nombre: string } | undefined) : undefined;
       lista[0] = { ...(lista[0] as object), creado_por: u?.nombre ?? null };
+    }
+    const posAutor = CANALES_CAJA_AUTOR[canal];
+    if (posAutor !== undefined) {
+      const u = uid ? (this.db.prepare(`SELECT id, nombre, rol FROM usuarios WHERE id = ?`).get(uid) as { id: number; nombre: string; rol: Rol } | undefined) : undefined;
+      if (!u) throw new Error("Sesion expirada. Vuelve a iniciar sesion.");
+      while (lista.length <= posAutor) lista.push(undefined);
+      const base = lista[posAutor] && typeof lista[posAutor] === "object" ? (lista[posAutor] as object) : {};
+      lista[posAutor] = { ...base, autor: { id: u.id, nombre: u.nombre, rol: u.rol } };
     }
     return await handler({}, ...lista);
   }

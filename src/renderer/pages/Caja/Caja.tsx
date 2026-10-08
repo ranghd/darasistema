@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { imprimirReciboFactura } from "../../lib/ticket";
+import { useCaja } from "../../lib/caja";
+import CajaCerradaAviso from "../../components/CajaCerradaAviso";
 import type { Cliente, ModalidadLinea, Producto } from "../../lib/types";
 import { formatMoney, todayIso } from "../../lib/format";
 import { Button, Select } from "../../components/ui";
@@ -23,6 +25,8 @@ const CATEGORIAS = [
 
 export default function Caja() {
   const { usuario } = useAuth();
+  const { sesion, recargar: recargarCaja } = useCaja();
+  const [metodoPago, setMetodoPago] = useState<"EFECTIVO" | "TARJETA" | "TRANSFERENCIA">("EFECTIVO");
   const navigate = useNavigate();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -104,14 +108,17 @@ export default function Caja() {
     setError("");
     if (!clienteId) return setError("Seleccione un cliente");
     if (carrito.length === 0) return setError("Agregue al menos un producto");
+    if (!sesion) return setError("La caja esta cerrada. Abre la caja en Cierre de Caja para poder cobrar.");
     setCobrando(true);
     try {
       const factura = await api.facturas.crear({
         cliente_id: clienteId,
         fecha: todayIso(),
         condicion_pago: "CONTADO",
+        metodo_pago: metodoPago,
         tipo_ncf: "B02",
         creado_por: usuario?.nombre,
+        caja_sesion_id: sesion.id,
         lineas: carrito.map((l) => ({ producto_id: l.producto_id, modalidad: l.modalidad, cantidad: l.cantidad, precio_unitario: productos.find((p) => p.id === l.producto_id)!.precio_contenido, descuento: 0 })),
       });
       setCarrito([]);
@@ -122,6 +129,7 @@ export default function Caja() {
       navigate(`/facturas/${(factura as any).id}`, { state: { avisoImpresion } });
     } catch (e: any) {
       setError(e?.message ?? "No se pudo cobrar la venta");
+      if (/caja ya fue cerrada|jornada/i.test(e?.message ?? "")) recargarCaja();
     } finally {
       setCobrando(false);
     }
@@ -130,8 +138,10 @@ export default function Caja() {
   return (
     <div className="flex h-[calc(100vh-56px)] gap-5">
       <div className="flex min-w-0 flex-1 flex-col">
+        <CajaCerradaAviso />
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h1 className="mr-2 text-xl font-semibold text-slate-900">Caja</h1>
+          {sesion && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">{sesion.caja_nombre} abierta</span>}
           <input
             className="w-56 rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
             placeholder="Buscar producto..."
@@ -249,13 +259,26 @@ export default function Caja() {
             <span>{formatMoney(calculo.total)}</span>
           </div>
 
+          <div className="flex gap-1 pt-2">
+            {(["EFECTIVO", "TARJETA", "TRANSFERENCIA"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMetodoPago(m)}
+                className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium ${metodoPago === m ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+              >
+                {m === "EFECTIVO" ? "Efectivo" : m === "TARJETA" ? "Tarjeta" : "Transferencia"}
+              </button>
+            ))}
+          </div>
+
           {error && <p className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-600">{error}</p>}
 
           <div className="flex gap-2 pt-2">
             <Button variant="secondary" onClick={vaciarCarrito} disabled={carrito.length === 0}>
               Vaciar
             </Button>
-            <Button className="flex-1" onClick={cobrar} disabled={cobrando || carrito.length === 0}>
+            <Button className="flex-1" onClick={cobrar} disabled={cobrando || carrito.length === 0 || !sesion}>
               {cobrando ? "Cobrando..." : "Cobrar"}
             </Button>
           </div>

@@ -61,3 +61,22 @@ export function descargarCsv(nombreArchivo: string, encabezados: string[], filas
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
+
+// Imprime un documento HTML completo (con sus propios estilos) usando el dialogo de Windows.
+export function imprimirDocumento(documentoHtml: string): void {
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  document.body.appendChild(iframe);
+  const doc = iframe.contentDocument!;
+  doc.open();
+  doc.write(documentoHtml);
+  doc.close();
+  setTimeout(() => {
+    iframe.contentWindow!.focus();
+    iframe.contentWindow!.print();
+    setTimeout(() => iframe.remove(), 1000);
+  }, 150);
+}

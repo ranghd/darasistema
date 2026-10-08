@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { crearAsiento } from "../db/contabilidad";
+import { validarSesionAbierta } from "./caja";
 
 const CODIGO_CAJA = "1.1.01";
 const CODIGO_DEPOSITOS_GARANTIA = "2.1.03";
@@ -42,7 +43,8 @@ export function registerEnvasesIpc(db: DB) {
 
   ipcMain.handle(
     "envases:devolucion",
-    (_e, input: { cliente_id: number; producto_id: number; cantidad: number; fecha: string; nota?: string; reembolsar: boolean }) => {
+    (_e, input: { cliente_id: number; producto_id: number; cantidad: number; fecha: string; nota?: string; reembolsar: boolean; caja_sesion_id?: number | null }) => {
+      const cajaSesionId = validarSesionAbierta(db, input.caja_sesion_id);
       const run = db.transaction(() => {
         const saldo = db
           .prepare(`SELECT * FROM envases_cliente WHERE cliente_id = ? AND producto_id = ?`)
@@ -62,8 +64,17 @@ export function registerEnvasesIpc(db: DB) {
         ).run({ cantidad: input.cantidad, monto: montoFianza, cliente_id: input.cliente_id, producto_id: input.producto_id });
 
         db.prepare(
-          `INSERT INTO envase_movimientos (cliente_id, producto_id, tipo, cantidad, fecha, nota) VALUES (@cliente_id, @producto_id, 'DEVOLUCION', @cantidad, @fecha, @nota)`
-        ).run({ cliente_id: input.cliente_id, producto_id: input.producto_id, cantidad: input.cantidad, fecha: input.fecha, nota: input.nota ?? null });
+          `INSERT INTO envase_movimientos (cliente_id, producto_id, tipo, cantidad, fecha, nota, caja_sesion_id, monto_reembolsado)
+           VALUES (@cliente_id, @producto_id, 'DEVOLUCION', @cantidad, @fecha, @nota, @caja_sesion_id, @monto_reembolsado)`
+        ).run({
+          cliente_id: input.cliente_id,
+          producto_id: input.producto_id,
+          cantidad: input.cantidad,
+          fecha: input.fecha,
+          nota: input.nota ?? null,
+          caja_sesion_id: cajaSesionId,
+          monto_reembolsado: input.reembolsar ? montoFianza : 0,
+        });
 
         if (input.reembolsar && montoFianza > 0) {
           crearAsiento(db, {
