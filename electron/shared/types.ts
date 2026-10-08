@@ -112,6 +112,7 @@ export interface Factura {
   asiento_id: number | null;
   nota_credito_ncf: string | null;
   nota_debito_ncf: string | null;
+  creado_por?: string | null;
   creado_en: string;
   cliente_nombre?: string;
   cobrado?: number;
@@ -130,6 +131,58 @@ export interface NuevaFacturaInput {
   metodo_pago?: MetodoPago;
   tipo_ncf: "B01" | "B02" | "B13" | "B14" | "B15";
   lineas: FacturaLineaInput[];
+  /** Nombre del usuario que hizo la venta. */
+  creado_por?: string;
+}
+
+export interface FiltrosHistorial {
+  desde?: string;
+  hasta?: string;
+  /** Busca en NCF, numero, productos, notas y usuario. */
+  busqueda?: string;
+  producto_id?: number;
+  /** EFECTIVO, TRANSFERENCIA... (ventas al contado) o CREDITO. */
+  metodo?: string;
+  estado?: "PENDIENTE" | "PAGADA" | "ANULADA";
+  usuario?: string;
+  /** Solo estas facturas (para ver/imprimir/exportar una seleccion). */
+  ids?: number[];
+  pagina?: number;
+  porPagina?: number;
+}
+
+export interface FacturaHistorial extends FacturaDetalle {
+  cobros: Cobro[];
+}
+
+export interface HistorialCliente {
+  filas: FacturaHistorial[];
+  total: number;
+  sumaTotal: number;
+  pagina: number;
+  porPagina: number;
+}
+
+export interface ProductoComprado {
+  producto_id: number;
+  producto_nombre: string;
+  cantidad: number;
+  monto: number;
+  veces: number;
+  ultima_fecha: string;
+}
+
+export interface ResumenCliente {
+  compras: number;
+  anuladas: number;
+  total_gastado: number;
+  ticket_promedio: number;
+  primera_compra: string | null;
+  ultima_compra: string | null;
+  saldo_pendiente: number;
+  facturas_pendientes: number;
+  productos: ProductoComprado[];
+  usuarios: string[];
 }
 
 export interface Cobro {

@@ -8,6 +8,7 @@ export function migrar(db: DB) {
   const columnas = [
     `ALTER TABLE productos ADD COLUMN itbis_rate REAL NOT NULL DEFAULT 0.18`,
     `ALTER TABLE facturas ADD COLUMN metodo_pago TEXT`,
+    `ALTER TABLE facturas ADD COLUMN creado_por TEXT`,
   ];
   for (const sql of columnas) {
     try {

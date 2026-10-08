@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 import type { Cliente, FacturaLineaInput, Producto } from "../../lib/types";
 import { formatMoney, todayIso } from "../../lib/format";
 import { NCF_LABELS, TIPOS_NCF_VENTA } from "../../lib/ncf";
@@ -13,6 +14,7 @@ interface LineaForm extends FacturaLineaInput {
 let keySeq = 1;
 
 export default function NuevaFactura() {
+  const { usuario } = useAuth();
   const navigate = useNavigate();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -83,6 +85,7 @@ export default function NuevaFactura() {
         condicion_pago: condicionPago,
         metodo_pago: condicionPago === "CONTADO" ? metodoPago : undefined,
         tipo_ncf: tipoNcf,
+        creado_por: usuario?.nombre,
         lineas: lineas.map(({ key, ...rest }) => rest),
       });
       navigate(`/facturas/${(factura as any).id}`);

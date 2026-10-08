@@ -33,6 +33,7 @@ export interface SesionEmpresa {
 }
 
 const MAX_FALLOS = 5;
+const CANALES_CON_AUTOR = new Set(["facturas:crear"]);
 const BLOQUEO_MS = 10 * 60 * 1000;
 
 // Una instancia por empresa cliente: su propia base SQLite, aislada del resto.
@@ -126,11 +127,17 @@ export class Empresa extends DurableObject {
     }
   }
 
-  async invoke(canal: string, args: unknown[], rol: Rol): Promise<unknown> {
+  async invoke(canal: string, args: unknown[], rol: Rol, uid?: number): Promise<unknown> {
     if (!puedeInvocar(rol, canal)) throw new Error("No tienes permiso para esta operacion");
     const handler = this.handlers[canal];
     if (!handler) throw new Error(`Operacion desconocida: ${canal}`);
-    return await handler({}, ...(args ?? []));
+    const lista = [...(args ?? [])];
+    // Quien hizo la operacion sale de la sesion, no de lo que mande la pantalla.
+    if (CANALES_CON_AUTOR.has(canal) && lista[0] && typeof lista[0] === "object") {
+      const u = uid ? (this.db.prepare(`SELECT nombre FROM usuarios WHERE id = ?`).get(uid) as { nombre: string } | undefined) : undefined;
+      lista[0] = { ...(lista[0] as object), creado_por: u?.nombre ?? null };
+    }
+    return await handler({}, ...lista);
   }
 
   exportar(): Record<string, unknown[]> {

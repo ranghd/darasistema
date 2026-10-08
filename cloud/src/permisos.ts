@@ -13,6 +13,8 @@ export const CANALES_CAJERO = new Set([
   "clientes:listar",
   "clientes:obtener",
   "clientes:estadoCuenta",
+  "clientes:historial",
+  "clientes:resumen",
   "clientes:crear",
   "clientes:actualizar",
   "facturas:listar",

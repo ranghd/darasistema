@@ -8,9 +8,12 @@ import type {
   Cuenta,
   Factura,
   FacturaDetalle,
+  FiltrosHistorial,
+  HistorialCliente,
   MovimientoMayor,
   NcfSecuencia,
   Producto,
+  ResumenCliente,
   SaldoCuenta,
   Usuario,
 } from "./types";
@@ -72,6 +75,8 @@ export const mockApi = {
   },
   clientes: {
     listar: async (..._args: any[]) => clientes,
+    historial: async (_id: number, _filtros?: FiltrosHistorial): Promise<HistorialCliente> => ({ filas: [], total: 0, sumaTotal: 0, pagina: 1, porPagina: 25 }),
+    resumen: async (_id: number): Promise<ResumenCliente> => ({ compras: 0, anuladas: 0, total_gastado: 0, ticket_promedio: 0, primera_compra: null, ultima_compra: null, saldo_pendiente: 0, facturas_pendientes: 0, productos: [], usuarios: [] }),
     obtener: async (id: number, ..._rest: any[]) => clientes.find((c) => c.id === id),
     estadoCuenta: async (..._args: any[]) => ({ facturas, envases: [] }),
     crear: async (data: any, ..._rest: any[]) => { warn(); return { id: Date.now(), ...data }; },

@@ -77,7 +77,7 @@ async function invoke(req: Request, env: Env): Promise<Response> {
   const body = await leerJson(req);
   if (typeof body.canal !== "string") throw new ErrorHttp(400, "Falta el canal");
   try {
-    const resultado = await empresa(env, datos.empresa).invoke(body.canal, Array.isArray(body.args) ? body.args : [], datos.rol);
+    const resultado = await empresa(env, datos.empresa).invoke(body.canal, Array.isArray(body.args) ? body.args : [], datos.rol, datos.uid);
     return json({ resultado: resultado ?? null });
   } catch (err: any) {
     const mensaje = err?.message ?? "Error en el servidor";

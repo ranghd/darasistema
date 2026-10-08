@@ -109,8 +109,8 @@ export function registerFacturasIpc(db: DB) {
 
       const infoFactura = db
         .prepare(
-          `INSERT INTO facturas (numero, ncf, cliente_id, fecha, condicion_pago, metodo_pago, subtotal, itbis, fianza_total, total, estado)
-           VALUES (@numero, @ncf, @cliente_id, @fecha, @condicion_pago, @metodo_pago, @subtotal, @itbis, @fianza_total, @total, @estado)`
+          `INSERT INTO facturas (numero, ncf, cliente_id, fecha, condicion_pago, metodo_pago, subtotal, itbis, fianza_total, total, estado, creado_por)
+           VALUES (@numero, @ncf, @cliente_id, @fecha, @condicion_pago, @metodo_pago, @subtotal, @itbis, @fianza_total, @total, @estado, @creado_por)`
         )
         .run({
           numero: maxNumero + 1,
@@ -124,6 +124,7 @@ export function registerFacturasIpc(db: DB) {
           itbis: itbisTotal,
           fianza_total: fianzaTotal,
           total,
+          creado_por: input.creado_por?.trim() || null,
         });
       const facturaId = Number(infoFactura.lastInsertRowid);
 

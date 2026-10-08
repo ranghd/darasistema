@@ -20,6 +20,8 @@ const api = {
     listar: () => invoke("clientes:listar"),
     obtener: (id: number) => invoke("clientes:obtener", id),
     estadoCuenta: (id: number) => invoke("clientes:estadoCuenta", id),
+    historial: (id: number, filtros?: any) => invoke("clientes:historial", id, filtros),
+    resumen: (id: number) => invoke("clientes:resumen", id),
     crear: (data: any) => invoke("clientes:crear", data),
     actualizar: (id: number, data: any) => invoke("clientes:actualizar", id, data),
   },

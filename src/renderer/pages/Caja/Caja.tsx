@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 import type { Cliente, ModalidadLinea, Producto } from "../../lib/types";
 import { formatMoney, todayIso } from "../../lib/format";
 import { Button, Select } from "../../components/ui";
@@ -20,6 +21,7 @@ const CATEGORIAS = [
 ];
 
 export default function Caja() {
+  const { usuario } = useAuth();
   const navigate = useNavigate();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -108,6 +110,7 @@ export default function Caja() {
         fecha: todayIso(),
         condicion_pago: "CONTADO",
         tipo_ncf: "B02",
+        creado_por: usuario?.nombre,
         lineas: carrito.map((l) => ({ producto_id: l.producto_id, modalidad: l.modalidad, cantidad: l.cantidad, precio_unitario: productos.find((p) => p.id === l.producto_id)!.precio_contenido, descuento: 0 })),
       });
       setCarrito([]);
