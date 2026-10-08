@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 import type { AsientoConLineas, Cobro, CompanyConfig, Cuenta, FacturaDetalle } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
 import { esVariantCaja } from "../../lib/variant";
+import { imprimirReciboFactura } from "../../lib/ticket";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { Badge, Button, Card, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 
@@ -20,6 +21,9 @@ export default function DetalleFactura() {
   const { usuario } = useAuth();
   const verContabilidad = !esVariantCaja && usuario?.rol === "ADMIN";
   const [asientos, setAsientos] = useState<AsientoConLineas[]>([]);
+  const [imprimiendo, setImprimiendo] = useState(false);
+  const [avisoImpresion, setAvisoImpresion] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [formatoImpresion, setFormatoImpresion] = useState<"TICKET" | "CARTA">("TICKET");
   const [factura, setFactura] = useState<FacturaDetalle | null>(null);
   const [cobros, setCobros] = useState<Cobro[]>([]);
   const [empresa, setEmpresa] = useState<CompanyConfig | null>(null);
@@ -56,6 +60,7 @@ export default function DetalleFactura() {
   }, [id]);
 
   useEffect(() => {
+    api.impresion.obtenerConfig().then((c) => setFormatoImpresion(c.formato)).catch(() => {});
     api.config.obtener().then(setEmpresa as any);
     api.cuentas.listar().then((c) => setCuentasIngreso(c.filter((x) => x.tipo === "INGRESOS" && x.es_movimiento)));
   }, []);
@@ -64,6 +69,15 @@ export default function DetalleFactura() {
 
   const cobrado = cobros.reduce((s, c) => s + c.monto, 0);
   const saldo = factura.total - cobrado;
+
+  async function imprimir() {
+    if (formatoImpresion === "CARTA") return window.print();
+    setImprimiendo(true);
+    setAvisoImpresion(null);
+    const error = await imprimirReciboFactura(factura!.id);
+    setAvisoImpresion(error ? { ok: false, texto: error } : { ok: true, texto: "Recibo enviado a la impresora." });
+    setImprimiendo(false);
+  }
 
   function abrirCobro() {
     setMonto(Math.round(saldo * 100) / 100);
@@ -160,9 +174,14 @@ export default function DetalleFactura() {
         subtitle={`${formatDate(factura.fecha)} · ${factura.cliente_nombre} · ${factura.condicion_pago === "CONTADO" ? `Contado (${METODO_PAGO_LABELS[factura.metodo_pago ?? "EFECTIVO"]})` : "Credito"}`}
         actions={
           <div className="flex gap-2 print:hidden">
-            <Button variant="secondary" onClick={() => window.print()}>
-              Imprimir
+            <Button variant="secondary" onClick={imprimir} disabled={imprimiendo}>
+              {imprimiendo ? "Imprimiendo..." : formatoImpresion === "TICKET" ? "Imprimir recibo" : "Imprimir"}
             </Button>
+            {formatoImpresion === "TICKET" && (
+              <Button variant="ghost" onClick={() => window.print()} title="Imprimir en hoja carta con el dialogo de Windows">
+                Hoja carta
+              </Button>
+            )}
             {factura.estado === "PENDIENTE" && factura.condicion_pago === "CREDITO" && <Button onClick={abrirCobro}>Registrar cobro</Button>}
             {factura.estado !== "ANULADA" && (
               <Button variant="secondary" onClick={abrirDebito}>
@@ -185,6 +204,13 @@ export default function DetalleFactura() {
           </div>
         }
       />
+
+      {avisoImpresion && (
+        <p className={`mb-3 rounded-lg px-3 py-2 text-sm print:hidden ${avisoImpresion.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+          {avisoImpresion.texto}
+          {!avisoImpresion.ok && " Puedes revisar la impresora en Configuracion → Impresora de facturas."}
+        </p>
+      )}
 
       <div className="mb-5 flex items-center gap-3 print:hidden">
         <Badge tone={factura.estado === "PAGADA" ? "green" : factura.estado === "ANULADA" ? "red" : "amber"}>{factura.estado}</Badge>

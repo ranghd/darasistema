@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { imprimirReciboFactura } from "../../lib/ticket";
 import type { Cliente, ModalidadLinea, Producto } from "../../lib/types";
 import { formatMoney, todayIso } from "../../lib/format";
 import { Button, Select } from "../../components/ui";
@@ -114,6 +115,11 @@ export default function Caja() {
         lineas: carrito.map((l) => ({ producto_id: l.producto_id, modalidad: l.modalidad, cantidad: l.cantidad, precio_unitario: productos.find((p) => p.id === l.producto_id)!.precio_contenido, descuento: 0 })),
       });
       setCarrito([]);
+      const cfgImpresion = await api.impresion.obtenerConfig().catch(() => null);
+      if (cfgImpresion?.formato === "TICKET" && cfgImpresion.imprimirAlCobrar) {
+        // Si la impresora falla, la venta ya quedo guardada: se puede reimprimir desde la factura.
+        await imprimirReciboFactura((factura as any).id, cfgImpresion);
+      }
       navigate(`/facturas/${(factura as any).id}`);
     } catch (e: any) {
       setError(e?.message ?? "No se pudo cobrar la venta");

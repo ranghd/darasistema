@@ -4,6 +4,8 @@
 // La app real siempre usa window.api expuesto por electron/preload.ts.
 import type {
   AsientoConLineas,
+  ConfigImpresion,
+  ImpresoraInfo,
   Compra,
   Cliente,
   Cuenta,
@@ -179,6 +181,13 @@ export const mockApi = {
     obtenerConfig: async (..._args: any[]) => ({ modo: "SERVIDOR" as "SERVIDOR" | "CAJA_REMOTA" | "NUBE", puerto: 4500, servidorUrl: undefined as string | undefined, nubeUrl: "https://darasistema.ranghd732.workers.dev", ips: ["192.168.1.50"] }),
     guardarConfig: async (data: any, ..._rest: any[]) => { warn(); return data; },
     probarConexion: async (..._args: any[]) => { warn(); return { ok: true }; },
+  },
+  impresion: {
+    obtenerConfig: async (): Promise<ConfigImpresion> => ({ impresora: "", anchoMm: 80, formato: "TICKET", imprimirAlCobrar: false }),
+    guardarConfig: async (data: Partial<ConfigImpresion>): Promise<ConfigImpresion> => { warn(); return { impresora: "", anchoMm: 80, formato: "TICKET", imprimirAlCobrar: false, ...data }; },
+    listar: async (): Promise<ImpresoraInfo[]> => [{ nombre: "Microsoft Print to PDF", descripcion: "Microsoft Print to PDF", predeterminada: true }],
+    // En el navegador no hay impresion directa: se abre la vista de impresion normal.
+    imprimirTicket: async (_html: string): Promise<true> => { window.print(); return true; },
   },
   updater: {
     // En vista previa no hay auto-update real: nunca se dispara el callback.

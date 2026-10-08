@@ -19,6 +19,7 @@ import { listarIpsLocales } from "./network/localIp";
 import { iniciarServidorHttp, type HandlerRegistry } from "./network/server";
 import { cerrarSesionNube, registrarProxiesNube, registrarProxiesRemotos } from "./network/remoteProxy";
 import { configurarAutoUpdate } from "./updater";
+import { registrarImpresionIpc } from "./impresion";
 import { APP_VARIANT } from "./variant.generated";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -67,6 +68,7 @@ async function registerAllIpc() {
   }
 
   ipcMain.handle("auth:logout", () => cerrarSesionNube());
+  registrarImpresionIpc();
   ipcMain.handle("red:obtenerConfig", () => ({ ...leerConfigRed(), ips: listarIpsLocales() }));
   ipcMain.handle("red:guardarConfig", (_e, nuevaConfig: ConfigRed) => {
     guardarConfigRed(nuevaConfig);

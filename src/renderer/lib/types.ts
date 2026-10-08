@@ -381,3 +381,16 @@ export interface SesionUsuario {
   nombre: string;
   rol: RolUsuario;
 }
+
+export interface ConfigImpresion {
+  impresora: string;
+  anchoMm: 58 | 80;
+  formato: "TICKET" | "CARTA";
+  imprimirAlCobrar: boolean;
+}
+
+export interface ImpresoraInfo {
+  nombre: string;
+  descripcion: string;
+  predeterminada: boolean;
+}

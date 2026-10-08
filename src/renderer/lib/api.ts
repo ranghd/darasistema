@@ -27,10 +27,11 @@ function envolverConEstadoDeConexion<T extends object>(obj: T): T {
   const resultado: any = {};
   for (const key of Object.keys(obj)) {
     const value = (obj as any)[key];
-    if (key === "auth" || key === "updater") {
+    if (key === "auth" || key === "updater" || key === "impresion") {
       // auth: un fallo de login se muestra en la pantalla de Login, no como
       // error de red. updater: onEstado es sincronico y devuelve una funcion
-      // de limpieza (no una promesa) -- envolverla la rompe.
+      // de limpieza (no una promesa) -- envolverla la rompe. impresion: un fallo de la
+      // impresora no es un problema de conexion; lo muestra la pantalla que imprime.
       resultado[key] = value;
       continue;
     }

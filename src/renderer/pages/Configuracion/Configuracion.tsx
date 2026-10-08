@@ -6,6 +6,7 @@ import { NCF_LABELS, TODOS_LOS_TIPOS_NCF } from "../../lib/ncf";
 import { esVariantCaja } from "../../lib/variant";
 import { useAuth } from "../../lib/auth";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
+import ImpresoraCard from "./ImpresoraCard";
 
 type ModoRed = "SERVIDOR" | "CAJA_REMOTA" | "NUBE";
 
@@ -249,6 +250,8 @@ export default function Configuracion() {
           </Table>
         </Card>
       )}
+
+      <ImpresoraCard nombreEmpresa={config?.nombre_empresa ?? ""} />
 
       <Card className="mt-5 p-5">
         <h2 className="mb-1 text-sm font-semibold text-slate-700">Donde se guardan los datos</h2>
