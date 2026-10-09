@@ -1,6 +1,6 @@
 {
   "name": "darasistema",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "description": "Sistema de Facturacion y Contabilidad - Darasistema (gas, oxigeno y agua purificada)",
   "main": "dist-electron/main.js",
   "author": "Darasistema",
@@ -22,7 +22,8 @@
     "nube:nueva-empresa": "node scripts/nueva-empresa.js",
     "nube:empresas": "node scripts/nueva-empresa.js listar",
     "nube:publicar": "cd cloud && npx wrangler deploy",
-    "nube:borrar-empresa": "node scripts/nueva-empresa.js borrar"
+    "nube:borrar-empresa": "node scripts/nueva-empresa.js borrar",
+    "nube:vaciar-empresa": "node scripts/nueva-empresa.js vaciar"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",

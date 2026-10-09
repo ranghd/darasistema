@@ -47,6 +47,7 @@ export const ATAJOS_GENERALES: Atajo[] = [
 ];
 
 export const ATAJOS_CAJA: Atajo[] = [
+  { teclas: "F9  o  Ctrl + O", accion: "Abrir la caja (cuando esta cerrada)" },
   { teclas: "Escribir + Enter", accion: "Buscar y agregar producto (nombre o codigo; sirve el lector de codigos)" },
   { teclas: "3*  y el producto", accion: "Agregar varias unidades de una vez (ej. 3*gas)" },
   { teclas: "↑ / ↓", accion: "Moverse por los resultados o por el carrito" },

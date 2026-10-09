@@ -163,6 +163,31 @@ export class Empresa extends DurableObject {
     return await handler({}, ...lista);
   }
 
+  // Deja la empresa como recien creada para empezar a usarla de verdad: borra ventas, clientes,
+  // productos, compras, proveedores, NCF y cajas de prueba. Conserva el codigo, los usuarios
+  // (con sus contrasenas), los datos de la empresa y el catalogo de cuentas.
+  // (Cloudflare guarda 30 dias de historial por si hiciera falta recuperar algo.)
+  vaciar(): Record<string, number> {
+    // Primero los detalles y despues lo principal, para respetar las relaciones entre tablas.
+    const tablas = [
+      "factura_lineas", "cobros", "envase_movimientos", "envases_cliente", "caja_movimientos", "caja_correcciones",
+      "pagos_compra", "compra_lineas", "producto_proveedor", "comprobantes_varios",
+      "facturas", "compras", "caja_sesiones", "cajas",
+      "asiento_lineas", "asientos",
+      "proveedores", "productos", "clientes", "ncf_secuencias", "auditoria", "_login_intentos",
+    ];
+    const borradas: Record<string, number> = {};
+    this.db.transaction(() => {
+      for (const t of tablas) {
+        borradas[t] = (this.db.prepare(`SELECT COUNT(*) AS n FROM "${t}"`).get() as { n: number }).n;
+        this.db.exec(`DELETE FROM "${t}"`);
+      }
+      this.db.exec(`INSERT INTO clientes (codigo, nombre, rnc_cedula, tipo, telefono, email, direccion, activo) VALUES ('CLI-0000', 'Consumidor Final', '', 'FISICA', '', '', '', 1)`);
+      this.db.exec(`INSERT INTO cajas (nombre) VALUES ('Caja principal')`);
+    })();
+    return borradas;
+  }
+
   exportar(): Record<string, unknown[]> {
     const tablas = this.db
       .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'`)

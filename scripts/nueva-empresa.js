@@ -2,6 +2,7 @@
 // Uso:  npm run nube:nueva-empresa     -> pregunta los datos
 //       npm run nube:empresas          -> lista las empresas creadas
 //       npm run nube:borrar-empresa -- <codigo>  -> borra una empresa y todos sus datos
+//       npm run nube:vaciar-empresa -- <codigo>  -> deja la empresa en blanco (conserva codigo y usuarios)
 const fs = require("node:fs");
 const path = require("node:path");
 const readline = require("node:readline/promises");
@@ -98,8 +99,28 @@ async function borrar(codigo) {
   console.log(`Empresa "${codigo}" borrada.`);
 }
 
+// Antes de vaciar se guarda un respaldo completo en cloud/respaldos/ (solo en esta PC).
+async function vaciar(codigo) {
+  if (!codigo) throw new Error("Indica el codigo: npm run nube:vaciar-empresa -- <codigo>");
+  const respaldo = await pedir(`/admin/empresas/${encodeURIComponent(codigo)}/exportar`);
+  const carpeta = path.join(__dirname, "..", "cloud", "respaldos");
+  fs.mkdirSync(carpeta, { recursive: true });
+  const archivo = path.join(carpeta, `${codigo}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+  fs.writeFileSync(archivo, JSON.stringify(respaldo, null, 2));
+  const n = (t) => (respaldo[t] || []).length;
+  console.log(`\nRespaldo guardado en ${archivo}`);
+  console.log(`La empresa "${codigo}" tiene: ${n("facturas")} facturas, ${n("clientes")} clientes, ${n("productos")} productos, ${n("compras")} compras, ${n("caja_sesiones")} jornadas de caja.`);
+  console.log("Se borra todo eso. Se conservan el codigo, los usuarios con sus contrasenas, los datos de la empresa y el catalogo de cuentas.");
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const confirmacion = (await rl.question("Para confirmar escribe el codigo otra vez: ")).trim();
+  rl.close();
+  if (confirmacion !== codigo) return console.log("Cancelado: el codigo no coincide. No se borro nada.");
+  const r = await pedir(`/admin/empresas/${encodeURIComponent(codigo)}/vaciar`, { method: "POST" });
+  console.log(`Empresa "${codigo}" vaciada. Filas borradas:`, Object.entries(r.borradas).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join(", ") || "ninguna");
+}
+
 const comando = process.argv[2];
-(comando === "listar" ? listar() : comando === "borrar" ? borrar(process.argv[3]) : crear()).catch((e) => {
+(comando === "listar" ? listar() : comando === "borrar" ? borrar(process.argv[3]) : comando === "vaciar" ? vaciar(process.argv[3]) : crear()).catch((e) => {
   console.error("\nNo se pudo completar:", e.message);
   process.exit(1);
 });

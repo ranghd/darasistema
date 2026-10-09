@@ -193,7 +193,7 @@ export default function Caja() {
     setError("");
     if (!clienteId) return setError("Elige un cliente (F2)");
     if (carrito.length === 0) return setError("Agrega al menos un producto");
-    if (usaCaja && !sesion) return setError("La caja esta cerrada. Abre la caja en Cierre de Caja para poder cobrar.");
+    if (usaCaja && !sesion) return setError("La caja esta cerrada. Presiona F9 (o Ctrl+O) para abrirla.");
     setRecibido(calculo.total.toFixed(2));
     setPagando(true);
   }
