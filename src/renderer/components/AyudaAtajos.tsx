@@ -24,10 +24,10 @@ export default function AyudaAtajos({ abierta, onCerrar }: { abierta: boolean; o
   return (
     <Modal open={abierta} onClose={onCerrar} title="Atajos de teclado" width="max-w-2xl">
       <div className="space-y-5">
-        {pathname === "/caja" && <Lista titulo="Caja / POS" atajos={ATAJOS_CAJA} />}
+        {pathname === "/caja" && <Lista titulo="Punto de venta" atajos={ATAJOS_CAJA} />}
         <Lista titulo="En todo el sistema" atajos={ATAJOS_GENERALES} />
         {pathname !== "/caja" && (
-          <p className="text-xs text-slate-500">En la Caja / POS hay mas atajos: abre la caja y presiona F1 ahi.</p>
+          <p className="text-xs text-slate-500">En el Punto de venta hay mas atajos: entra ahi y presiona F1.</p>
         )}
       </div>
     </Modal>

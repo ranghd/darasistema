@@ -46,7 +46,7 @@ export default function Dashboard() {
         <Card className="p-5">
           <h2 className="mb-3 text-sm font-semibold text-slate-700">Accesos rapidos</h2>
           <div className="grid grid-cols-2 gap-2.5">
-            {(esVariantCaja || esCajero) && <QuickLink to="/caja" label="Caja / POS" />}
+            {(esVariantCaja || esCajero) && <QuickLink to="/caja" label="Punto de venta" />}
             <QuickLink to="/facturas/nueva" label="Factura detallada" />
             <QuickLink to="/clientes" label="Clientes" />
             <QuickLink to="/productos" label="Inventario" />

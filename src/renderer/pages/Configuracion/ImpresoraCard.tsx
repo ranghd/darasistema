@@ -94,7 +94,7 @@ export default function ImpresoraCard({ nombreEmpresa }: { nombreEmpresa: string
       </div>
       <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
         <input type="checkbox" checked={config.imprimirAlCobrar} onChange={(e) => cambiar({ imprimirAlCobrar: e.target.checked })} disabled={config.formato !== "TICKET"} />
-        Imprimir el recibo automaticamente al cobrar en Caja / POS
+        Imprimir el recibo automaticamente al cobrar en el Punto de venta
       </label>
       {aviso && <p className={`mt-3 rounded-lg px-3 py-2 text-sm ${aviso.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{aviso.texto}</p>}
     </Card>

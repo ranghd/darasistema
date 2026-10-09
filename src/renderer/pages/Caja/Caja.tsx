@@ -6,6 +6,8 @@ import { imprimirReciboFactura, type AvisoImpresion } from "../../lib/ticket";
 import { useCaja } from "../../lib/caja";
 import { hayModalAbierto } from "../../lib/atajos";
 import CajaCerradaAviso from "../../components/CajaCerradaAviso";
+import AvisoBorrador from "../../components/AvisoBorrador";
+import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
 import type { Cliente, ModalidadLinea, Producto } from "../../lib/types";
 import { formatMoney, todayIso } from "../../lib/format";
 import { Button, Modal } from "../../components/ui";
@@ -19,9 +21,9 @@ interface LineaCarrito {
 type Metodo = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA";
 
 const METODOS: { valor: Metodo; nombre: string; tecla: string }[] = [
-  { valor: "EFECTIVO", nombre: "Efectivo", tecla: "F6" },
-  { valor: "TARJETA", nombre: "Tarjeta", tecla: "F7" },
-  { valor: "TRANSFERENCIA", nombre: "Transferencia", tecla: "F8" },
+  { valor: "EFECTIVO", nombre: "Efectivo", tecla: "F6 · Ctrl1" },
+  { valor: "TARJETA", nombre: "Tarjeta", tecla: "F7 · Ctrl2" },
+  { valor: "TRANSFERENCIA", nombre: "Transferencia", tecla: "F8 · Ctrl3" },
 ];
 
 const CATEGORIAS = [
@@ -59,13 +61,16 @@ export default function Caja() {
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [carrito, setCarrito] = useState<LineaCarrito[]>([]);
-  const [clienteId, setClienteId] = useState<number | "">("");
+  // La venta a medias se guarda sola: si vas a otra seccion y vuelves, sigue ahi.
+  const [carrito, setCarrito] = useBorrador<LineaCarrito[]>("venta.carrito", []);
+  const [clienteId, setClienteId] = useBorrador<number | "">("venta.cliente", "");
+  const habiaVenta = useHabiaBorrador("venta.carrito", (v) => Array.isArray(v) && v.length > 0);
+  const [avisoRecuperada, setAvisoRecuperada] = useState(habiaVenta);
   const [categoria, setCategoria] = useState("TODOS");
   const [busqueda, setBusqueda] = useState("");
   const [resaltado, setResaltado] = useState(0);
   const [lineaSel, setLineaSel] = useState(-1);
-  const [metodoPago, setMetodoPago] = useState<Metodo>("EFECTIVO");
+  const [metodoPago, setMetodoPago] = useBorrador<Metodo>("venta.metodo", "EFECTIVO");
   const [error, setError] = useState("");
 
   const [eligiendoCliente, setEligiendoCliente] = useState(false);
@@ -85,7 +90,9 @@ export default function Caja() {
     setProductos(p);
     setClientes(c);
     const consumidorFinal = c.find((x) => x.nombre === "Consumidor Final");
-    setClienteId(consumidorFinal ? consumidorFinal.id : c[0]?.id ?? "");
+    // Si habia una venta a medias se respeta su cliente; si no, Consumidor Final.
+    setClienteId((prev) => (prev && c.some((x) => x.id === prev) ? prev : consumidorFinal ? consumidorFinal.id : c[0]?.id ?? ""));
+    setCarrito((prev) => prev.filter((l) => p.some((x) => x.id === l.producto_id && x.activo)));
   }
 
   useEffect(() => {
@@ -112,7 +119,7 @@ export default function Caja() {
     let subtotal = 0;
     let itbis = 0;
     let fianza = 0;
-    const lineas = carrito.map((l) => {
+    const lineas = carrito.filter((l) => productos.some((p) => p.id === l.producto_id)).map((l) => {
       const producto = productos.find((p) => p.id === l.producto_id)!;
       const bruto = l.cantidad * producto.precio_contenido;
       const itbisLinea = bruto * (producto.itbis_rate ?? 0.18);
@@ -170,6 +177,7 @@ export default function Caja() {
   }
 
   function nuevaVenta() {
+    setAvisoRecuperada(false);
     setCarrito([]);
     setLineaSel(-1);
     setBusqueda("");
@@ -249,26 +257,29 @@ export default function Caja() {
   }
 
   // ---------- teclado ----------
-  const estado = useRef({ iniciarCobro, alternarModalidad, lineaSel, busqueda, carrito, setMetodoPago });
-  estado.current = { iniciarCobro, alternarModalidad, lineaSel, busqueda, carrito, setMetodoPago };
+  const estado = useRef({ iniciarCobro, alternarModalidad, cambiarCantidad, quitar, lineaSel, busqueda, carrito, setMetodoPago });
+  estado.current = { iniciarCobro, alternarModalidad, cambiarCantidad, quitar, lineaSel, busqueda, carrito, setMetodoPago };
 
   useEffect(() => {
     const alPresionar = (e: KeyboardEvent) => {
-      if (hayModalAbierto()) return; // las ventanas manejan su propio teclado
+      if (hayModalAbierto() || e.defaultPrevented) return; // las ventanas (y las flechas generales) ya lo manejaron
       const s = estado.current;
-      const metodo = { F6: "EFECTIVO", F7: "TARJETA", F8: "TRANSFERENCIA" }[e.key] as Metodo | undefined;
+      const ctrl = e.ctrlKey || e.metaKey;
+      const seleccion = s.lineaSel >= 0 ? s.lineaSel : s.carrito.length - 1;
+      const enOtroCampo = document.activeElement !== buscador.current && !!(document.activeElement as HTMLElement | null)?.closest("input, textarea, select");
+      const metodo = metodoDeTecla(e);
       if (metodo) {
         e.preventDefault();
         s.setMetodoPago(metodo);
       } else if (e.key === "F12" || ((e.ctrlKey || e.metaKey) && e.key === "Enter")) {
         e.preventDefault();
         s.iniciarCobro();
-      } else if (e.key === "F2") {
+      } else if (e.key === "F2" || (ctrl && e.key.toLowerCase() === "b")) {
         e.preventDefault();
         setTextoCliente("");
         setClienteSel(0);
         setEligiendoCliente(true);
-      } else if (e.key === "F4") {
+      } else if (e.key === "F4" || (ctrl && e.key.toLowerCase() === "e")) {
         e.preventDefault();
         s.alternarModalidad(s.lineaSel >= 0 ? s.lineaSel : s.carrito.length - 1);
       } else if (e.key === "Escape") {
@@ -277,16 +288,39 @@ export default function Caja() {
           setBusqueda("");
           enfocar();
         } else if (s.carrito.length) setConfirmarCancelar(true); // el foco va al boton "Si, cancelar"
-      } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey && document.activeElement !== buscador.current) {
-        // escribir en cualquier parte de la caja va al buscador
-        buscador.current?.focus();
+      } else if (document.activeElement !== buscador.current && !enOtroCampo && !ctrl && !e.altKey) {
+        // Con el foco fuera del buscador (por ejemplo despues de tocar un producto o una linea):
+        // + - Supr y las flechas siguen actuando sobre el carrito, y escribir va al buscador.
+        if ((e.key === "+" || e.key === "-") && s.carrito.length) {
+          e.preventDefault();
+          s.cambiarCantidad(seleccion, e.key === "+" ? 1 : -1);
+          enfocar();
+        } else if (e.key === "Delete" && s.carrito.length) {
+          e.preventDefault();
+          s.quitar(seleccion);
+        } else if ((e.key === "ArrowUp" || e.key === "ArrowDown") && s.carrito.length) {
+          e.preventDefault();
+          setLineaSel(Math.max(0, Math.min(seleccion + (e.key === "ArrowDown" ? 1 : -1), s.carrito.length - 1)));
+          enfocar();
+        } else if (e.key.length === 1) {
+          buscador.current?.focus();
+        }
       }
     };
     window.addEventListener("keydown", alPresionar);
     return () => window.removeEventListener("keydown", alPresionar);
   }, []);
 
+  // F6 F7 F8 o Ctrl+1 Ctrl+2 Ctrl+3 (en laptops las F suelen necesitar la tecla Fn).
+  function metodoDeTecla(e: KeyboardEvent | React.KeyboardEvent): Metodo | undefined {
+    const porF = { F6: "EFECTIVO", F7: "TARJETA", F8: "TRANSFERENCIA" }[e.key] as Metodo | undefined;
+    if (porF) return porF;
+    if (e.ctrlKey || e.metaKey) return ({ "1": "EFECTIVO", "2": "TARJETA", "3": "TRANSFERENCIA" } as Record<string, Metodo>)[e.key];
+    return undefined;
+  }
+
   function teclaBuscador(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.ctrlKey || e.metaKey) return; // Ctrl+Enter, Ctrl+1... los maneja la caja (cobrar, metodo)
     const vacio = busqueda.trim() === "";
     const seleccion = lineaSel >= 0 ? lineaSel : carrito.length - 1;
     if (e.key === "Enter") {
@@ -333,8 +367,15 @@ export default function Caja() {
     <div className="flex h-[calc(100vh-56px)] gap-5" data-nav-propio>
       <div className="flex min-w-0 flex-1 flex-col">
         <CajaCerradaAviso />
+        {avisoRecuperada && carrito.length > 0 && (
+          <AvisoBorrador
+            texto={`Se recupero la venta que estabas haciendo (${carrito.length} producto${carrito.length === 1 ? "" : "s"}).`}
+            onOcultar={() => setAvisoRecuperada(false)}
+            onDescartar={nuevaVenta}
+          />
+        )}
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h1 className="mr-1 text-xl font-semibold text-slate-900">Caja</h1>
+          <h1 className="mr-1 text-xl font-semibold text-slate-900">Punto de venta</h1>
           {sesion && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">{sesion.caja_nombre} abierta</span>}
           <div className="relative min-w-[18rem] flex-1">
             <input
@@ -387,7 +428,7 @@ export default function Caja() {
           {resultados.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-400">No hay productos que coincidan</p>}
         </div>
         <p className="mt-2 text-[11px] text-slate-400">
-          ↑↓ elegir · Enter agregar · + / − cantidad · Supr quitar · F2 cliente · F4 lleno/intercambio · F6-F8 pago · F12 cobrar · Esc cancelar · F1 ayuda
+          ↑↓ elegir · Enter agregar · + / − cantidad · Supr quitar · F2 o Ctrl+B cliente · F4 o Ctrl+E lleno/intercambio · F6-F8 o Ctrl+1-3 pago · F12 o Ctrl+Enter cobrar · Esc cancelar · F1 ayuda
         </p>
       </div>
 
@@ -407,7 +448,7 @@ export default function Caja() {
             <span className="block text-sm font-semibold text-slate-800">{cliente?.nombre ?? "Elegir cliente"}</span>
           </span>
           <span className="text-xs text-brand-600">
-            Cambiar <Tecla>F2</Tecla>
+            Cambiar <Tecla>F2 · CtrlB</Tecla>
           </span>
         </button>
 
@@ -507,7 +548,7 @@ export default function Caja() {
               Cancelar <Tecla>Esc</Tecla>
             </Button>
             <Button className="flex-1" onClick={iniciarCobro} disabled={cobrando || carrito.length === 0 || (usaCaja && !sesion)}>
-              Cobrar <Tecla>F12</Tecla>
+              Cobrar <Tecla>F12 · Ctrl↵</Tecla>
             </Button>
           </div>
         </div>
@@ -550,17 +591,23 @@ export default function Caja() {
 
       {/* Cobrar (F12) */}
       <Modal open={pagando} onClose={() => (setPagando(false), enfocar())} title="Cobrar">
-        <form onSubmit={confirmarCobro} className="space-y-4">
+        <form
+          onSubmit={confirmarCobro}
+          className="space-y-4"
+          onKeyDown={(e) => {
+            const m = metodoDeTecla(e);
+            if (m) {
+              e.preventDefault();
+              setMetodoPago(m);
+            }
+          }}
+        >
           <div className="flex items-end justify-between">
             <span className="text-sm text-slate-500">Total a cobrar</span>
             <span className="text-3xl font-bold text-slate-900">{formatMoney(calculo.total)}</span>
           </div>
           <div
             className="flex gap-1"
-            onKeyDown={(e) => {
-              const m = { F6: "EFECTIVO", F7: "TARJETA", F8: "TRANSFERENCIA" }[e.key] as Metodo | undefined;
-              if (m) (e.preventDefault(), setMetodoPago(m));
-            }}
           >
             {METODOS.map((m) => (
               <button
@@ -578,10 +625,6 @@ export default function Caja() {
           {metodoPago === "EFECTIVO" ? (
             <div
               className="space-y-2"
-              onKeyDown={(e) => {
-                const m = { F6: "EFECTIVO", F7: "TARJETA", F8: "TRANSFERENCIA" }[e.key] as Metodo | undefined;
-                if (m) (e.preventDefault(), setMetodoPago(m));
-              }}
             >
               <label className="block text-sm">
                 <span className="mb-1 block font-medium text-slate-700">Recibido del cliente</span>

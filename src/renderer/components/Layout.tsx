@@ -8,7 +8,6 @@ import Logo from "./Logo";
 import PaletaComandos from "./PaletaComandos";
 import AyudaAtajos from "./AyudaAtajos";
 import { escribiendoEnCampo, hayModalAbierto } from "../lib/atajos";
-import { activarNavegacionConFlechas } from "../lib/navegacionFlechas";
 
 const NAV_COMPLETO = [
   {
@@ -69,7 +68,7 @@ const NAV_CAJA = [
   {
     section: "Venta Rapida",
     items: [
-      { to: "/caja", label: "Caja / POS" },
+      { to: "/caja", label: "Punto de venta" },
       ...(esVariantCaja ? [{ to: "/cierre-caja", label: "Cierre de Caja" }] : []),
     ],
   },
@@ -121,11 +120,7 @@ export default function Layout() {
       }
     };
     window.addEventListener("keydown", alPresionar);
-    const quitarFlechas = activarNavegacionConFlechas();
-    return () => {
-      window.removeEventListener("keydown", alPresionar);
-      quitarFlechas();
-    };
+    return () => window.removeEventListener("keydown", alPresionar);
   }, []);
 
   return (

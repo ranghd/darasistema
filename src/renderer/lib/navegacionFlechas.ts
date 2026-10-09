@@ -4,7 +4,7 @@
 //   direccion; ← desde el borde izquierdo vuelve al menu.
 // - Dentro de un campo de texto, ← → mueven el cursor y solo saltan al llegar al borde.
 // - Las filas clicables de las tablas se pueden enfocar y abrir con Enter.
-// Una zona puede manejar sus propias flechas marcandola con data-nav-propio (ej. la Caja/POS).
+// Una zona puede manejar sus propias flechas marcandola con data-nav-propio (ej. el Punto de venta).
 
 const ENFOCABLES =
   'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -124,13 +124,15 @@ export function activarNavegacionConFlechas(): () => void {
     if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
     const dir = e.key as Dir;
     if (activo !== document.body && laFlechaEsDelCampo(activo, dir)) return;
-    if ((dir === "ArrowUp" || dir === "ArrowDown") && activo.closest("[data-nav-propio]")) return;
+    // Una zona con flechas propias (Punto de venta) maneja ↑ ↓ ella misma, incluso sin foco.
+    const propia = document.querySelector("[data-nav-propio]");
+    if ((dir === "ArrowUp" || dir === "ArrowDown") && propia && (activo === document.body || propia.contains(activo))) return;
     // En listas y numeros la flecha nunca cambia el valor, aunque no haya a donde moverse.
     if (activo instanceof HTMLSelectElement || (activo instanceof HTMLInputElement && activo.type === "number")) e.preventDefault();
 
     const modal = ventanaAbierta();
     const menu = document.querySelector<HTMLElement>("aside nav");
-    const pantalla = document.querySelector<HTMLElement>("main");
+    const pantalla = document.querySelector<HTMLElement>("main") ?? document.body;
 
     // Dentro de una ventana: moverse solo entre sus elementos
     if (modal) {

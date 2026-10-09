@@ -32,6 +32,7 @@ import Compras from "./pages/Compras/Compras";
 import Proveedores from "./pages/Proveedores/Proveedores";
 import DetalleProveedor from "./pages/Proveedores/DetalleProveedor";
 import UpdateBanner from "./components/UpdateBanner";
+import { activarNavegacionConFlechas } from "./lib/navegacionFlechas";
 
 // Rutas que ve cualquier usuario que inicio sesion (admin o cajero).
 const RUTAS_COMUNES = [
@@ -92,6 +93,8 @@ export default function App() {
 
   useEffect(() => {
     api.red.obtenerConfig().then(setRedConfig);
+    // Flechas en toda la app, tambien en el inicio de sesion.
+    return activarNavegacionConFlechas();
   }, []);
 
   if (!redConfig) return null;

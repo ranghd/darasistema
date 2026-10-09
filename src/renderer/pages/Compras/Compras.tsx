@@ -5,6 +5,8 @@ import type { Compra, CompraLineaInput, PagoCompra, Producto, Proveedor, Relacio
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 import { ProveedorFormModal } from "../Proveedores/componentes";
+import AvisoBorrador from "../../components/AvisoBorrador";
+import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
 
 interface LineaForm extends CompraLineaInput {
   key: number;
@@ -17,14 +19,21 @@ let keySeq = 1;
 export default function Compras() {
   const [compras, setCompras] = useState<Compra[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [open, setOpen] = useState(false);
-  const [fecha, setFecha] = useState(todayIso());
+  // La compra a medias se guarda sola (y la ventana se vuelve a abrir al regresar).
+  const habiaCompra = useHabiaBorrador("compra.lineas", (v) => Array.isArray(v) && v.length > 0);
+  const [open, setOpen] = useState(habiaCompra);
+  const [avisoRecuperada, setAvisoRecuperada] = useState(habiaCompra);
+  useEffect(() => {
+    if (!habiaCompra) setFecha(todayIso());
+  }, []);
+  const [fecha, setFecha] = useBorrador("compra.fecha", todayIso());
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [relaciones, setRelaciones] = useState<RelacionProductoProveedor[]>([]);
-  const [proveedorId, setProveedorId] = useState<number | "">("");
+  const [proveedorId, setProveedorId] = useBorrador<number | "">("compra.proveedor", "");
   const [nuevoProveedor, setNuevoProveedor] = useState(false);
-  const [condicionPago, setCondicionPago] = useState<"CONTADO" | "CREDITO">("CONTADO");
-  const [lineas, setLineas] = useState<LineaForm[]>([]);
+  const [condicionPago, setCondicionPago] = useBorrador<"CONTADO" | "CREDITO">("compra.condicion", "CONTADO");
+  const [lineas, setLineas] = useBorrador<LineaForm[]>("compra.lineas", []);
+  keySeq = Math.max(keySeq, ...lineas.map((l) => l.key + 1));
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
@@ -46,13 +55,25 @@ export default function Compras() {
     cargar();
   }, []);
 
-  function abrirNueva() {
+  function limpiarCompra() {
     setFecha(todayIso());
     setProveedorId("");
     setCondicionPago("CONTADO");
     setLineas([]);
+    setAvisoRecuperada(false);
+  }
+
+  // Si habia una compra a medias, "+ Nueva Compra" la retoma en vez de borrarla.
+  function abrirNueva() {
+    if (lineas.length === 0) limpiarCompra();
     setError("");
     setOpen(true);
+  }
+
+  // Cancelar si descarta la compra; salir de la pantalla no.
+  function cancelarCompra() {
+    limpiarCompra();
+    setOpen(false);
   }
 
   function relacion(productoId: number, provId: number | "") {
@@ -100,6 +121,7 @@ export default function Compras() {
         condicion_pago: condicionPago,
         lineas: lineas.map(({ key, precioEditado, ...rest }) => rest),
       });
+      limpiarCompra();
       setOpen(false);
       await cargar();
     } catch (err: any) {
@@ -173,6 +195,13 @@ export default function Compras() {
 
       <Modal open={open} onClose={() => setOpen(false)} title="Nueva Compra" width="max-w-3xl">
         <div className="space-y-3">
+          {avisoRecuperada && lineas.length > 0 && (
+            <AvisoBorrador
+              texto={`Se recupero la compra que estabas registrando (${lineas.length} producto${lineas.length === 1 ? "" : "s"}).`}
+              onOcultar={() => setAvisoRecuperada(false)}
+              onDescartar={limpiarCompra}
+            />
+          )}
           <div className="grid grid-cols-3 gap-3">
             <Input label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
             <div>
@@ -278,7 +307,7 @@ export default function Compras() {
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
+            <Button type="button" variant="secondary" onClick={cancelarCompra}>
               Cancelar
             </Button>
             <Button onClick={guardar} disabled={guardando}>

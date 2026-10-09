@@ -4,6 +4,8 @@ import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { useCaja } from "../../lib/caja";
 import CajaCerradaAviso from "../../components/CajaCerradaAviso";
+import AvisoBorrador from "../../components/AvisoBorrador";
+import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
 import type { Cliente, FacturaLineaInput, Producto } from "../../lib/types";
 import { formatMoney, todayIso } from "../../lib/format";
 import { NCF_LABELS, TIPOS_NCF_VENTA } from "../../lib/ncf";
@@ -21,18 +23,40 @@ export default function NuevaFactura() {
   const navigate = useNavigate();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [clienteId, setClienteId] = useState<number | "">("");
-  const [fecha, setFecha] = useState(todayIso());
-  const [condicionPago, setCondicionPago] = useState<"CONTADO" | "CREDITO">("CONTADO");
-  const [metodoPago, setMetodoPago] = useState<"EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE">("EFECTIVO");
-  const [tipoNcf, setTipoNcf] = useState<"B01" | "B02" | "B13" | "B14" | "B15">("B02");
-  const [lineas, setLineas] = useState<LineaForm[]>([]);
+  // La factura a medias se guarda sola: si vas a otra seccion y vuelves, sigue ahi.
+  const [clienteId, setClienteId] = useBorrador<number | "">("factura.cliente", "");
+  const [fecha, setFecha] = useBorrador("factura.fecha", todayIso());
+  const [condicionPago, setCondicionPago] = useBorrador<"CONTADO" | "CREDITO">("factura.condicion", "CONTADO");
+  const [metodoPago, setMetodoPago] = useBorrador<"EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE">("factura.metodo", "EFECTIVO");
+  const [tipoNcf, setTipoNcf] = useBorrador<"B01" | "B02" | "B13" | "B14" | "B15">("factura.ncf", "B02");
+  const [lineas, setLineas] = useBorrador<LineaForm[]>("factura.lineas", []);
+  const habiaFactura = useHabiaBorrador("factura.lineas", (v) => Array.isArray(v) && v.length > 0);
+  const [avisoRecuperada, setAvisoRecuperada] = useState(habiaFactura);
+  // Una factura nueva (sin nada a medias) siempre empieza con la fecha de hoy.
+  useEffect(() => {
+    if (!habiaFactura) setFecha(todayIso());
+  }, []);
+  // las lineas recuperadas traen su numero; las nuevas siguen despues
+  keySeq = Math.max(keySeq, ...lineas.map((l) => l.key + 1));
+
+  function empezarDeNuevo() {
+    setClienteId("");
+    setFecha(todayIso());
+    setCondicionPago("CONTADO");
+    setMetodoPago("EFECTIVO");
+    setTipoNcf("B02");
+    setLineas([]);
+    setAvisoRecuperada(false);
+  }
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     api.clientes.listar().then(setClientes as any);
-    api.productos.listar().then(setProductos as any);
+    api.productos.listar().then((p) => {
+      setProductos(p as Producto[]);
+      setLineas((prev) => prev.filter((l) => (p as Producto[]).some((x) => x.id === l.producto_id)));
+    });
   }, []);
 
   function agregarLinea() {
@@ -94,6 +118,7 @@ export default function NuevaFactura() {
         caja_sesion_id: sesion?.id ?? null,
         lineas: lineas.map(({ key, ...rest }) => rest),
       });
+      empezarDeNuevo();
       navigate(`/facturas/${(factura as any).id}`);
     } catch (e: any) {
       setError(e?.message ?? "No se pudo crear la factura");
@@ -105,6 +130,13 @@ export default function NuevaFactura() {
   return (
     <div>
       <PageHeader title="Nueva Factura" subtitle="Venta de gas, oxigeno o agua purificada con ITBIS y NCF" />
+      {avisoRecuperada && lineas.length > 0 && (
+        <AvisoBorrador
+          texto={`Se recupero la factura que estabas haciendo (${lineas.length} linea${lineas.length === 1 ? "" : "s"}).`}
+          onOcultar={() => setAvisoRecuperada(false)}
+          onDescartar={empezarDeNuevo}
+        />
+      )}
       {condicionPago === "CONTADO" && <CajaCerradaAviso mensaje="La caja esta cerrada: para facturar al contado hay que abrirla. A credito si se puede facturar." />}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">

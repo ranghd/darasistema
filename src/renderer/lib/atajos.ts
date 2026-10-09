@@ -52,9 +52,9 @@ export const ATAJOS_CAJA: Atajo[] = [
   { teclas: "↑ / ↓", accion: "Moverse por los resultados o por el carrito" },
   { teclas: "+ / -", accion: "Subir o bajar la cantidad de la linea marcada" },
   { teclas: "Supr", accion: "Quitar la linea marcada" },
-  { teclas: "F2", accion: "Elegir cliente" },
-  { teclas: "F4", accion: "Cambiar Intercambio / Lleno (envases)" },
-  { teclas: "F6 / F7 / F8", accion: "Pago en Efectivo / Tarjeta / Transferencia" },
-  { teclas: "F12  o  Ctrl + Enter", accion: "Cobrar" },
+  { teclas: "F2  o  Ctrl + B", accion: "Elegir cliente" },
+  { teclas: "F4  o  Ctrl + E", accion: "Cambiar Intercambio / Lleno (envases)" },
+  { teclas: "F6 F7 F8  o  Ctrl + 1 2 3", accion: "Pago en Efectivo / Tarjeta / Transferencia" },
+  { teclas: "F12  o  Ctrl + Enter", accion: "Cobrar (en laptops las F pueden necesitar la tecla Fn)" },
   { teclas: "Esc", accion: "Cancelar la venta" },
 ];
