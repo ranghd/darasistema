@@ -1,4 +1,5 @@
 import React from "react";
+import { abrirEnPila, esTopeDePila } from "../lib/atajos";
 
 export function Card({ className = "", children }: { className?: string; children: React.ReactNode }) {
   return <div className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>;
@@ -108,13 +109,32 @@ export function EmptyRow({ colSpan, label = "Sin registros" }: { colSpan: number
 }
 
 export function Modal({ open, onClose, title, children, width = "max-w-xl" }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; width?: string }) {
+  // Esc cierra la ventana de arriba (si hay una dentro de otra, solo la ultima).
+  const cerrar = React.useRef(onClose);
+  cerrar.current = onClose;
+  React.useEffect(() => {
+    if (!open) return;
+    const quitar = abrirEnPila(cerrar);
+    const alPresionar = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && esTopeDePila(cerrar)) {
+        e.preventDefault();
+        e.stopPropagation();
+        cerrar.current();
+      }
+    };
+    window.addEventListener("keydown", alPresionar, true);
+    return () => {
+      window.removeEventListener("keydown", alPresionar, true);
+      quitar();
+    };
+  }, [open]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
       <div className={`max-h-[90vh] w-full ${width} overflow-y-auto rounded-xl bg-white shadow-xl`}>
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
           <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-          <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <button onClick={onClose} title="Cerrar (Esc)" className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
             ✕
           </button>
         </div>

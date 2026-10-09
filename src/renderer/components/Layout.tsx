@@ -1,10 +1,13 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { isPreviewMode } from "../lib/api";
 import { esVariantCaja } from "../lib/variant";
 import { useAuth } from "../lib/auth";
 import ConnectionBanner from "./ConnectionBanner";
 import Logo from "./Logo";
+import PaletaComandos from "./PaletaComandos";
+import AyudaAtajos from "./AyudaAtajos";
+import { escribiendoEnCampo, hayModalAbierto } from "../lib/atajos";
 
 const NAV_COMPLETO = [
   {
@@ -93,6 +96,32 @@ export default function Layout() {
 
   const mostrarCaja = esVariantCaja || usuario?.rol === "CAJERO";
   const nav = (mostrarCaja ? NAV_CAJA : NAV_COMPLETO).filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN");
+  const [paleta, setPaleta] = useState(false);
+  const [ayuda, setAyuda] = useState(false);
+
+  // Atajos de todo el sistema.
+  useEffect(() => {
+    const alPresionar = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setAyuda(false);
+        setPaleta(true);
+      } else if (e.key === "F1" || (e.key === "?" && !escribiendoEnCampo(e) && !hayModalAbierto())) {
+        e.preventDefault();
+        setPaleta(false);
+        setAyuda(true);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !e.defaultPrevented) {
+        // Ctrl+Enter guarda el formulario en el que se esta escribiendo.
+        const form = (document.activeElement as HTMLElement | null)?.closest("form");
+        if (form) {
+          e.preventDefault();
+          form.requestSubmit();
+        }
+      }
+    };
+    window.addEventListener("keydown", alPresionar);
+    return () => window.removeEventListener("keydown", alPresionar);
+  }, []);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100">
@@ -127,6 +156,17 @@ export default function Layout() {
             </div>
           ))}
         </nav>
+        <button
+          type="button"
+          onClick={() => setPaleta(true)}
+          className="mx-3 mb-2 flex items-center justify-between rounded-lg border border-slate-800 px-2.5 py-1.5 text-xs text-slate-400 hover:bg-slate-800 hover:text-white"
+        >
+          <span>Buscar...</span>
+          <kbd className="rounded border border-slate-700 px-1 font-mono text-[10px]">Ctrl K</kbd>
+        </button>
+        <button type="button" onClick={() => setAyuda(true)} className="mx-3 mb-3 text-left text-[11px] text-slate-500 hover:text-slate-300">
+          F1 · ver atajos de teclado
+        </button>
         {isPreviewMode && (
           <div className="mx-3 mb-3 rounded-lg bg-amber-500/10 px-2.5 py-2 text-[11px] text-amber-300">
             Vista previa web: datos de ejemplo, sin guardar.
@@ -156,6 +196,8 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+      <PaletaComandos abierta={paleta} onCerrar={() => setPaleta(false)} pantallas={nav.flatMap((g) => g.items)} />
+      <AyudaAtajos abierta={ayuda} onCerrar={() => setAyuda(false)} />
     </div>
   );
 }
