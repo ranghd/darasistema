@@ -35,6 +35,10 @@ export interface Atajo {
 }
 
 export const ATAJOS_GENERALES: Atajo[] = [
+  { teclas: "↑ / ↓  en el menu", accion: "Pasar de una seccion a otra; Enter la abre" },
+  { teclas: "→  /  ←", accion: "Entrar a la pantalla / volver al menu" },
+  { teclas: "Flechas en la pantalla", accion: "Moverse entre botones, campos y filas; Enter abre o presiona" },
+  { teclas: "Enter en una lista", accion: "Abrir la lista desplegable para elegir una opcion" },
   { teclas: "Ctrl + K", accion: "Buscar pantalla, cliente o factura" },
   { teclas: "F1  o  ?", accion: "Ver esta ayuda de atajos" },
   { teclas: "Esc", accion: "Cerrar la ventana abierta" },

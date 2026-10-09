@@ -330,7 +330,7 @@ export default function Caja() {
     .slice(0, 3);
 
   return (
-    <div className="flex h-[calc(100vh-56px)] gap-5">
+    <div className="flex h-[calc(100vh-56px)] gap-5" data-nav-propio>
       <div className="flex min-w-0 flex-1 flex-col">
         <CajaCerradaAviso />
         <div className="mb-3 flex flex-wrap items-center gap-2">

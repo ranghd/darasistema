@@ -8,6 +8,7 @@ import Logo from "./Logo";
 import PaletaComandos from "./PaletaComandos";
 import AyudaAtajos from "./AyudaAtajos";
 import { escribiendoEnCampo, hayModalAbierto } from "../lib/atajos";
+import { activarNavegacionConFlechas } from "../lib/navegacionFlechas";
 
 const NAV_COMPLETO = [
   {
@@ -120,7 +121,11 @@ export default function Layout() {
       }
     };
     window.addEventListener("keydown", alPresionar);
-    return () => window.removeEventListener("keydown", alPresionar);
+    const quitarFlechas = activarNavegacionConFlechas();
+    return () => {
+      window.removeEventListener("keydown", alPresionar);
+      quitarFlechas();
+    };
   }, []);
 
   return (
