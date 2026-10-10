@@ -19,5 +19,8 @@ win:
   target: nsis
   icon: build/icon-caja.png
 nsis:
+  # Nombre fijo (sin version): asi el enlace .../releases/latest/download/Cajapunto1-Setup.exe
+  # siempre baja la ultima version.
+  artifactName: Cajapunto1-Setup.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true

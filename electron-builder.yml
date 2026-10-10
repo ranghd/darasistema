@@ -18,5 +18,8 @@ win:
   target: nsis
   icon: build/icon-full.png
 nsis:
+  # Nombre fijo (sin version): asi el enlace .../releases/latest/download/Darasistema-Setup.exe
+  # siempre baja la ultima version.
+  artifactName: Darasistema-Setup.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
