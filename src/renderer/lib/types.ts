@@ -213,6 +213,11 @@ export interface Cobro {
   metodo: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE";
   asiento_id: number | null;
   nota: string | null;
+  recibo_id?: number | null;
+  recibo_numero?: number | null;
+  banco_id?: number | null;
+  banco_nombre?: string | null;
+  referencia?: string | null;
 }
 
 export interface CompraLineaInput {
@@ -233,6 +238,8 @@ export interface NuevaCompraInput {
   /** Proveedor guardado. Si no viene, se busca o se crea por nombre. */
   proveedor_id?: number;
   proveedor?: string;
+  /** NCF de la factura del proveedor (para el 606). */
+  ncf?: string;
   condicion_pago: "CONTADO" | "CREDITO";
   lineas: CompraLineaInput[];
 }
@@ -243,6 +250,7 @@ export interface Compra {
   fecha: string;
   proveedor: string;
   proveedor_id?: number | null;
+  ncf?: string | null;
   condicion_pago: "CONTADO" | "CREDITO";
   total: number;
   estado: "PENDIENTE" | "PAGADA";
@@ -555,4 +563,275 @@ export interface ListaCierres {
     faltantes: number;
   };
   cajeros: string[];
+}
+
+// ---------- Recibos de cobro (varias facturas) ----------
+
+export interface FacturaPendiente {
+  id: number;
+  numero: number;
+  ncf: string | null;
+  fecha: string;
+  total: number;
+  cobrado: number;
+  saldo: number;
+  dias: number;
+}
+
+export interface NuevoReciboInput {
+  cliente_id: number;
+  fecha: string;
+  monto: number;
+  metodo: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE";
+  banco_id?: number | null;
+  referencia?: string;
+  nota?: string;
+  /** A que facturas va el pago. Si no se indica, se paga de la mas vieja a la mas nueva. */
+  aplicaciones?: { factura_id: number; monto: number }[];
+  caja_sesion_id?: number | null;
+  creado_por?: string;
+}
+
+export interface ReciboCobro {
+  id: number;
+  numero: number;
+  cliente_id: number;
+  cliente_nombre?: string;
+  fecha: string;
+  monto: number;
+  metodo: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE";
+  banco_id: number | null;
+  banco_nombre?: string | null;
+  referencia: string | null;
+  nota: string | null;
+  asiento_id: number | null;
+  caja_sesion_id: number | null;
+  creado_por: string | null;
+  creado_en: string;
+  facturas?: number;
+}
+
+export interface ReciboDetalle extends ReciboCobro {
+  cliente_rnc?: string | null;
+  aplicaciones: { factura_id: number; monto: number; numero: number; ncf: string | null; fecha: string; total: number; saldo_despues: number }[];
+}
+
+// ---------- Reportes ----------
+
+export interface CxcCliente {
+  cliente_id: number;
+  cliente_nombre: string;
+  telefono: string | null;
+  facturas: number;
+  total_adeudado: number;
+  b0_30: number;
+  b31_60: number;
+  b61_90: number;
+  b90: number;
+  dias_max: number;
+  ultima_factura: string;
+}
+
+export interface ReporteVentas {
+  desde: string;
+  hasta: string;
+  resumen: {
+    facturas: number;
+    clientes: number;
+    subtotal: number;
+    descuentos: number;
+    itbis: number;
+    fianzas: number;
+    total: number;
+    contado: number;
+    credito: number;
+    efectivo: number;
+    tarjeta: number;
+    transferencia: number;
+    cheque: number;
+    promedio: number;
+    costo: number;
+    ganancia: number;
+    anuladas: number;
+    total_anulado: number;
+  };
+  porProducto: { producto_id: number; codigo: string; nombre: string; categoria: string; cantidad: number; venta: number; itbis: number; descuentos: number; costo: number; ganancia: number }[];
+  porVendedor: { vendedor: string; facturas: number; subtotal: number; total: number; promedio: number }[];
+  porCliente: { cliente_id: number; nombre: string; facturas: number; subtotal: number; total: number }[];
+  porDia: { fecha: string; facturas: number; subtotal: number; itbis: number; total: number }[];
+}
+
+// ---------- Gastos y cuentas por pagar ----------
+
+export interface TipoGasto {
+  id: number;
+  nombre: string;
+  cuenta_id: number;
+  cuenta_codigo?: string;
+  cuenta_nombre?: string;
+  activo: number;
+  usos?: number;
+}
+
+export interface NuevoGastoInput {
+  fecha: string;
+  vence?: string | null;
+  proveedor_id?: number | null;
+  /** Nombre del suplidor si no esta guardado (se crea solo). */
+  suplidor?: string;
+  rnc?: string;
+  ncf?: string;
+  tipo_gasto_id: number;
+  concepto?: string;
+  subtotal: number;
+  itbis?: number;
+  condicion_pago: "CONTADO" | "CREDITO";
+  metodo?: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE";
+  banco_id?: number | null;
+  referencia?: string;
+  creado_por?: string;
+}
+
+export interface Gasto {
+  id: number;
+  numero: number;
+  fecha: string;
+  vence: string | null;
+  proveedor_id: number | null;
+  suplidor: string;
+  rnc: string | null;
+  ncf: string | null;
+  tipo_gasto_id: number;
+  tipo_nombre?: string;
+  cuenta_codigo?: string;
+  cuenta_nombre?: string;
+  concepto: string | null;
+  subtotal: number;
+  itbis: number;
+  total: number;
+  condicion_pago: "CONTADO" | "CREDITO";
+  estado: "PENDIENTE" | "PAGADA" | "ANULADA";
+  asiento_id: number | null;
+  creado_por: string | null;
+  creado_en: string;
+  pagado?: number;
+  saldo?: number;
+}
+
+export interface PagoGasto {
+  id: number;
+  gasto_id: number;
+  fecha: string;
+  monto: number;
+  metodo: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE";
+  banco_id: number | null;
+  banco_nombre?: string | null;
+  referencia: string | null;
+  asiento_id: number | null;
+}
+
+export interface GastoDetalle extends Gasto {
+  saldo: number;
+  pagos: PagoGasto[];
+}
+
+export interface ResumenGastoTipo {
+  tipo_gasto_id: number;
+  nombre: string;
+  cuenta_codigo: string;
+  cantidad: number;
+  subtotal: number;
+  itbis: number;
+  total: number;
+  pendiente: number;
+}
+
+export interface CxpDocumento {
+  origen: "COMPRA" | "GASTO";
+  id: number;
+  numero: number;
+  fecha: string;
+  vence: string | null;
+  proveedor_id: number | null;
+  suplidor: string;
+  ncf: string | null;
+  detalle: string;
+  total: number;
+  pagado: number;
+  saldo: number;
+  dias: number;
+}
+
+export interface CxpSuplidor {
+  proveedor_id: number | null;
+  suplidor: string;
+  documentos: number;
+  total_adeudado: number;
+  b0_30: number;
+  b31_60: number;
+  b61_90: number;
+  b90: number;
+  dias_max: number;
+}
+
+// ---------- Bancos y conciliacion ----------
+
+export interface Banco {
+  id: number;
+  nombre: string;
+  numero_cuenta: string | null;
+  cuenta_id: number;
+  cuenta_codigo?: string;
+  cuenta_nombre?: string;
+  activo: number;
+  saldo_libros?: number;
+  sin_conciliar?: number;
+  ultimo_estado?: string | null;
+}
+
+export interface LineaLibroBanco {
+  id: number;
+  asiento_id: number;
+  asiento_numero: number;
+  fecha: string;
+  concepto: string;
+  descripcion: string | null;
+  monto: number;
+  referencia: string | null;
+  movimiento_id: number | null;
+}
+
+export interface MovimientoBancoInput {
+  fecha: string;
+  descripcion?: string;
+  referencia?: string;
+  monto: number;
+}
+
+export interface MovimientoBanco {
+  id: number;
+  banco_id: number;
+  fecha: string;
+  descripcion: string | null;
+  referencia: string | null;
+  monto: number;
+  asiento_linea_id: number | null;
+  asiento_numero?: number | null;
+  asiento_concepto?: string | null;
+  importado_en: string;
+}
+
+export interface DatosConciliacion {
+  banco: Banco;
+  desde: string;
+  hasta: string;
+  libros: LineaLibroBanco[];
+  movimientos: MovimientoBanco[];
+  resumen: { saldo_libros: number; conciliados: number; solo_banco: number; solo_banco_monto: number; solo_libros: number; solo_libros_monto: number };
+}
+
+export interface ResultadoImportacion {
+  nuevos: number;
+  repetidos: number;
+  conciliados: number;
 }

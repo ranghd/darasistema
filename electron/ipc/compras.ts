@@ -1,11 +1,10 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
-import { crearAsiento } from "../db/contabilidad";
+import { crearAsiento, cuentaDeBanco } from "../db/contabilidad";
 import { buscarOCrearProveedor, registrarPrecioProveedor } from "../db/proveedores";
 import type { Compra, CompraDetalle, NuevaCompraInput, PagoCompra, Producto } from "../shared/types";
 
 const CODIGO_CAJA = "1.1.01";
-const CODIGO_BANCO = "1.1.02";
 const CODIGO_CXP = "2.1.01";
 
 function cuentaIdPorCodigo(db: DB, codigo: string): number {
@@ -18,7 +17,7 @@ export function registerComprasIpc(db: DB) {
   ipcMain.handle("compras:listar", (_e, proveedorId?: number) => {
     return db
       .prepare(
-        `SELECT c.id, c.numero, c.fecha, COALESCE(pr.nombre, c.proveedor) AS proveedor, c.proveedor_id, c.condicion_pago,
+        `SELECT c.id, c.numero, c.fecha, COALESCE(pr.nombre, c.proveedor) AS proveedor, c.proveedor_id, c.ncf, c.condicion_pago,
                 c.total, c.estado, c.asiento_id, c.creado_en,
                 COALESCE((SELECT SUM(monto) FROM pagos_compra WHERE compra_id = c.id), 0) as pagado
          FROM compras c LEFT JOIN proveedores pr ON pr.id = c.proveedor_id
@@ -79,10 +78,10 @@ export function registerComprasIpc(db: DB) {
 
       const infoCompra = db
         .prepare(
-          `INSERT INTO compras (numero, fecha, proveedor, proveedor_id, condicion_pago, total, estado)
-           VALUES (@numero, @fecha, @proveedor, @proveedor_id, @condicion_pago, @total, @estado)`
+          `INSERT INTO compras (numero, fecha, proveedor, proveedor_id, condicion_pago, total, estado, ncf)
+           VALUES (@numero, @fecha, @proveedor, @proveedor_id, @condicion_pago, @total, @estado, @ncf)`
         )
-        .run({ numero: maxNumero + 1, fecha: input.fecha, proveedor: nombreProveedor, proveedor_id: proveedorId, condicion_pago: input.condicion_pago, total, estado });
+        .run({ numero: maxNumero + 1, fecha: input.fecha, proveedor: nombreProveedor, proveedor_id: proveedorId, condicion_pago: input.condicion_pago, total, estado, ncf: input.ncf?.trim().toUpperCase() || null });
       const compraId = Number(infoCompra.lastInsertRowid);
 
       const insertLinea = db.prepare(
@@ -142,7 +141,7 @@ export function registerComprasIpc(db: DB) {
 
   ipcMain.handle(
     "pagosCompra:crear",
-    (_e, input: { compra_id: number; fecha: string; monto: number; metodo: PagoCompra["metodo"] }) => {
+    (_e, input: { compra_id: number; fecha: string; monto: number; metodo: PagoCompra["metodo"]; banco_id?: number | null; referencia?: string }) => {
       const compra = db.prepare(`SELECT * FROM compras WHERE id = ?`).get(input.compra_id) as Compra | undefined;
       if (!compra) throw new Error("Compra no encontrada");
 
@@ -153,7 +152,8 @@ export function registerComprasIpc(db: DB) {
       if (input.monto <= 0) throw new Error("El monto debe ser mayor a cero");
       if (input.monto > saldoPendiente + 0.005) throw new Error(`El monto excede el saldo pendiente (RD$ ${saldoPendiente.toFixed(2)})`);
 
-      const cuentaOrigen = input.metodo === "TRANSFERENCIA" ? CODIGO_BANCO : CODIGO_CAJA;
+      // El efectivo sale de la caja; transferencia, cheque y tarjeta salen del banco elegido.
+      const origen = input.metodo === "EFECTIVO" ? { cuenta_id: cuentaIdPorCodigo(db, CODIGO_CAJA), banco_id: null } : cuentaDeBanco(db, input.banco_id);
 
       const run = db.transaction(() => {
         const asientoId = crearAsiento(db, {
@@ -163,13 +163,15 @@ export function registerComprasIpc(db: DB) {
           referencia_id: input.compra_id,
           lineas: [
             { cuenta_id: cuentaIdPorCodigo(db, CODIGO_CXP), debito: input.monto, credito: 0 },
-            { cuenta_id: cuentaIdPorCodigo(db, cuentaOrigen), debito: 0, credito: input.monto },
+            { cuenta_id: origen.cuenta_id, debito: 0, credito: input.monto, descripcion: input.referencia ? `Ref. ${input.referencia}` : undefined },
           ],
         });
 
         const info = db
-          .prepare(`INSERT INTO pagos_compra (compra_id, fecha, monto, metodo, asiento_id) VALUES (@compra_id, @fecha, @monto, @metodo, @asiento_id)`)
-          .run({ compra_id: input.compra_id, fecha: input.fecha, monto: input.monto, metodo: input.metodo, asiento_id: asientoId });
+          .prepare(
+            `INSERT INTO pagos_compra (compra_id, fecha, monto, metodo, asiento_id, banco_id, referencia) VALUES (@compra_id, @fecha, @monto, @metodo, @asiento_id, @banco_id, @referencia)`
+          )
+          .run({ compra_id: input.compra_id, fecha: input.fecha, monto: input.monto, metodo: input.metodo, asiento_id: asientoId, banco_id: origen.banco_id, referencia: input.referencia?.trim() || null });
 
         if (input.monto >= saldoPendiente - 0.005) {
           db.prepare(`UPDATE compras SET estado = 'PAGADA' WHERE id = ?`).run(input.compra_id);

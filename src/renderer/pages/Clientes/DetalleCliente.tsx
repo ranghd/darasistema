@@ -5,6 +5,7 @@ import type { Cliente, CompanyConfig, FacturaHistorial, FiltrosHistorial, Resume
 import { firstDayOfMonthIso, formatDate, formatMoney, todayIso } from "../../lib/format";
 import { descargarCsv, html, imprimirHtml } from "../../lib/exportar";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
+import ReciboCobroModal from "../../components/ReciboCobro";
 
 interface EnvaseSaldo {
   producto_id: number;
@@ -245,6 +246,7 @@ export default function DetalleCliente() {
   const [seleccion, setSeleccion] = useState<Set<number>>(new Set());
   const [detalle, setDetalle] = useState<FacturaHistorial[] | null>(null);
   const [trabajando, setTrabajando] = useState(false);
+  const [cobrar, setCobrar] = useState(false);
 
   useEffect(() => {
     if (!clienteId) return;
@@ -383,6 +385,7 @@ export default function DetalleCliente() {
         subtitle={`Codigo ${cliente.codigo} · ${cliente.tipo === "JURIDICA" ? "Persona Juridica" : "Persona Fisica"} · ${cliente.rnc_cedula ?? "sin RNC/cedula"}`}
         actions={
           <div className="flex gap-2">
+            {(resumen?.saldo_pendiente ?? 0) > 0 && <Button onClick={() => setCobrar(true)}>Recibo de cobro</Button>}
             <Button variant="secondary" onClick={verTodas}>
               Ver todas las compras
             </Button>
@@ -674,6 +677,15 @@ export default function DetalleCliente() {
           </div>
         )}
       </Modal>
+      <ReciboCobroModal
+        open={cobrar}
+        cliente={cliente ? { id: cliente.id, nombre: cliente.nombre } : null}
+        onClose={() => setCobrar(false)}
+        onGuardado={() => {
+          api.clientes.resumen(clienteId).then(setResumen);
+          cargarPagina(pagina);
+        }}
+      />
     </div>
   );
 }

@@ -26,6 +26,10 @@ import BalanceComprobacion from "./pages/Contabilidad/BalanceComprobacion";
 import EstadoResultados from "./pages/Reportes/EstadoResultados";
 import BalanceGeneral from "./pages/Reportes/BalanceGeneral";
 import ReporteItbis from "./pages/Reportes/ReporteItbis";
+import ReporteVentas from "./pages/Reportes/ReporteVentas";
+import CuentasPorPagar from "./pages/Reportes/CuentasPorPagar";
+import Gastos from "./pages/Gastos/Gastos";
+import Conciliacion from "./pages/Bancos/Conciliacion";
 import Configuracion from "./pages/Configuracion/Configuracion";
 import Comprobantes from "./pages/Comprobantes/Comprobantes";
 import Compras from "./pages/Compras/Compras";
@@ -63,6 +67,10 @@ const RUTAS_ADMIN_EXTRA = [
   { path: "/reportes/resultados", element: <EstadoResultados /> },
   { path: "/reportes/balance-general", element: <BalanceGeneral /> },
   { path: "/reportes/itbis", element: <ReporteItbis /> },
+  { path: "/reportes/ventas", element: <ReporteVentas /> },
+  { path: "/gastos", element: <Gastos /> },
+  { path: "/cuentas-por-pagar", element: <CuentasPorPagar /> },
+  { path: "/bancos", element: <Conciliacion /> },
   { path: "/comprobantes", element: <Comprobantes /> },
   { path: "/configuracion", element: <Configuracion /> },
 ];

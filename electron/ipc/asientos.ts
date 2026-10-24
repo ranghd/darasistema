@@ -123,8 +123,8 @@ export function registerAsientosIpc(db: DB) {
     const asientos = db
       .prepare(
         `SELECT * FROM asientos
-         WHERE referencia_id = @id
-           AND (origen IN ('FACTURA', 'COBRO') OR (origen = 'AJUSTE' AND concepto LIKE @patron))
+         WHERE (referencia_id = @id AND (origen IN ('FACTURA', 'COBRO') OR (origen = 'AJUSTE' AND concepto LIKE @patron)))
+            OR id IN (SELECT asiento_id FROM cobros WHERE factura_id = @id AND recibo_id IS NOT NULL)
          ORDER BY numero`
       )
       .all({ id: facturaId, patron: factura.ncf ? `%factura ${factura.ncf}%` : "%factura%" }) as any[];

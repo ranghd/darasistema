@@ -136,3 +136,59 @@ export function ahoraRD(): string {
     .format(new Date())
     .replace("T", " ");
 }
+
+// Devuelve la cuenta con ese nombre, o la crea. Usa el codigo preferido si esta
+// libre; si no (la empresa ya lo uso para otra cosa), el siguiente libre del mismo nivel.
+export function asegurarCuenta(
+  db: DB,
+  c: { codigo: string; nombre: string; tipo: string; naturaleza: "DEUDORA" | "ACREEDORA"; padreCodigo: string }
+): number {
+  const porNombre = db.prepare(`SELECT id FROM cuentas_contables WHERE lower(nombre) = lower(?) AND es_movimiento = 1`).get(c.nombre) as
+    | { id: number }
+    | undefined;
+  if (porNombre) return porNombre.id;
+  const padre = idPorCodigo(db, c.padreCodigo);
+  if (!padre) throw new Error(`No existe la cuenta ${c.padreCodigo} en el catalogo`);
+  let codigo = c.codigo;
+  if (idPorCodigo(db, codigo)) {
+    const prefijo = codigo.slice(0, codigo.lastIndexOf(".") + 1);
+    const usados = (db.prepare(`SELECT codigo FROM cuentas_contables WHERE codigo LIKE ?`).all(prefijo + "%") as { codigo: string }[])
+      .map((r) => Number(r.codigo.slice(prefijo.length)))
+      .filter((n) => Number.isInteger(n));
+    let n = Number(codigo.slice(prefijo.length));
+    while (usados.includes(n)) n++;
+    codigo = prefijo + String(n).padStart(2, "0");
+  }
+  const info = db
+    .prepare(`INSERT INTO cuentas_contables (codigo, nombre, tipo, padre_id, naturaleza, es_movimiento, activo) VALUES (?, ?, ?, ?, ?, 1, 1)`)
+    .run(codigo, c.nombre, c.tipo, padre, c.naturaleza);
+  return Number(info.lastInsertRowid);
+}
+
+// Cuenta contable de la tabla de bancos; si no se indica banco, el banco principal.
+export function cuentaDeBanco(db: DB, bancoId?: number | null): { banco_id: number | null; cuenta_id: number } {
+  if (bancoId) {
+    const b = db.prepare(`SELECT id, cuenta_id FROM bancos WHERE id = ?`).get(bancoId) as { id: number; cuenta_id: number } | undefined;
+    if (!b) throw new Error("El banco seleccionado no existe");
+    return { banco_id: b.id, cuenta_id: b.cuenta_id };
+  }
+  const principal = db.prepare(`SELECT id, cuenta_id FROM bancos WHERE activo = 1 ORDER BY id LIMIT 1`).get() as { id: number; cuenta_id: number } | undefined;
+  if (principal) return { banco_id: principal.id, cuenta_id: principal.cuenta_id };
+  const cuenta = idPorCodigo(db, "1.1.02");
+  if (!cuenta) throw new Error("Cuenta contable 1.1.02 no existe");
+  return { banco_id: null, cuenta_id: cuenta };
+}
+
+export const TIPOS_GASTO_INICIALES: { nombre: string; codigo: string; cuenta: string }[] = [
+  { nombre: "Combustible", codigo: "6.1.03", cuenta: "Gastos de Combustible y Transporte" },
+  { nombre: "Reparacion de vehiculos", codigo: "6.1.05", cuenta: "Reparacion y Mantenimiento de Vehiculos" },
+  { nombre: "Electricidad", codigo: "6.1.06", cuenta: "Energia Electrica" },
+  { nombre: "Agua, telefono e internet", codigo: "6.1.07", cuenta: "Agua, Telefono e Internet" },
+  { nombre: "Alquiler", codigo: "6.1.08", cuenta: "Alquiler de Local" },
+  { nombre: "Sueldos y salarios", codigo: "6.1.09", cuenta: "Sueldos y Salarios" },
+  { nombre: "Mantenimiento de local y equipos", codigo: "6.1.10", cuenta: "Mantenimiento de Local y Equipos" },
+  { nombre: "Cargos y comisiones bancarias", codigo: "6.1.11", cuenta: "Gastos Bancarios y Comisiones" },
+  { nombre: "Publicidad", codigo: "6.1.02", cuenta: "Gastos de Venta" },
+  { nombre: "Papeleria y oficina", codigo: "6.1.01", cuenta: "Gastos de Administracion" },
+  { nombre: "Otros gastos", codigo: "6.1.12", cuenta: "Otros Gastos" },
+];

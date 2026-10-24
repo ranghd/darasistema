@@ -1,5 +1,5 @@
 import type { DB } from "./types";
-import { cuadrarInventarioContable } from "./contabilidad";
+import { asegurarCuenta, cuadrarInventarioContable, TIPOS_GASTO_INICIALES } from "./contabilidad";
 import { proveedoresDesdeComprasAnteriores } from "./proveedores";
 
 // Agrega una cuenta al catalogo si la empresa no la tiene (solo si existe su cuenta padre).
@@ -10,6 +10,24 @@ function crearCuentaSiFalta(db: DB, codigo: string, nombre: string, tipo: string
   db.prepare(
     `INSERT INTO cuentas_contables (codigo, nombre, tipo, padre_id, naturaleza, es_movimiento, activo) VALUES (?, ?, ?, ?, ?, 1, 1)`
   ).run(codigo, nombre, tipo, padre.id, naturaleza);
+}
+
+// Banco principal, cuenta del ITBIS pagado en compras y tipos de gasto de inicio.
+// No hace nada si ya existen; tambien se llama al crear una empresa nueva.
+export function prepararBancosYGastos(db: DB) {
+  if (!db.prepare(`SELECT id FROM bancos LIMIT 1`).get()) {
+    const banco = db.prepare(`SELECT id FROM cuentas_contables WHERE codigo = '1.1.02'`).get() as { id: number } | undefined;
+    if (banco) db.prepare(`INSERT INTO bancos (nombre, cuenta_id) VALUES ('Banco principal', ?)`).run(banco.id);
+  }
+  if (db.prepare(`SELECT id FROM cuentas_contables WHERE codigo = '1.1'`).get()) {
+    asegurarCuenta(db, { codigo: "1.1.08", nombre: "ITBIS Pagado en Compras (por compensar)", tipo: "ACTIVO", naturaleza: "DEUDORA", padreCodigo: "1.1" });
+  }
+  if (!db.prepare(`SELECT id FROM cuentas_contables WHERE codigo = '6'`).get()) return;
+  for (const t of TIPOS_GASTO_INICIALES) {
+    if (db.prepare(`SELECT id FROM tipos_gasto WHERE nombre = ?`).get(t.nombre)) continue;
+    const cuentaId = asegurarCuenta(db, { codigo: t.codigo, nombre: t.cuenta, tipo: "GASTOS", naturaleza: "DEUDORA", padreCodigo: "6" });
+    db.prepare(`INSERT INTO tipos_gasto (nombre, cuenta_id) VALUES (?, ?)`).run(t.nombre, cuentaId);
+  }
 }
 
 // Agrega columnas nuevas a bases de datos que ya existian antes de una
@@ -27,6 +45,13 @@ export function migrar(db: DB) {
     `ALTER TABLE cobros ADD COLUMN caja_sesion_id INTEGER REFERENCES caja_sesiones(id)`,
     `ALTER TABLE envase_movimientos ADD COLUMN caja_sesion_id INTEGER REFERENCES caja_sesiones(id)`,
     `ALTER TABLE envase_movimientos ADD COLUMN monto_reembolsado REAL NOT NULL DEFAULT 0`,
+    // Recibos de varias facturas y conciliacion bancaria.
+    `ALTER TABLE cobros ADD COLUMN recibo_id INTEGER REFERENCES recibos_cobro(id)`,
+    `ALTER TABLE cobros ADD COLUMN banco_id INTEGER REFERENCES bancos(id)`,
+    `ALTER TABLE cobros ADD COLUMN referencia TEXT`,
+    `ALTER TABLE pagos_compra ADD COLUMN banco_id INTEGER REFERENCES bancos(id)`,
+    `ALTER TABLE pagos_compra ADD COLUMN referencia TEXT`,
+    `ALTER TABLE compras ADD COLUMN ncf TEXT`,
   ];
   for (const sql of columnas) {
     try {
@@ -51,7 +76,10 @@ export function migrar(db: DB) {
       if (!db.prepare(`SELECT id FROM cajas LIMIT 1`).get()) db.prepare(`INSERT INTO cajas (nombre) VALUES ('Caja principal')`).run();
     }],
     ["cuenta-diferencias-caja", () => crearCuentaSiFalta(db, "6.1.04", "Diferencias de Caja (faltantes y sobrantes)", "GASTOS", "DEUDORA", "6")],
+    // Banco principal (la cuenta 1.1.02 que ya usaba el sistema) y tipos de gasto de inicio.
+    ["bancos-y-tipos-de-gasto", () => prepararBancosYGastos(db)],
   ];
+  db.exec(`CREATE INDEX IF NOT EXISTS ix_cobros_recibo ON cobros(recibo_id)`);
   for (const [nombre, aplicar] of datos) {
     if (yaAplicada.get(nombre)) continue;
     db.transaction(() => {

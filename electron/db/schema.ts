@@ -292,4 +292,92 @@ CREATE TABLE IF NOT EXISTS usuarios (
   rol TEXT NOT NULL CHECK (rol IN ('ADMIN','CAJERO')),
   activo INTEGER NOT NULL DEFAULT 1
 );
+
+-- Cuentas de banco de la empresa (cada una con su cuenta contable).
+CREATE TABLE IF NOT EXISTS bancos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre TEXT NOT NULL,
+  numero_cuenta TEXT,
+  cuenta_id INTEGER NOT NULL UNIQUE REFERENCES cuentas_contables(id),
+  activo INTEGER NOT NULL DEFAULT 1,
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- Recibo de cobro: un pago del cliente que se reparte entre una o varias facturas.
+-- Cada factura pagada queda como un cobro normal ligado al recibo (cobros.recibo_id).
+CREATE TABLE IF NOT EXISTS recibos_cobro (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  numero INTEGER NOT NULL UNIQUE,
+  cliente_id INTEGER NOT NULL REFERENCES clientes(id),
+  fecha TEXT NOT NULL,
+  monto REAL NOT NULL,
+  metodo TEXT NOT NULL CHECK (metodo IN ('EFECTIVO','TRANSFERENCIA','TARJETA','CHEQUE')),
+  banco_id INTEGER REFERENCES bancos(id),
+  referencia TEXT,
+  nota TEXT,
+  asiento_id INTEGER REFERENCES asientos(id),
+  caja_sesion_id INTEGER REFERENCES caja_sesiones(id),
+  creado_por TEXT,
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- Tipos de gasto (combustible, reparacion de vehiculos, luz...), cada uno con su cuenta de gasto.
+CREATE TABLE IF NOT EXISTS tipos_gasto (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre TEXT NOT NULL UNIQUE,
+  cuenta_id INTEGER NOT NULL REFERENCES cuentas_contables(id),
+  activo INTEGER NOT NULL DEFAULT 1,
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- Facturas de suplidores que no son mercancia (servicios, combustible, reparaciones...).
+-- A credito quedan en Cuentas por Pagar hasta que se pagan.
+CREATE TABLE IF NOT EXISTS gastos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  numero INTEGER NOT NULL UNIQUE,
+  fecha TEXT NOT NULL,
+  vence TEXT,
+  proveedor_id INTEGER REFERENCES proveedores(id),
+  suplidor TEXT NOT NULL,
+  rnc TEXT,
+  ncf TEXT,
+  tipo_gasto_id INTEGER NOT NULL REFERENCES tipos_gasto(id),
+  concepto TEXT,
+  subtotal REAL NOT NULL,
+  itbis REAL NOT NULL DEFAULT 0,
+  total REAL NOT NULL,
+  condicion_pago TEXT NOT NULL CHECK (condicion_pago IN ('CONTADO','CREDITO')),
+  estado TEXT NOT NULL CHECK (estado IN ('PENDIENTE','PAGADA','ANULADA')) DEFAULT 'PENDIENTE',
+  asiento_id INTEGER REFERENCES asientos(id),
+  creado_por TEXT,
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS pagos_gasto (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  gasto_id INTEGER NOT NULL REFERENCES gastos(id),
+  fecha TEXT NOT NULL,
+  monto REAL NOT NULL,
+  metodo TEXT NOT NULL CHECK (metodo IN ('EFECTIVO','TRANSFERENCIA','TARJETA','CHEQUE')),
+  banco_id INTEGER REFERENCES bancos(id),
+  referencia TEXT,
+  asiento_id INTEGER REFERENCES asientos(id),
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- Lineas del estado de cuenta que se baja del banco, para conciliarlas con la contabilidad.
+-- monto > 0 entro dinero al banco; monto < 0 salio. Al conciliar se liga a la linea
+-- del asiento que la explica (asiento_linea_id).
+CREATE TABLE IF NOT EXISTS banco_movimientos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  banco_id INTEGER NOT NULL REFERENCES bancos(id),
+  fecha TEXT NOT NULL,
+  descripcion TEXT,
+  referencia TEXT,
+  monto REAL NOT NULL,
+  huella TEXT NOT NULL,
+  asiento_linea_id INTEGER UNIQUE REFERENCES asiento_lineas(id),
+  importado_en TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  UNIQUE (banco_id, huella)
+);
 `;

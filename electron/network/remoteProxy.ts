@@ -14,6 +14,8 @@ import { registerAuthIpc } from "../ipc/auth";
 import { registerComprasIpc } from "../ipc/compras";
 import { registerProveedoresIpc } from "../ipc/proveedores";
 import { registerCajaIpc } from "../ipc/caja";
+import { registerGastosIpc } from "../ipc/gastos";
+import { registerBancosIpc } from "../ipc/bancos";
 
 // Cosecha los nombres de canal IPC que expone el negocio (facturas, clientes, etc.)
 // sin necesidad de abrir una base de datos real: se usa un objeto "falso" porque
@@ -40,6 +42,8 @@ function listarCanalesDeNegocio(): string[] {
   registerComprasIpc(dbFalsa);
   registerProveedoresIpc(dbFalsa);
   registerCajaIpc(dbFalsa);
+  registerGastosIpc(dbFalsa);
+  registerBancosIpc(dbFalsa);
 
   ipcMain.handle = handleOriginal;
   return canales;

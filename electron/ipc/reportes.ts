@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { fechaHoyRD } from "../db/contabilidad";
+import type { CxcCliente, ReporteVentas } from "../shared/types";
 
 function rangoClause(desde?: string, hasta?: string) {
   const where: string[] = [];
@@ -136,14 +137,137 @@ export function registerReportesIpc(db: DB) {
   ipcMain.handle("reportes:cuentasPorCobrar", () => {
     return db
       .prepare(
-        `SELECT f.id, f.numero, f.ncf, f.fecha, c.nombre as cliente_nombre, f.total,
+        `SELECT f.id, f.numero, f.ncf, f.fecha, f.cliente_id, c.nombre as cliente_nombre, f.total,
                 COALESCE((SELECT SUM(monto) FROM cobros WHERE factura_id = f.id), 0) as cobrado,
-                CAST(julianday('now') - julianday(f.fecha) as INTEGER) as dias
+                CAST(julianday(@hoy) - julianday(f.fecha) as INTEGER) as dias
          FROM facturas f JOIN clientes c ON c.id = f.cliente_id
          WHERE f.condicion_pago = 'CREDITO' AND f.estado = 'PENDIENTE'
          ORDER BY f.fecha`
       )
-      .all();
+      .all({ hoy: fechaHoyRD() });
+  });
+
+  // Lo que debe cada cliente en total, repartido por antiguedad de sus facturas.
+  ipcMain.handle("reportes:cxcPorCliente", (): CxcCliente[] => {
+    return db
+      .prepare(
+        `SELECT cliente_id, cliente_nombre, telefono, COUNT(*) AS facturas,
+                ROUND(SUM(saldo), 2) AS total_adeudado,
+                ROUND(SUM(CASE WHEN dias <= 30 THEN saldo ELSE 0 END), 2) AS b0_30,
+                ROUND(SUM(CASE WHEN dias BETWEEN 31 AND 60 THEN saldo ELSE 0 END), 2) AS b31_60,
+                ROUND(SUM(CASE WHEN dias BETWEEN 61 AND 90 THEN saldo ELSE 0 END), 2) AS b61_90,
+                ROUND(SUM(CASE WHEN dias > 90 THEN saldo ELSE 0 END), 2) AS b90,
+                MAX(dias) AS dias_max, MAX(fecha) AS ultima_factura
+         FROM (
+           SELECT f.cliente_id, c.nombre AS cliente_nombre, c.telefono, f.fecha,
+                  f.total - COALESCE((SELECT SUM(monto) FROM cobros WHERE factura_id = f.id), 0) AS saldo,
+                  CAST(julianday(@hoy) - julianday(f.fecha) AS INTEGER) AS dias
+           FROM facturas f JOIN clientes c ON c.id = f.cliente_id
+           WHERE f.condicion_pago = 'CREDITO' AND f.estado = 'PENDIENTE'
+         )
+         WHERE saldo > 0.005
+         GROUP BY cliente_id
+         ORDER BY total_adeudado DESC`
+      )
+      .all({ hoy: fechaHoyRD() }) as CxcCliente[];
+  });
+
+  // Reporte de ventas de un periodo: resumen general, por producto, por vendedor, por cliente y por dia.
+  ipcMain.handle("reportes:ventas", (_e, desde?: string, hasta?: string): ReporteVentas => {
+    const hoy = fechaHoyRD();
+    const d = desde || hoy.slice(0, 7) + "-01";
+    const h = hasta || hoy;
+    const p = { desde: d, hasta: h };
+    const valida = `f.fecha BETWEEN @desde AND @hasta AND f.estado != 'ANULADA'`;
+    const r2 = (n: number | null | undefined) => Math.round((n ?? 0) * 100) / 100;
+
+    const tot = db
+      .prepare(
+        `SELECT COUNT(*) AS facturas, SUM(f.subtotal) AS subtotal, SUM(f.itbis) AS itbis, SUM(f.fianza_total) AS fianzas, SUM(f.total) AS total,
+                SUM(CASE WHEN f.condicion_pago = 'CONTADO' THEN f.total ELSE 0 END) AS contado,
+                SUM(CASE WHEN f.condicion_pago = 'CREDITO' THEN f.total ELSE 0 END) AS credito,
+                SUM(CASE WHEN f.condicion_pago = 'CONTADO' AND COALESCE(f.metodo_pago, 'EFECTIVO') = 'EFECTIVO' THEN f.total ELSE 0 END) AS efectivo,
+                SUM(CASE WHEN f.condicion_pago = 'CONTADO' AND f.metodo_pago = 'TARJETA' THEN f.total ELSE 0 END) AS tarjeta,
+                SUM(CASE WHEN f.condicion_pago = 'CONTADO' AND f.metodo_pago = 'TRANSFERENCIA' THEN f.total ELSE 0 END) AS transferencia,
+                SUM(CASE WHEN f.condicion_pago = 'CONTADO' AND f.metodo_pago = 'CHEQUE' THEN f.total ELSE 0 END) AS cheque,
+                COUNT(DISTINCT f.cliente_id) AS clientes
+         FROM facturas f WHERE ${valida}`
+      )
+      .get(p) as any;
+    const extra = db
+      .prepare(
+        `SELECT SUM(fl.descuento) AS descuentos, SUM(fl.cantidad * p.costo_contenido) AS costo
+         FROM factura_lineas fl JOIN facturas f ON f.id = fl.factura_id JOIN productos p ON p.id = fl.producto_id WHERE ${valida}`
+      )
+      .get(p) as any;
+    const anuladas = db
+      .prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(total), 0) AS t FROM facturas WHERE fecha BETWEEN @desde AND @hasta AND estado = 'ANULADA'`)
+      .get(p) as { n: number; t: number };
+
+    const porProducto = (
+      db
+        .prepare(
+          `SELECT p.id AS producto_id, p.codigo, p.nombre, p.categoria, SUM(fl.cantidad) AS cantidad, SUM(fl.subtotal) AS venta,
+                  SUM(fl.itbis) AS itbis, SUM(fl.descuento) AS descuentos, SUM(fl.cantidad * p.costo_contenido) AS costo
+           FROM factura_lineas fl JOIN facturas f ON f.id = fl.factura_id JOIN productos p ON p.id = fl.producto_id
+           WHERE ${valida} GROUP BY p.id ORDER BY venta DESC`
+        )
+        .all(p) as any[]
+    ).map((x) => ({ ...x, venta: r2(x.venta), itbis: r2(x.itbis), costo: r2(x.costo), ganancia: r2(x.venta - x.costo) }));
+
+    const porVendedor = db
+      .prepare(
+        `SELECT COALESCE(NULLIF(TRIM(f.creado_por), ''), 'Sin vendedor') AS vendedor, COUNT(*) AS facturas,
+                ROUND(SUM(f.subtotal), 2) AS subtotal, ROUND(SUM(f.total), 2) AS total,
+                ROUND(SUM(f.total) / COUNT(*), 2) AS promedio
+         FROM facturas f WHERE ${valida} GROUP BY vendedor ORDER BY total DESC`
+      )
+      .all(p);
+
+    const porCliente = db
+      .prepare(
+        `SELECT c.id AS cliente_id, c.nombre, COUNT(*) AS facturas, ROUND(SUM(f.subtotal), 2) AS subtotal, ROUND(SUM(f.total), 2) AS total
+         FROM facturas f JOIN clientes c ON c.id = f.cliente_id WHERE ${valida} GROUP BY c.id ORDER BY total DESC`
+      )
+      .all(p);
+
+    const porDia = db
+      .prepare(
+        `SELECT f.fecha, COUNT(*) AS facturas, ROUND(SUM(f.subtotal), 2) AS subtotal, ROUND(SUM(f.itbis), 2) AS itbis, ROUND(SUM(f.total), 2) AS total
+         FROM facturas f WHERE ${valida} GROUP BY f.fecha ORDER BY f.fecha`
+      )
+      .all(p);
+
+    const subtotal = r2(tot.subtotal);
+    const costo = r2(extra.costo);
+    return {
+      desde: d,
+      hasta: h,
+      resumen: {
+        facturas: tot.facturas ?? 0,
+        clientes: tot.clientes ?? 0,
+        subtotal,
+        descuentos: r2(extra.descuentos),
+        itbis: r2(tot.itbis),
+        fianzas: r2(tot.fianzas),
+        total: r2(tot.total),
+        contado: r2(tot.contado),
+        credito: r2(tot.credito),
+        efectivo: r2(tot.efectivo),
+        tarjeta: r2(tot.tarjeta),
+        transferencia: r2(tot.transferencia),
+        cheque: r2(tot.cheque),
+        promedio: tot.facturas ? r2(tot.total / tot.facturas) : 0,
+        costo,
+        ganancia: r2(subtotal - costo),
+        anuladas: anuladas.n,
+        total_anulado: r2(anuladas.t),
+      },
+      porProducto,
+      porVendedor,
+      porCliente,
+      porDia,
+    } as ReporteVentas;
   });
 
   ipcMain.handle("reportes:dashboard", () => {

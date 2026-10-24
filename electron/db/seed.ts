@@ -1,3 +1,4 @@
+import { prepararBancosYGastos } from "./migraciones";
 import type { DB } from "./types";
 import { nuevoPasswordHash } from "./password";
 import { cuadrarInventarioContable } from "./contabilidad";
@@ -109,6 +110,7 @@ export function seedCatalogo(db: DB, empresa: DatosEmpresa) {
     `INSERT INTO clientes (codigo, nombre, rnc_cedula, tipo, telefono, email, direccion, activo)
      VALUES ('CLI-0000', 'Consumidor Final', '', 'FISICA', '', '', '', 1)`
   ).run();
+  prepararBancosYGastos(db);
 }
 
 // Datos de ejemplo para demos y pruebas: secuencias NCF ficticias, clientes y

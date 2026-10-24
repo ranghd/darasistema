@@ -40,6 +40,14 @@ const NAV_COMPLETO = [
     ],
   },
   {
+    section: "Gastos y bancos",
+    items: [
+      { to: "/gastos", label: "Gastos (facturas de suplidores)" },
+      { to: "/cuentas-por-pagar", label: "Cuentas por Pagar" },
+      { to: "/bancos", label: "Bancos y conciliacion" },
+    ],
+  },
+  {
     section: "Contabilidad",
     items: [
       { to: "/contabilidad/cuentas", label: "Catalogo de Cuentas" },
@@ -52,6 +60,7 @@ const NAV_COMPLETO = [
   {
     section: "Reportes",
     items: [
+      { to: "/reportes/ventas", label: "Reporte de Ventas" },
       { to: "/reportes/resultados", label: "Estado de Resultados" },
       { to: "/reportes/balance-general", label: "Balance General" },
       { to: "/reportes/itbis", label: "Reporte de ITBIS" },

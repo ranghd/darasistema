@@ -35,7 +35,9 @@ export function registerProveedoresIpc(db: DB) {
                 COALESCE(SUM(c.total), 0) AS total_comprado,
                 MAX(c.fecha) AS ultima_compra,
                 COALESCE(SUM(CASE WHEN c.estado = 'PENDIENTE'
-                  THEN c.total - COALESCE((SELECT SUM(monto) FROM pagos_compra WHERE compra_id = c.id), 0) ELSE 0 END), 0) AS por_pagar,
+                  THEN c.total - COALESCE((SELECT SUM(monto) FROM pagos_compra WHERE compra_id = c.id), 0) ELSE 0 END), 0)
+                + COALESCE((SELECT SUM(g.total - COALESCE((SELECT SUM(monto) FROM pagos_gasto WHERE gasto_id = g.id), 0))
+                            FROM gastos g WHERE g.proveedor_id = pr.id AND g.estado = 'PENDIENTE'), 0) AS por_pagar,
                 (SELECT COUNT(*) FROM producto_proveedor pp WHERE pp.proveedor_id = pr.id) AS productos
          FROM proveedores pr
          LEFT JOIN compras c ON c.proveedor_id = pr.id

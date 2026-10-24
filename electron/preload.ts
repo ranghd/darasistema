@@ -42,6 +42,43 @@ const api = {
     listarPorFactura: (facturaId: number) => invoke("cobros:listarPorFactura", facturaId),
     crear: (data: any) => invoke("cobros:crear", data),
   },
+  recibos: {
+    pendientes: (clienteId: number) => invoke("recibos:pendientes", clienteId),
+    crear: (data: any) => invoke("recibos:crear", data),
+    listar: (filtros?: any) => invoke("recibos:listar", filtros),
+    obtener: (id: number) => invoke("recibos:obtener", id),
+  },
+  tiposGasto: {
+    listar: () => invoke("tiposGasto:listar"),
+    crear: (data: any) => invoke("tiposGasto:crear", data),
+    actualizar: (id: number, data: any) => invoke("tiposGasto:actualizar", id, data),
+  },
+  gastos: {
+    listar: (filtros?: any) => invoke("gastos:listar", filtros),
+    obtener: (id: number) => invoke("gastos:obtener", id),
+    crear: (data: any) => invoke("gastos:crear", data),
+    anular: (id: number, motivo: string) => invoke("gastos:anular", id, motivo),
+    pagar: (data: any) => invoke("pagosGasto:crear", data),
+    resumenPorTipo: (desde?: string, hasta?: string) => invoke("gastos:resumenPorTipo", desde, hasta),
+  },
+  cxp: {
+    porSuplidor: () => invoke("cxp:porSuplidor"),
+    documentos: () => invoke("cxp:documentos"),
+  },
+  bancos: {
+    listar: () => invoke("bancos:listar"),
+    crear: (data: any) => invoke("bancos:crear", data),
+    actualizar: (id: number, data: any) => invoke("bancos:actualizar", id, data),
+  },
+  conciliacion: {
+    datos: (bancoId: number, desde?: string, hasta?: string) => invoke("conciliacion:datos", bancoId, desde, hasta),
+    importar: (bancoId: number, filas: any[]) => invoke("conciliacion:importar", bancoId, filas),
+    auto: (bancoId: number) => invoke("conciliacion:auto", bancoId),
+    enlazar: (movimientoId: number, lineaId: number) => invoke("conciliacion:enlazar", movimientoId, lineaId),
+    desenlazar: (movimientoId: number) => invoke("conciliacion:desenlazar", movimientoId),
+    eliminar: (movimientoId: number) => invoke("conciliacion:eliminar", movimientoId),
+    registrar: (data: any) => invoke("conciliacion:registrar", data),
+  },
   compras: {
     listar: (proveedorId?: number) => invoke("compras:listar", proveedorId),
     obtener: (id: number) => invoke("compras:obtener", id),
@@ -73,6 +110,8 @@ const api = {
     balanceGeneral: (hasta?: string) => invoke("reportes:balanceGeneral", hasta),
     itbis: (desde?: string, hasta?: string) => invoke("reportes:itbis", desde, hasta),
     cuentasPorCobrar: () => invoke("reportes:cuentasPorCobrar"),
+    cxcPorCliente: () => invoke("reportes:cxcPorCliente"),
+    ventas: (desde?: string, hasta?: string) => invoke("reportes:ventas", desde, hasta),
     dashboard: () => invoke("reportes:dashboard"),
   },
   config: {

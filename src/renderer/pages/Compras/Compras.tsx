@@ -7,6 +7,7 @@ import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table 
 import { ProveedorFormModal } from "../Proveedores/componentes";
 import AvisoBorrador from "../../components/AvisoBorrador";
 import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
+import PagoSuplidorModal, { type DocumentoPorPagar } from "../../components/PagoSuplidor";
 
 interface LineaForm extends CompraLineaInput {
   key: number;
@@ -30,6 +31,7 @@ export default function Compras() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [relaciones, setRelaciones] = useState<RelacionProductoProveedor[]>([]);
   const [proveedorId, setProveedorId] = useBorrador<number | "">("compra.proveedor", "");
+  const [ncf, setNcf] = useBorrador("compra.ncf", "");
   const [nuevoProveedor, setNuevoProveedor] = useState(false);
   const [condicionPago, setCondicionPago] = useBorrador<"CONTADO" | "CREDITO">("compra.condicion", "CONTADO");
   const [lineas, setLineas] = useBorrador<LineaForm[]>("compra.lineas", []);
@@ -37,11 +39,7 @@ export default function Compras() {
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
-  const [pagoCompra, setPagoCompra] = useState<Compra | null>(null);
-  const [montoPago, setMontoPago] = useState(0);
-  const [metodoPago, setMetodoPago] = useState<PagoCompra["metodo"]>("EFECTIVO");
-  const [errorPago, setErrorPago] = useState("");
-  const [guardandoPago, setGuardandoPago] = useState(false);
+  const [pagoCompra, setPagoCompra] = useState<DocumentoPorPagar | null>(null);
 
   async function cargar() {
     const [c, p, provs, rel] = await Promise.all([api.compras.listar(), api.productos.listar(), api.proveedores.listar(), api.proveedores.relaciones()]);
@@ -58,6 +56,7 @@ export default function Compras() {
   function limpiarCompra() {
     setFecha(todayIso());
     setProveedorId("");
+    setNcf("");
     setCondicionPago("CONTADO");
     setLineas([]);
     setAvisoRecuperada(false);
@@ -118,6 +117,7 @@ export default function Compras() {
       await api.compras.crear({
         fecha,
         proveedor_id: proveedorId,
+        ncf,
         condicion_pago: condicionPago,
         lineas: lineas.map(({ key, precioEditado, ...rest }) => rest),
       });
@@ -132,26 +132,7 @@ export default function Compras() {
   }
 
   function abrirPago(c: Compra) {
-    setPagoCompra(c);
-    setMontoPago(Math.round((c.total - (c.pagado ?? 0)) * 100) / 100);
-    setMetodoPago("EFECTIVO");
-    setErrorPago("");
-  }
-
-  async function confirmarPago(e: React.FormEvent) {
-    e.preventDefault();
-    if (!pagoCompra) return;
-    setGuardandoPago(true);
-    setErrorPago("");
-    try {
-      await api.pagosCompra.crear({ compra_id: pagoCompra.id, fecha: todayIso(), monto: montoPago, metodo: metodoPago });
-      setPagoCompra(null);
-      await cargar();
-    } catch (err: any) {
-      setErrorPago(err?.message ?? "No se pudo registrar el pago");
-    } finally {
-      setGuardandoPago(false);
-    }
+    setPagoCompra({ origen: "COMPRA", id: c.id, numero: c.numero, suplidor: c.proveedor, ncf: c.ncf ?? null, saldo: Math.round((c.total - (c.pagado ?? 0)) * 100) / 100 });
   }
 
   return (
@@ -202,8 +183,9 @@ export default function Compras() {
               onDescartar={limpiarCompra}
             />
           )}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <Input label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            <Input label="NCF de la factura (opcional)" value={ncf} onChange={(e) => setNcf(e.target.value.toUpperCase())} placeholder="B0100000123" />
             <div>
               <Select label="Proveedor" value={proveedorId} onChange={(e) => cambiarProveedor(e.target.value ? Number(e.target.value) : "")}>
                 <option value="">Selecciona un proveedor...</option>
@@ -317,38 +299,7 @@ export default function Compras() {
         </div>
       </Modal>
 
-      <Modal open={!!pagoCompra} onClose={() => setPagoCompra(null)} title="Registrar pago a proveedor">
-        {pagoCompra && (
-          <form onSubmit={confirmarPago} className="space-y-3">
-            <p className="text-sm text-slate-600">
-              Compra #{pagoCompra.numero} - {pagoCompra.proveedor}
-            </p>
-            <Input
-              label="Monto"
-              type="number"
-              step="0.01"
-              max={pagoCompra.total - (pagoCompra.pagado ?? 0)}
-              value={montoPago}
-              onChange={(e) => setMontoPago(Number(e.target.value))}
-            />
-            <Select label="Metodo de pago" value={metodoPago} onChange={(e) => setMetodoPago(e.target.value as any)}>
-              <option value="EFECTIVO">Efectivo</option>
-              <option value="TRANSFERENCIA">Transferencia</option>
-              <option value="TARJETA">Tarjeta</option>
-              <option value="CHEQUE">Cheque</option>
-            </Select>
-            {errorPago && <p className="text-sm text-red-600">{errorPago}</p>}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="secondary" onClick={() => setPagoCompra(null)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={guardandoPago}>
-                {guardandoPago ? "Guardando..." : "Registrar"}
-              </Button>
-            </div>
-          </form>
-        )}
-      </Modal>
+      <PagoSuplidorModal doc={pagoCompra} onClose={() => setPagoCompra(null)} onPagado={cargar} />
       <ProveedorFormModal
         open={nuevoProveedor}
         onClose={() => setNuevoProveedor(false)}

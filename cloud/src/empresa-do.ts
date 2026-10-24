@@ -20,6 +20,8 @@ import { registerAuthIpc } from "../../electron/ipc/auth";
 import { registerComprasIpc } from "../../electron/ipc/compras";
 import { registerProveedoresIpc } from "../../electron/ipc/proveedores";
 import { registerCajaIpc } from "../../electron/ipc/caja";
+import { registerGastosIpc } from "../../electron/ipc/gastos";
+import { registerBancosIpc } from "../../electron/ipc/bancos";
 
 export interface InicializarEmpresa {
   empresa: DatosEmpresa;
@@ -35,7 +37,7 @@ export interface SesionEmpresa {
 }
 
 const MAX_FALLOS = 5;
-const CANALES_CON_AUTOR = new Set(["facturas:crear"]);
+const CANALES_CON_AUTOR = new Set(["facturas:crear", "recibos:crear", "gastos:crear"]);
 // Canales de caja: en que argumento va el objeto donde se inyecta { autor } desde la sesion.
 const CANALES_CAJA_AUTOR: Record<string, number> = {
   "caja:abrir": 0,
@@ -75,6 +77,8 @@ export class Empresa extends DurableObject {
       registerComprasIpc(db);
       registerProveedoresIpc(db);
       registerCajaIpc(db);
+      registerGastosIpc(db);
+      registerBancosIpc(db);
     });
   }
 
@@ -170,8 +174,8 @@ export class Empresa extends DurableObject {
   vaciar(): Record<string, number> {
     // Primero los detalles y despues lo principal, para respetar las relaciones entre tablas.
     const tablas = [
-      "factura_lineas", "cobros", "envase_movimientos", "envases_cliente", "caja_movimientos", "caja_correcciones",
-      "pagos_compra", "compra_lineas", "producto_proveedor", "comprobantes_varios",
+      "factura_lineas", "cobros", "recibos_cobro", "envase_movimientos", "envases_cliente", "caja_movimientos", "caja_correcciones",
+      "pagos_compra", "compra_lineas", "producto_proveedor", "comprobantes_varios", "pagos_gasto", "gastos", "banco_movimientos",
       "facturas", "compras", "caja_sesiones", "cajas",
       "asiento_lineas", "asientos",
       "proveedores", "productos", "clientes", "ncf_secuencias", "auditoria", "_login_intentos",

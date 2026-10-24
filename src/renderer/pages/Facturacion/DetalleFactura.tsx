@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
-import type { AsientoConLineas, Cobro, CompanyConfig, Cuenta, FacturaDetalle } from "../../lib/types";
+import type { AsientoConLineas, Banco, Cobro, CompanyConfig, Cuenta, FacturaDetalle } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
 import { esVariantCaja } from "../../lib/variant";
 import { imprimirReciboFactura } from "../../lib/ticket";
@@ -37,6 +37,9 @@ export default function DetalleFactura() {
   const [openCredito, setOpenCredito] = useState(false);
   const [monto, setMonto] = useState(0);
   const [metodo, setMetodo] = useState<Cobro["metodo"]>("EFECTIVO");
+  const [bancos, setBancos] = useState<Banco[]>([]);
+  const [bancoId, setBancoId] = useState<number | "">("");
+  const [referencia, setReferencia] = useState("");
   const [motivo, setMotivo] = useState("");
   const [debitoConcepto, setDebitoConcepto] = useState("");
   const [debitoMonto, setDebitoMonto] = useState(0);
@@ -84,8 +87,14 @@ export default function DetalleFactura() {
   function abrirCobro() {
     setMonto(Math.round(saldo * 100) / 100);
     setMetodo("EFECTIVO");
+    setReferencia("");
     setError("");
     setOpenCobro(true);
+    api.bancos.listar().then((b) => {
+      const activos = b.filter((x) => x.activo);
+      setBancos(activos);
+      setBancoId(activos[0]?.id ?? "");
+    });
   }
 
   async function confirmarCobro(e: React.FormEvent) {
@@ -95,7 +104,15 @@ export default function DetalleFactura() {
     setError("");
     try {
       if (usaCaja && metodo === "EFECTIVO" && !sesion) throw new Error("La caja esta cerrada: para cobrar en efectivo abre la caja en Cierre de Caja.");
-      await api.cobros.crear({ factura_id: factura.id, fecha: todayIso(), monto, metodo, caja_sesion_id: sesion?.id ?? null });
+      await api.cobros.crear({
+        factura_id: factura.id,
+        fecha: todayIso(),
+        monto,
+        metodo,
+        caja_sesion_id: sesion?.id ?? null,
+        banco_id: metodo === "EFECTIVO" ? null : bancoId || null,
+        referencia,
+      });
       setOpenCobro(false);
       await cargar();
     } catch (err: any) {
@@ -306,6 +323,8 @@ export default function DetalleFactura() {
                   <li key={c.id} className="flex justify-between py-1.5">
                     <span>
                       {formatDate(c.fecha)} · {c.metodo}
+                      {c.recibo_numero ? <span className="text-xs text-slate-400"> · Recibo #{c.recibo_numero}</span> : null}
+                      {c.referencia ? <span className="text-xs text-slate-400"> · Ref. {c.referencia}</span> : null}
                     </span>
                     <span className="font-medium">{formatMoney(c.monto)}</span>
                   </li>
@@ -415,6 +434,18 @@ export default function DetalleFactura() {
             <option value="TARJETA">Tarjeta</option>
             <option value="CHEQUE">Cheque</option>
           </Select>
+          {metodo !== "EFECTIVO" && (
+            <div className="grid grid-cols-2 gap-3">
+              <Select label="Entro al banco" value={bancoId} onChange={(e) => setBancoId(Number(e.target.value))}>
+                {bancos.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.nombre}
+                  </option>
+                ))}
+              </Select>
+              <Input label={metodo === "CHEQUE" ? "Numero de cheque" : "Referencia"} value={referencia} onChange={(e) => setReferencia(e.target.value)} placeholder="Para cuadrar con el banco" />
+            </div>
+          )}
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setOpenCobro(false)}>

@@ -80,3 +80,35 @@ export function imprimirDocumento(documentoHtml: string): void {
     setTimeout(() => iframe.remove(), 1000);
   }, 150);
 }
+
+// Imprime un reporte en forma de tabla con el nombre de la empresa arriba.
+export function imprimirTabla(opciones: {
+  titulo: string;
+  subtitulo?: string;
+  empresa?: string | null;
+  encabezados: string[];
+  filas: (string | number)[][];
+  /** Columnas (por indice) que van alineadas a la derecha (montos). */
+  derecha?: number[];
+  pie?: (string | number)[];
+  resumen?: [string, string][];
+}): void {
+  const der = new Set(opciones.derecha ?? []);
+  const celda = (v: string | number, i: number, tag = "td") => `<${tag}${der.has(i) ? ' class="r"' : ""}>${escaparHtml(v)}</${tag}>`;
+  const resumen = opciones.resumen?.length
+    ? `<div class="totales" style="margin:8px 0 0 0;width:auto;display:flex;flex-wrap:wrap;gap:6px 24px">${opciones.resumen
+        .map(([k, v]) => `<div><span class="muted">${escaparHtml(k)}:</span>&nbsp;<b>${escaparHtml(v)}</b></div>`)
+        .join("")}</div>`
+    : "";
+  imprimirHtml(
+    opciones.titulo,
+    `<div style="display:flex;justify-content:space-between;align-items:flex-end">
+       <div><h1>${escaparHtml(opciones.titulo)}</h1><div class="muted">${escaparHtml(opciones.subtitulo ?? "")}</div></div>
+       <div class="muted" style="text-align:right">${escaparHtml(opciones.empresa ?? "")}<br>Impreso: ${escaparHtml(new Date().toLocaleString("es-DO"))}</div>
+     </div>${resumen}
+     <table><thead><tr>${opciones.encabezados.map((h, i) => celda(h, i, "th")).join("")}</tr></thead>
+       <tbody>${opciones.filas.map((f) => `<tr>${f.map((v, i) => celda(v, i)).join("")}</tr>`).join("")}</tbody>
+       ${opciones.pie ? `<tfoot><tr style="font-weight:700">${opciones.pie.map((v, i) => celda(v, i)).join("")}</tr></tfoot>` : ""}
+     </table>`
+  );
+}
