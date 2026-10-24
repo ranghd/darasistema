@@ -222,7 +222,7 @@ export function registerBancosIpc(db: DB) {
               { cuenta_id: b.cuenta_id, debito: monto, credito: 0, descripcion: concepto },
               { cuenta_id: cuenta.id, debito: 0, credito: monto, descripcion: concepto },
             ];
-      const asientoId = crearAsiento(db, { fecha: m.fecha, concepto: `Banco ${b.nombre}: ${concepto}`, origen: "AJUSTE", lineas });
+      const asientoId = crearAsiento(db, { fecha: m.fecha, concepto: `${/^banco\b/i.test(b.nombre) ? b.nombre : `Banco ${b.nombre}`}: ${concepto}`, origen: "AJUSTE", lineas });
       const linea = db.prepare(`SELECT id FROM asiento_lineas WHERE asiento_id = ? AND cuenta_id = ?`).get(asientoId, b.cuenta_id) as { id: number };
       db.prepare(`UPDATE banco_movimientos SET asiento_linea_id = ? WHERE id = ?`).run(linea.id, m.id);
     })();
