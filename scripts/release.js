@@ -28,4 +28,9 @@ for (const v of variantes) {
   run(`npx electron-builder --config ${v.config} --publish always`);
 }
 
+// Se sube todo como borrador y solo al final se publica: asi ningun programa busca la
+// actualizacion a medio subir (antes salia "Cannot find latest.yml" unos minutos).
+const version = require('../package.json').version;
+run(`gh release edit v${version} --draft=false --latest`);
+
 console.log('\nListo. Las cuatro apps publicadas en GitHub Releases.');
