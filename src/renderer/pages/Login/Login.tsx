@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { esVariantCaja } from "../../lib/variant";
+import { EDICION } from "../../lib/variant";
 import { Button, Input } from "../../components/ui";
 import { api } from "../../lib/api";
 import Logo from "../../components/Logo";
@@ -58,8 +58,8 @@ export default function Login({ modoNube = false }: { modoNube?: boolean }) {
         <div className="mb-6 flex items-center gap-3">
           <Logo size={44} />
           <div>
-            <p className="text-lg font-semibold text-slate-900">{esVariantCaja ? "Cajapunto1" : "Darasistema"}</p>
-            <p className="text-xs text-slate-400">Gas · Oxigeno · Agua</p>
+            <p className="text-lg font-semibold text-slate-900">{EDICION.nombre}</p>
+            <p className="text-xs text-slate-400">{EDICION.lema}</p>
           </div>
         </div>
 

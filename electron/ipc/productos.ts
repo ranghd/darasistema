@@ -3,6 +3,17 @@ import type { DB } from "../db/types";
 import type { Producto } from "../shared/types";
 import { registrarAjusteInventario } from "../db/contabilidad";
 
+// El codigo puede ser el de barras del producto: no se puede repetir.
+function codigoLibre(db: DB, codigo: string | undefined | null, id?: number): string | null {
+  const limpio = String(codigo ?? "").trim();
+  if (!limpio) return null;
+  const otro = db.prepare(`SELECT id, nombre FROM productos WHERE lower(codigo) = lower(?) AND id != ?`).get(limpio, id ?? -1) as { id: number; nombre: string } | undefined;
+  if (otro) throw new Error(`El codigo ${limpio} ya lo tiene "${otro.nombre}"`);
+  return limpio;
+}
+
+const limpiarGrupo = (g: string | null | undefined) => String(g ?? "").trim().replace(/\s+/g, " ") || null;
+
 function siguienteCodigo(db: DB, categoria: string): string {
   const count = (db.prepare(`SELECT COUNT(*) as c FROM productos`).get() as { c: number }).c;
   return `${categoria.slice(0, 3).toUpperCase()}-${String(count + 1).padStart(3, "0")}`;
@@ -14,14 +25,15 @@ export function registerProductosIpc(db: DB) {
   });
 
   ipcMain.handle("productos:crear", (_e, data: Partial<Producto>) => db.transaction(() => {
-    const codigo = data.codigo && data.codigo.length > 0 ? data.codigo : siguienteCodigo(db, data.categoria ?? "OTRO");
+    const codigo = codigoLibre(db, data.codigo) ?? siguienteCodigo(db, data.categoria ?? "OTRO");
     const info = db
       .prepare(
-        `INSERT INTO productos (codigo, nombre, categoria, unidad, precio_contenido, costo_contenido, maneja_envase, fianza_envase, itbis_rate, cuenta_ingreso_id, cuenta_costo_id, cuenta_inventario_id, existencia, activo)
-         VALUES (@codigo, @nombre, @categoria, @unidad, @precio_contenido, @costo_contenido, @maneja_envase, @fianza_envase, @itbis_rate, @cuenta_ingreso_id, @cuenta_costo_id, @cuenta_inventario_id, @existencia, 1)`
+        `INSERT INTO productos (codigo, nombre, categoria, unidad, precio_contenido, costo_contenido, maneja_envase, fianza_envase, itbis_rate, cuenta_ingreso_id, cuenta_costo_id, cuenta_inventario_id, existencia, activo, grupo)
+         VALUES (@codigo, @nombre, @categoria, @unidad, @precio_contenido, @costo_contenido, @maneja_envase, @fianza_envase, @itbis_rate, @cuenta_ingreso_id, @cuenta_costo_id, @cuenta_inventario_id, @existencia, 1, @grupo)`
       )
       .run({
         codigo,
+        grupo: limpiarGrupo(data.grupo),
         nombre: data.nombre,
         categoria: data.categoria ?? "OTRO",
         unidad: data.unidad ?? "UNIDAD",
@@ -44,12 +56,14 @@ export function registerProductosIpc(db: DB) {
     const anterior = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(id) as Producto | undefined;
     if (!anterior) throw new Error("Producto no encontrado");
     db.prepare(
-      `UPDATE productos SET nombre=@nombre, categoria=@categoria, unidad=@unidad, precio_contenido=@precio_contenido,
+      `UPDATE productos SET codigo=@codigo, grupo=@grupo, nombre=@nombre, categoria=@categoria, unidad=@unidad, precio_contenido=@precio_contenido,
         costo_contenido=@costo_contenido, maneja_envase=@maneja_envase, fianza_envase=@fianza_envase, itbis_rate=@itbis_rate,
         cuenta_ingreso_id=@cuenta_ingreso_id, cuenta_costo_id=@cuenta_costo_id, cuenta_inventario_id=@cuenta_inventario_id,
         existencia=@existencia, activo=@activo WHERE id=@id`
     ).run({
       id,
+      codigo: codigoLibre(db, data.codigo, id) ?? anterior.codigo,
+      grupo: limpiarGrupo(data.grupo !== undefined ? data.grupo : anterior.grupo),
       nombre: data.nombre,
       categoria: data.categoria ?? "OTRO",
       unidad: data.unidad ?? "UNIDAD",

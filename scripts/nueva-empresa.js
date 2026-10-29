@@ -62,6 +62,8 @@ async function crear() {
   while (adminPassword.length < 6) {
     adminPassword = await preguntar("Contrasena del administrador (minimo 6 caracteres)");
   }
+  const tipo = (await preguntar("Tipo de negocio: gas (gas, oxigeno, agua) o colmado", "gas")).toLowerCase();
+  const rubro = tipo.startsWith("c") ? "colmado" : "gas";
   const demo = (await preguntar("Cargar datos de ejemplo? (s/n)", "n")).toLowerCase().startsWith("s");
   rl.close();
 
@@ -77,10 +79,11 @@ async function crear() {
       admin_nombre: adminNombre,
       admin_password: adminPassword,
       demo,
+      rubro,
     }),
   });
 
-  console.log("\nEmpresa creada. Datos para entregar al cliente:");
+  console.log(`\nEmpresa creada (${rubro === "colmado" ? "colmado: usa Darasistema Colmado" : "gas: usa Darasistema y Cajapunto1"}). Datos para entregar al cliente:`);
   console.log(`  Codigo de empresa: ${r.codigo}`);
   console.log(`  Usuario:           ${adminUsuario.toLowerCase()}`);
   console.log("  Contrasena:        la que escribiste arriba");

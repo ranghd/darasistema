@@ -96,6 +96,7 @@ async function crearEmpresa(req: Request, env: Env): Promise<Response> {
     empresa: { nombre_empresa: nombre, rnc: body.rnc ?? null, direccion: body.direccion ?? null, telefono: body.telefono ?? null },
     admin: { usuario: String(body.admin_usuario ?? ""), nombre: String(body.admin_nombre ?? ""), password: String(body.admin_password ?? "") },
     demo: body.demo === true,
+    rubro: body.rubro === "colmado" ? "colmado" : "gas",
   };
 
   const reg = registro(env);

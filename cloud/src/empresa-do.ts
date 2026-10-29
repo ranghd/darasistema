@@ -4,7 +4,7 @@ import { DurableObjectDB } from "./do-db";
 import { puedeInvocar, type Rol } from "./permisos";
 import { SCHEMA_SQL } from "../../electron/db/schema";
 import { migrar } from "../../electron/db/migraciones";
-import { seedCatalogo, seedDemo, type DatosEmpresa } from "../../electron/db/seed";
+import { seedCatalogo, seedDemo, seedDemoColmado, type DatosEmpresa } from "../../electron/db/seed";
 import { nuevoPasswordHash } from "../../electron/db/password";
 import { registerCuentasIpc } from "../../electron/ipc/cuentas";
 import { registerAsientosIpc } from "../../electron/ipc/asientos";
@@ -25,6 +25,7 @@ import { registerBancosIpc } from "../../electron/ipc/bancos";
 
 export interface InicializarEmpresa {
   empresa: DatosEmpresa;
+  rubro?: "gas" | "colmado";
   admin: { usuario: string; nombre: string; password: string };
   demo: boolean;
 }
@@ -108,8 +109,12 @@ export class Empresa extends DurableObject {
     }
 
     this.db.transaction(() => {
-      seedCatalogo(this.db, datos.empresa);
-      if (datos.demo) seedDemo(this.db);
+      const rubro = datos.rubro === "colmado" ? "colmado" : "gas";
+      seedCatalogo(this.db, datos.empresa, rubro);
+      if (datos.demo) {
+        if (rubro === "colmado") seedDemoColmado(this.db);
+        else seedDemo(this.db);
+      }
       this.db
         .prepare(`INSERT INTO usuarios (usuario, nombre, password_hash, rol, activo) VALUES (@usuario, @nombre, @password_hash, 'ADMIN', 1)`)
         .run({ usuario, nombre: datos.admin.nombre || usuario, password_hash: nuevoPasswordHash(datos.admin.password) });

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { isPreviewMode } from "../lib/api";
-import { esVariantCaja } from "../lib/variant";
+import { EDICION, esColmado, esVariantCaja, manejaEnvases, operaCaja } from "../lib/variant";
 import { useAuth } from "../lib/auth";
 import ConnectionBanner from "./ConnectionBanner";
 import Logo from "./Logo";
@@ -78,7 +78,7 @@ const NAV_CAJA = [
     section: "Venta Rapida",
     items: [
       { to: "/caja", label: "Punto de venta" },
-      ...(esVariantCaja ? [{ to: "/cierre-caja", label: "Cierre de Caja" }] : []),
+      ...(operaCaja ? [{ to: "/cierre-caja", label: "Cierre de Caja" }] : []),
     ],
   },
   {
@@ -100,11 +100,71 @@ const NAV_CAJA = [
   { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
 ];
 
+// Darasistema Colmado: un solo programa, con la caja primero.
+const NAV_COLMADO = [
+  { section: "General", items: [{ to: "/", label: "Panel Principal", end: true }] },
+  {
+    section: "Venta Rapida",
+    items: [
+      { to: "/caja", label: "Punto de venta" },
+      { to: "/cierre-caja", label: "Cierre de Caja" },
+      { to: "/facturas/nueva", label: "Nueva Factura" },
+      { to: "/facturas", label: "Facturas", end: true },
+    ],
+  },
+  {
+    section: "Fiao y clientes",
+    items: [
+      { to: "/cuentas-por-cobrar", label: "Cuentas por Cobrar (fiao)" },
+      { to: "/clientes", label: "Clientes" },
+    ],
+  },
+  {
+    section: "Inventario",
+    items: [
+      { to: "/productos", label: "Productos" },
+      { to: "/compras", label: "Compras" },
+      { to: "/proveedores", label: "Proveedores" },
+    ],
+  },
+  {
+    section: "Gastos y bancos",
+    items: [
+      { to: "/gastos", label: "Gastos (facturas de suplidores)" },
+      { to: "/cuentas-por-pagar", label: "Cuentas por Pagar" },
+      { to: "/bancos", label: "Bancos y conciliacion" },
+    ],
+  },
+  {
+    section: "Reportes",
+    items: [
+      { to: "/reportes/ventas", label: "Reporte de Ventas" },
+      { to: "/cierres-caja", label: "Cierres de Caja" },
+      { to: "/reportes/resultados", label: "Estado de Resultados" },
+      { to: "/reportes/itbis", label: "Reporte de ITBIS" },
+    ],
+  },
+  {
+    section: "Contabilidad",
+    items: [
+      { to: "/contabilidad/cuentas", label: "Catalogo de Cuentas" },
+      { to: "/contabilidad/asientos", label: "Asientos / Libro Diario" },
+      { to: "/contabilidad/libro-mayor", label: "Libro Mayor" },
+      { to: "/contabilidad/balance-comprobacion", label: "Balance de Comprobacion" },
+      { to: "/reportes/balance-general", label: "Balance General" },
+      { to: "/comprobantes", label: "Otros Comprobantes" },
+    ],
+  },
+  { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
+];
+
 export default function Layout() {
   const { usuario, logout } = useAuth();
 
   const mostrarCaja = esVariantCaja || usuario?.rol === "CAJERO";
-  const nav = (mostrarCaja ? NAV_CAJA : NAV_COMPLETO).filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN");
+  const nav = (mostrarCaja ? NAV_CAJA : esColmado ? NAV_COLMADO : NAV_COMPLETO)
+    .filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN")
+    .map((g) => ({ ...g, items: g.items.filter((i) => manejaEnvases || i.to !== "/envases") }));
   const [paleta, setPaleta] = useState(false);
   const [ayuda, setAyuda] = useState(false);
 
@@ -138,8 +198,8 @@ export default function Layout() {
         <div className="flex items-center gap-2 px-5 py-5">
           <Logo size={36} className="rounded-[8px] ring-1 ring-white/15" />
           <div>
-            <p className="text-sm font-semibold text-white">{esVariantCaja ? "Cajapunto1" : "Darasistema"}</p>
-            <p className="text-[11px] text-slate-400">Gas · Oxigeno · Agua</p>
+            <p className="text-sm font-semibold text-white">{EDICION.nombre}</p>
+            <p className="text-[11px] text-slate-400">{EDICION.lema}</p>
           </div>
         </div>
         <nav className="flex-1 space-y-5 overflow-y-auto px-3 pb-4">

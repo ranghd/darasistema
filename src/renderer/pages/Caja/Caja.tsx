@@ -11,6 +11,7 @@ import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
 import type { Cliente, ModalidadLinea, Producto } from "../../lib/types";
 import { formatMoney, todayIso } from "../../lib/format";
 import { Button, Modal } from "../../components/ui";
+import { esColmado, manejaEnvases } from "../../lib/variant";
 
 interface LineaCarrito {
   producto_id: number;
@@ -67,6 +68,10 @@ export default function Caja() {
   const habiaVenta = useHabiaBorrador("venta.carrito", (v) => Array.isArray(v) && v.length > 0);
   const [avisoRecuperada, setAvisoRecuperada] = useState(habiaVenta);
   const [categoria, setCategoria] = useState("TODOS");
+  // En el colmado las pestanas son los grupos de los productos (Viveres, Bebidas...).
+  const pestanas = esColmado
+    ? [{ value: "TODOS", label: "Todos" }, ...Array.from(new Set(productos.map((p) => p.grupo || "Otros"))).sort().map((g) => ({ value: g, label: g }))]
+    : CATEGORIAS;
   const [busqueda, setBusqueda] = useState("");
   const [resaltado, setResaltado] = useState(0);
   const [lineaSel, setLineaSel] = useState(-1);
@@ -106,7 +111,7 @@ export default function Caja() {
     const t = sinAcentos(q.trim());
     const lista = productos.filter((p) => {
       if (!p.activo) return false;
-      if (categoria !== "TODOS" && p.categoria !== categoria) return false;
+      if (categoria !== "TODOS" && (esColmado ? (p.grupo || "Otros") : p.categoria) !== categoria) return false;
       return !t || sinAcentos(p.nombre).includes(t) || sinAcentos(p.codigo).includes(t);
     });
     // Un codigo exacto (lector de codigos de barras) va primero.
@@ -389,7 +394,7 @@ export default function Caja() {
             {cantidadBuscada > 1 && <span className="absolute right-3 top-2.5 rounded bg-brand-600 px-1.5 text-xs font-bold text-white">×{cantidadBuscada}</span>}
           </div>
           <div className="flex gap-1.5">
-            {CATEGORIAS.map((c) => (
+            {pestanas.map((c) => (
               <button
                 key={c.value}
                 tabIndex={-1}
@@ -417,18 +422,20 @@ export default function Caja() {
               }`}
             >
               <span className="flex w-full justify-between text-xs font-medium uppercase tracking-wide text-brand-600">
-                {p.categoria}
-                <span className="font-mono normal-case text-slate-400">{p.codigo}</span>
+                <span className="truncate">{esColmado ? p.grupo || "Otros" : p.categoria}</span>
+                {/* en el colmado el codigo es el de barras (largo): no se muestra en la tarjeta */}
+                {!esColmado && <span className="font-mono normal-case text-slate-400">{p.codigo}</span>}
               </span>
               <span className="mt-1 text-sm font-semibold text-slate-800">{p.nombre}</span>
-              <span className="mt-1.5 text-base font-bold text-slate-900">{formatMoney(p.precio_contenido)}</span>
+              {/* en el colmado se ve el precio final, el que paga el cliente (con ITBIS) */}
+              <span className="mt-1.5 text-base font-bold text-slate-900">{formatMoney(esColmado ? p.precio_contenido * (1 + (p.itbis_rate ?? 0)) : p.precio_contenido)}</span>
               <span className="mt-1 text-xs text-slate-400">Existencia: {p.existencia}</span>
             </button>
           ))}
           {resultados.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-400">No hay productos que coincidan</p>}
         </div>
         <p className="mt-2 text-[11px] text-slate-400">
-          ↑↓ elegir · Enter agregar · + / − cantidad · Supr quitar · F2 o Ctrl+B cliente · F4 o Ctrl+E lleno/intercambio · F6-F8 o Ctrl+1-3 pago · F12 o Ctrl+Enter cobrar · Esc cancelar · F1 ayuda
+          ↑↓ elegir · Enter agregar · + / − cantidad · Supr quitar · F2 o Ctrl+B cliente · {manejaEnvases ? "F4 o Ctrl+E lleno/intercambio · " : ""}F6-F8 o Ctrl+1-3 pago · F12 o Ctrl+Enter cobrar · Esc cancelar · F1 ayuda
         </p>
       </div>
 

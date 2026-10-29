@@ -4,6 +4,7 @@ import { createDatabase, type DB } from "./sqlite";
 import { SCHEMA_SQL } from "./schema";
 import { migrar } from "./migraciones";
 import { seedIfEmpty, seedUsuarios } from "./seed";
+import { APP_VARIANT } from "../variant.generated";
 
 let db: DB | null = null;
 
@@ -16,7 +17,7 @@ export async function getDb(): Promise<DB> {
   db = await createDatabase(dbPath);
   db.exec(SCHEMA_SQL);
   migrar(db);
-  seedIfEmpty(db);
+  seedIfEmpty(db, APP_VARIANT === "colmado" ? "colmado" : "gas");
   seedUsuarios(db);
   db.persist();
 

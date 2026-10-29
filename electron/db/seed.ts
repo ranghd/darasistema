@@ -1,5 +1,6 @@
 import { prepararBancosYGastos } from "./migraciones";
 import type { DB } from "./types";
+import type { Rubro } from "../shared/types";
 import { nuevoPasswordHash } from "./password";
 import { cuadrarInventarioContable } from "./contabilidad";
 
@@ -57,6 +58,13 @@ export interface DatosEmpresa {
   telefono?: string | null;
 }
 
+const EMPRESA_DEMO_COLMADO: DatosEmpresa = {
+  nombre_empresa: "Colmado Ejemplo",
+  rnc: "001-0000000-1",
+  direccion: "Calle Principal #1, Santo Domingo",
+  telefono: "809-555-0100",
+};
+
 const EMPRESA_DEMO: DatosEmpresa = {
   nombre_empresa: "Darasistema SRL",
   rnc: "1-30-12345-6",
@@ -64,16 +72,31 @@ const EMPRESA_DEMO: DatosEmpresa = {
   telefono: "809-555-0100",
 };
 
-export function seedIfEmpty(db: DB) {
+// Un colmado no maneja gas, oxigeno ni agua por separado, ni envases con fianza:
+// tiene una sola cuenta de ventas, de costo y de inventario de mercancia.
+const QUITAR_EN_COLMADO = new Set(["1.1.05", "1.1.06", "1.1.07", "2.1.03", "4.1.02", "4.1.03", "5.1.02", "5.1.03"]);
+const NOMBRES_COLMADO: Record<string, string> = {
+  "1.1.04": "Inventario de Mercancia",
+  "4.1.01": "Ingresos por Ventas",
+  "5.1.01": "Costo de Ventas",
+};
+
+export function cuentasDe(rubro: Rubro): CuentaSeed[] {
+  if (rubro !== "colmado") return CUENTAS;
+  return CUENTAS.filter((c) => !QUITAR_EN_COLMADO.has(c.codigo)).map((c) => ({ ...c, nombre: NOMBRES_COLMADO[c.codigo] ?? c.nombre }));
+}
+
+export function seedIfEmpty(db: DB, rubro: Rubro = "gas") {
   const count = (db.prepare("SELECT COUNT(*) as c FROM cuentas_contables").get() as { c: number }).c;
   if (count > 0) return;
-  seedCatalogo(db, EMPRESA_DEMO);
-  seedDemo(db);
+  seedCatalogo(db, rubro === "colmado" ? EMPRESA_DEMO_COLMADO : EMPRESA_DEMO, rubro);
+  if (rubro === "colmado") seedDemoColmado(db);
+  else seedDemo(db);
 }
 
 // Lo minimo que toda empresa necesita para operar: catalogo de cuentas, datos
 // de la empresa y el cliente "Consumidor Final" que usa la Caja.
-export function seedCatalogo(db: DB, empresa: DatosEmpresa) {
+export function seedCatalogo(db: DB, empresa: DatosEmpresa, rubro: Rubro = "gas") {
   const insertCuenta = db.prepare(
     `INSERT INTO cuentas_contables (codigo, nombre, tipo, padre_id, naturaleza, es_movimiento, activo)
      VALUES (@codigo, @nombre, @tipo, @padre_id, @naturaleza, @es_movimiento, 1)`
@@ -94,12 +117,13 @@ export function seedCatalogo(db: DB, empresa: DatosEmpresa) {
       codigoToId.set(c.codigo, Number(info.lastInsertRowid));
     }
   });
-  insertCuentas(CUENTAS);
+  insertCuentas(cuentasDe(rubro));
 
   db.prepare(
-    `INSERT INTO company_config (id, nombre_empresa, rnc, direccion, telefono, itbis_rate)
-     VALUES (1, @nombre_empresa, @rnc, @direccion, @telefono, 0.18)`
+    `INSERT INTO company_config (id, nombre_empresa, rnc, direccion, telefono, itbis_rate, rubro)
+     VALUES (1, @nombre_empresa, @rnc, @direccion, @telefono, 0.18, @rubro)`
   ).run({
+    rubro,
     nombre_empresa: empresa.nombre_empresa,
     rnc: empresa.rnc ?? null,
     direccion: empresa.direccion ?? null,
@@ -159,6 +183,57 @@ export function seedDemo(db: DB) {
     { codigo: "AGUA-5G-CAJA", nombre: "Agua Purificada en Fundas (caja x20)", categoria: "AGUA", unidad: "CAJA", precio_contenido: 150, costo_contenido: 70, maneja_envase: 0, fianza_envase: 0, cuenta_ingreso_id: codigoToId.get("4.1.03"), cuenta_costo_id: codigoToId.get("5.1.03"), cuenta_inventario_id: codigoToId.get("1.1.06"), existencia: 80 },
   ];
   for (const p of productos) insertProducto.run(p);
+  cuadrarInventarioContable(db, "Inventario inicial (datos de ejemplo)");
+}
+
+// Datos de ejemplo para la edicion colmado: productos de un colmado tipico (con
+// codigo de barras), algunos exentos de ITBIS, y clientes de fiao.
+export function seedDemoColmado(db: DB) {
+  const filas = db.prepare(`SELECT id, codigo FROM cuentas_contables`).all() as { id: number; codigo: string }[];
+  const id = (c: string) => filas.find((f) => f.codigo === c)?.id ?? null;
+  const insertNcf = db.prepare(
+    `INSERT INTO ncf_secuencias (tipo, prefijo, desde, hasta, actual, vencimiento, activo) VALUES (@tipo, @tipo, 1, @hasta, 1, '2026-12-31', 1)`
+  );
+  for (const [tipo, hasta] of [["B01", 500], ["B02", 5000], ["B03", 100], ["B04", 200], ["B11", 500], ["B12", 500], ["B14", 100], ["B15", 100]] as const) {
+    insertNcf.run({ tipo, hasta });
+  }
+
+  const insertCliente = db.prepare(
+    `INSERT INTO clientes (codigo, nombre, rnc_cedula, tipo, telefono, email, direccion, activo) VALUES (@codigo, @nombre, '', 'FISICA', @telefono, '', @direccion, 1)`
+  );
+  [
+    ["CLI-0001", "Doña Carmen (fiao)", "809-555-1101", "Calle 3 #12"],
+    ["CLI-0002", "Pedro el mecanico", "829-555-1102", "Esquina del taller"],
+    ["CLI-0003", "Familia Rosario", "849-555-1103", "Calle 5 #40"],
+  ].forEach(([codigo, nombre, telefono, direccion]) => insertCliente.run({ codigo, nombre, telefono, direccion }));
+
+  const insertProducto = db.prepare(
+    `INSERT INTO productos (codigo, nombre, categoria, unidad, precio_contenido, costo_contenido, maneja_envase, fianza_envase, itbis_rate, cuenta_ingreso_id, cuenta_costo_id, cuenta_inventario_id, existencia, activo, grupo)
+     VALUES (@codigo, @nombre, 'OTRO', @unidad, @precio, @costo, 0, 0, @itbis, @ing, @cos, @inv, @existencia, 1, @grupo)`
+  );
+  const cuentas = { ing: id("4.1.01"), cos: id("5.1.01"), inv: id("1.1.04") };
+  // precio sin ITBIS; los basicos (arroz, habichuelas, huevos, pan, leche) van exentos
+  const productos: [string, string, string, string, number, number, number, number][] = [
+    ["7460001000017", "Arroz Selecto 1 lb", "Viveres", "LIBRA", 38, 30, 0, 200],
+    ["7460001000024", "Habichuelas rojas 1 lb", "Viveres", "LIBRA", 75, 58, 0, 120],
+    ["7460001000031", "Azucar crema 1 lb", "Viveres", "LIBRA", 40, 31, 0, 150],
+    ["7460001000048", "Aceite Crisol 16 oz", "Viveres", "UNIDAD", 127.12, 98, 0.18, 48],
+    ["7460001000055", "Salami Induveca 1 lb", "Embutidos", "LIBRA", 165.25, 128, 0.18, 30],
+    ["7460001000062", "Huevos (unidad)", "Viveres", "UNIDAD", 9, 7, 0, 360],
+    ["7460001000079", "Pan sobao", "Panaderia", "UNIDAD", 10, 7, 0, 120],
+    ["7460001000086", "Leche Rica 1 L", "Lacteos", "UNIDAD", 85, 68, 0, 60],
+    ["7460001000093", "Refresco Coca-Cola 20 oz", "Bebidas", "UNIDAD", 50.85, 38, 0.18, 96],
+    ["7460001000109", "Cerveza Presidente pequeña", "Bebidas", "UNIDAD", 101.69, 82, 0.18, 120],
+    ["7460001000116", "Agua Planeta Azul 20 oz", "Bebidas", "UNIDAD", 21.19, 15, 0.18, 96],
+    ["7460001000123", "Detergente Ace 500 g", "Limpieza", "UNIDAD", 84.75, 66, 0.18, 36],
+    ["7460001000130", "Jabon Lavaplatos Axion", "Limpieza", "UNIDAD", 63.56, 49, 0.18, 30],
+    ["7460001000147", "Papel de baño (rollo)", "Limpieza", "UNIDAD", 29.66, 22, 0.18, 80],
+    ["7460001000154", "Galletas Club Social", "Picaderas", "UNIDAD", 12.71, 9, 0.18, 100],
+    ["7460001000161", "Platano verde", "Viveres", "UNIDAD", 25, 18, 0, 90],
+  ];
+  for (const [codigo, nombre, grupo, unidad, precio, costo, itbis, existencia] of productos) {
+    insertProducto.run({ codigo, nombre, grupo, unidad, precio, costo, itbis, existencia, ...cuentas });
+  }
   cuadrarInventarioContable(db, "Inventario inicial (datos de ejemplo)");
 }
 

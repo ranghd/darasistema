@@ -27,7 +27,7 @@ import { APP_VARIANT } from "./variant.generated";
 
 const isDev = process.env.NODE_ENV === "development";
 
-app.setName(APP_VARIANT === "caja" ? "Cajapunto1" : "Darasistema");
+app.setName(APP_VARIANT === "caja" ? "Cajapunto1" : APP_VARIANT === "colmado" ? "Darasistema Colmado" : "Darasistema");
 
 async function registerAllIpc() {
   const configRed = leerConfigRed();

@@ -64,6 +64,8 @@ export interface Producto {
   cuenta_inventario_id: number | null;
   existencia: number;
   activo: number;
+  /** Grupo libre del producto (edicion colmado): Viveres, Bebidas, Lacteos... */
+  grupo?: string | null;
 }
 
 export type TipoNcf = "B01" | "B02" | "B03" | "B04" | "B11" | "B12" | "B13" | "B14" | "B15" | "B16";
@@ -351,7 +353,11 @@ export interface CompanyConfig {
   direccion: string | null;
   telefono: string | null;
   itbis_rate: number;
+  /** Tipo de negocio: "gas" (gas, oxigeno y agua) o "colmado". */
+  rubro?: Rubro;
 }
+
+export type Rubro = "gas" | "colmado";
 
 export interface ApiError {
   message: string;

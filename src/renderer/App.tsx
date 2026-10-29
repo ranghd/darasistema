@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { Navigate, useRoutes } from "react-router-dom";
+import { Navigate, useNavigate, useRoutes } from "react-router-dom";
 import { api } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { CajaProvider } from "./lib/caja";
 import CierreCaja from "./pages/CierreCaja/CierreCaja";
 import CierresCaja from "./pages/CierreCaja/CierresCaja";
-import { esVariantCaja } from "./lib/variant";
+import { esColmado, esVariantCaja, manejaEnvases, operaCaja } from "./lib/variant";
 import Layout from "./components/Layout";
 import Login from "./pages/Login/Login";
 import ConfigurarConexion from "./pages/Configuracion/ConfigurarConexion";
@@ -43,7 +43,7 @@ const RUTAS_COMUNES = [
   { path: "/", element: <Dashboard /> },
   { path: "/caja", element: <Caja /> },
   // Abrir y cerrar caja solo en Cajapunto1; Darasistema solo consulta los cierres.
-  ...(esVariantCaja ? [{ path: "/cierre-caja", element: <CierreCaja /> }] : []),
+  ...(operaCaja ? [{ path: "/cierre-caja", element: <CierreCaja /> }] : []),
   { path: "/facturas", element: <ListaFacturas /> },
   { path: "/facturas/nueva", element: <NuevaFactura /> },
   { path: "/facturas/:id", element: <DetalleFactura /> },
@@ -51,7 +51,7 @@ const RUTAS_COMUNES = [
   { path: "/clientes", element: <ListaClientes /> },
   { path: "/clientes/:id", element: <DetalleCliente /> },
   { path: "/productos", element: <ListaProductos /> },
-  { path: "/envases", element: <ControlEnvases /> },
+  ...(manejaEnvases ? [{ path: "/envases", element: <ControlEnvases /> }] : []),
 ];
 
 // Rutas adicionales solo para administradores (no cajeros, no la variante Caja).
@@ -86,11 +86,17 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
     ? [
         ...RUTAS_COMUNES,
         ...(restringido ? rutaConexionCaja : RUTAS_ADMIN_EXTRA),
-        { path: "*", element: <Navigate to={restringido ? "/caja" : "/"} replace /> },
+        { path: "*", element: <Navigate to={restringido || esColmado ? "/caja" : "/"} replace /> },
       ]
     : [];
 
   const elemento = useRoutes([{ element: <Layout />, children: hijos }]);
+
+  // En el colmado se entra directo al punto de venta.
+  const navegar = useNavigate();
+  useEffect(() => {
+    if (usuario && esColmado && (location.hash === "" || location.hash === "#/")) navegar("/caja", { replace: true });
+  }, [usuario?.id]);
 
   if (!usuario) return <Login modoNube={modoNube} />;
   return elemento;

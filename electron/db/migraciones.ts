@@ -52,6 +52,9 @@ export function migrar(db: DB) {
     `ALTER TABLE pagos_compra ADD COLUMN banco_id INTEGER REFERENCES bancos(id)`,
     `ALTER TABLE pagos_compra ADD COLUMN referencia TEXT`,
     `ALTER TABLE compras ADD COLUMN ncf TEXT`,
+    // Edicion colmado: grupo libre del producto (Viveres, Bebidas...) y tipo de negocio de la empresa.
+    `ALTER TABLE productos ADD COLUMN grupo TEXT`,
+    `ALTER TABLE company_config ADD COLUMN rubro TEXT NOT NULL DEFAULT 'gas'`,
   ];
   for (const sql of columnas) {
     try {

@@ -24,7 +24,8 @@ export function configurarAutoUpdate() {
 
   // Cada variante publica en un canal distinto dentro del mismo repositorio
   // para que el update de Darasistema y el de Cajapunto1 no se mezclen.
-  if (APP_VARIANT === "caja") autoUpdater.channel = "caja";
+  // Cada edicion se actualiza por su propio canal (caja.yml, colmado.yml; Darasistema usa latest.yml).
+  if (APP_VARIANT === "caja" || APP_VARIANT === "colmado") autoUpdater.channel = APP_VARIANT;
 
   autoUpdater.on("checking-for-update", () => enviarATodasLasVentanas({ estado: "buscando" }));
   autoUpdater.on("update-available", (info) => enviarATodasLasVentanas({ estado: "disponible", version: info.version }));

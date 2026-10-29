@@ -17,6 +17,7 @@ if (!process.env.GH_TOKEN) {
 const variantes = [
   { nombre: 'full', config: 'electron-builder.yml' },
   { nombre: 'caja', config: 'electron-builder.caja.yml' },
+  { nombre: 'colmado', config: 'electron-builder.colmado.yml' },
 ];
 
 for (const v of variantes) {

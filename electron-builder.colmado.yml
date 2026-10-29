@@ -1,0 +1,26 @@
+appId: com.darasistema.colmado
+productName: Darasistema Colmado
+publish:
+  provider: github
+  owner: ranghd
+  repo: darasistema
+  channel: colmado
+  releaseType: release
+directories:
+  output: release
+files:
+  - dist/**
+  - dist-electron/**
+  - package.json
+  - node_modules/sql.js/dist/sql-wasm.wasm
+  - node_modules/sql.js/dist/sql-wasm.js
+  - node_modules/sql.js/package.json
+win:
+  target: nsis
+  icon: build/icon-colmado.png
+nsis:
+  # Nombre fijo (sin version): asi el enlace .../releases/latest/download/Darasistema-Colmado-Setup.exe
+  # siempre baja la ultima version.
+  artifactName: Darasistema-Colmado-Setup.${ext}
+  oneClick: false
+  allowToChangeInstallationDirectory: true

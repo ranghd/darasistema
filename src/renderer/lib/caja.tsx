@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api } from "./api";
 import { useAuth } from "./auth";
-import { esVariantCaja } from "./variant";
+import { operaCaja } from "./variant";
 import type { Autor, Caja, SesionCaja } from "./types";
 
 // Caja de esta computadora y su jornada abierta. Cada computadora recuerda que caja
@@ -50,7 +50,7 @@ export function CajaProvider({ children }: { children: React.ReactNode }) {
       setCajas(lista);
       const id = lista.some((c) => c.id === cajaId) ? cajaId : lista[0]?.id ?? null;
       if (id !== cajaId) setCajaId(id);
-      const s = esVariantCaja && id ? await api.caja.sesionActual(id) : null;
+      const s = operaCaja && id ? await api.caja.sesionActual(id) : null;
       setSesion(s);
       return s;
     } catch {
@@ -76,7 +76,7 @@ export function CajaProvider({ children }: { children: React.ReactNode }) {
   const autor = useCallback((): Autor => ({ id: usuario?.id ?? null, nombre: usuario?.nombre ?? "", rol: usuario?.rol }), [usuario]);
 
   return (
-    <CajaContext.Provider value={{ cajas, cajaId, caja: cajas.find((c) => c.id === cajaId) ?? null, sesion, usaCaja: esVariantCaja, cargando, seleccionarCaja, recargar, autor }}>
+    <CajaContext.Provider value={{ cajas, cajaId, caja: cajas.find((c) => c.id === cajaId) ?? null, sesion, usaCaja: operaCaja, cargando, seleccionarCaja, recargar, autor }}>
       {children}
     </CajaContext.Provider>
   );
