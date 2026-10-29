@@ -10,6 +10,7 @@ import { ProveedoresDeProductoModal } from "../Proveedores/componentes";
 
 const emptyForm = {
   codigo: "",
+  codigo_barras: "",
   grupo: "",
   nombre: "",
   // En el colmado todo va a una sola cuenta de ventas, costo e inventario (categoria OTRO).
@@ -60,7 +61,11 @@ export default function ListaProductos() {
   const [buscar, setBuscar] = useState("");
   const grupos = Array.from(new Set([...GRUPOS_COLMADO, ...productos.map((p) => p.grupo).filter(Boolean) as string[]])).sort();
   const q = buscar.trim().toLowerCase();
-  const visibles = productos.filter((p) => !q || `${p.nombre} ${p.codigo} ${p.grupo ?? ""}`.toLowerCase().includes(q));
+  // El que se pone solo si se deja vacio (colmado: 1, 2, 3...).
+  const siguienteCodigo = Math.max(0, ...productos.map((p) => (/^\d+$/.test(p.codigo) ? Number(p.codigo) : 0))) + 1;
+  const visibles = productos.filter((p) => !q || `${p.nombre} ${p.codigo} ${p.codigo_barras ?? ""} ${p.grupo ?? ""}`.toLowerCase().includes(q));
+  // En el colmado se ven en orden de codigo: 1, 2, 3...
+  if (esColmado) visibles.sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
 
   async function cargar() {
     const [p, c] = await Promise.all([api.productos.listar(), api.cuentas.listar()]);
@@ -94,6 +99,7 @@ export default function ListaProductos() {
     setError("");
     setForm({
       codigo: p.codigo ?? "",
+      codigo_barras: p.codigo_barras ?? "",
       grupo: p.grupo ?? "",
       nombre: p.nombre,
       categoria: p.categoria,
@@ -156,7 +162,7 @@ export default function ListaProductos() {
     <div>
       <PageHeader
         title="Productos"
-        subtitle={esColmado ? "Lo que vende el colmado: codigo de barras, precio, ITBIS y existencia" : "Gas, oxigeno y agua purificada: precios, costo y manejo de envases"}
+        subtitle={esColmado ? "Lo que vende el colmado: codigo, precio, ITBIS y existencia" : "Gas, oxigeno y agua purificada: precios, costo y manejo de envases"}
         actions={
           <>
             <input
@@ -175,10 +181,11 @@ export default function ListaProductos() {
           {visibles.length === 0 && <EmptyRow colSpan={8} label={productos.length ? "Ningun producto coincide" : "Todavia no hay productos"} />}
           {visibles.map((p) => (
             <tr key={p.id} className="hover:bg-slate-50">
-              <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{p.codigo}</td>
+              <td className="px-4 py-2.5 font-mono font-semibold text-slate-700">{p.codigo}</td>
               <td className="px-4 py-2.5 font-medium text-slate-800">
                 {p.nombre}
                 <span className="ml-1 text-xs font-normal text-slate-400">{p.unidad?.toLowerCase()}</span>
+                {p.codigo_barras && <span className="block font-mono text-[11px] font-normal text-slate-400">{p.codigo_barras}</span>}
               </td>
               <td className="px-4 py-2.5">{p.grupo ? <Badge tone="blue">{p.grupo}</Badge> : <span className="text-slate-400">-</span>}</td>
               <td className="px-4 py-2.5 font-semibold">{formatMoney(p.precio_contenido * (1 + (p.itbis_rate ?? 0)))}</td>
@@ -234,14 +241,23 @@ export default function ListaProductos() {
       <Modal open={open} onClose={() => setOpen(false)} title={editId ? "Editar Producto" : "Nuevo Producto"}>
         <form onSubmit={guardar} className="space-y-3">
           {esColmado && (
-            <Input
-              label="Codigo de barras (o deja vacio para uno automatico)"
-              value={form.codigo}
-              autoFocus
-              placeholder="Pasa la pistola por el codigo"
-              onChange={(e) => setForm({ ...form, codigo: e.target.value })}
-              onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
-            />
+            <div className="grid grid-cols-[1fr_2fr] gap-3">
+              <Input
+                label="Codigo"
+                value={form.codigo}
+                placeholder={editId ? "" : `Automatico: ${siguienteCodigo}`}
+                onChange={(e) => setForm({ ...form, codigo: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
+              />
+              <Input
+                label="Codigo de barras (opcional)"
+                value={form.codigo_barras}
+                autoFocus
+                placeholder="Pasa la pistola por el producto"
+                onChange={(e) => setForm({ ...form, codigo_barras: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
+              />
+            </div>
           )}
           <Input label="Nombre del producto" required value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
           {esColmado ? (

@@ -36,6 +36,9 @@ const precioFinal = (p: Producto) => p.precio_contenido * (1 + (p.itbis_rate ?? 
 
 // La pistola de codigos de barras escribe muy rapido (unos pocos ms por tecla) y termina con Enter.
 const MS_POR_TECLA_LECTOR = 35;
+// Y un codigo de barras es un numero largo (8 o 13 digitos): ningun codigo corto ni cantidad lo es.
+// Asi, aunque la computadora este lenta, lo escaneado nunca se toma como una cantidad.
+const pareceCodigoDeBarras = (t: string) => /^\d{6,}$/.test(t.trim());
 
 // F3 o Ctrl+F (en laptops las F suelen necesitar la tecla Fn).
 const esTeclaBuscar = (e: KeyboardEvent | React.KeyboardEvent) => e.key === "F3" || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f");
@@ -95,11 +98,24 @@ export default function TablaFactura({ productos, lineas, entrada, texto, setTex
     else setFilaPorEnfocar(i);
   }
 
+  // Producto con ese codigo corto o ese codigo de barras.
+  const porCodigo = (texto: string) => {
+    const t = sinAcentos(texto.trim());
+    return activos.find((p) => sinAcentos(p.codigo.trim()) === t) ?? activos.find((p) => sinAcentos(p.codigo_barras?.trim() ?? "") === t);
+  };
+
+  function escaneado(codigo: string) {
+    const p = porCodigo(codigo);
+    if (p) return poner(p, 1, true);
+    setError(`El codigo ${codigo.trim()} no esta registrado. Agregalo en Productos.`);
+    irAEntrada();
+  }
+
   function teclaEntrada(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.ctrlKey || e.metaKey || e.altKey) return; // Ctrl+Enter, Ctrl+1... los maneja la caja
     if (e.key.length === 1) {
       if (texto === "") tiempos.current = [];
-      tiempos.current.push(performance.now());
+      tiempos.current.push(e.nativeEvent.timeStamp);
       return;
     }
     if (e.key === "ArrowUp" && lineas.length) {
@@ -114,11 +130,11 @@ export default function TablaFactura({ productos, lineas, entrada, texto, setTex
       const t = sinAcentos(q.trim());
       if (!t) return;
       const ts = tiempos.current;
-      const conLector = ts.length >= 4 && (ts[ts.length - 1] - ts[0]) / (ts.length - 1) < MS_POR_TECLA_LECTOR;
-      // 1) codigo exacto (lo normal con la pistola)  2) un solo producto con ese nombre  3) el buscador F3
-      const porCodigo = activos.find((p) => sinAcentos(p.codigo.trim()) === t);
-      const porNombre = porCodigo ? [] : activos.filter((p) => sinAcentos(p.nombre).includes(t) || sinAcentos(p.codigo).includes(t));
-      const p = porCodigo ?? (porNombre.length === 1 ? porNombre[0] : undefined);
+      const conLector = pareceCodigoDeBarras(q) || (ts.length >= 4 && (ts[ts.length - 1] - ts[0]) / (ts.length - 1) < MS_POR_TECLA_LECTOR);
+      // 1) codigo exacto (corto o de barras)  2) un solo producto con ese nombre  3) el buscador F3
+      const exacto = porCodigo(q);
+      const porNombre = exacto ? [] : activos.filter((p) => sinAcentos(p.nombre).includes(t) || sinAcentos(p.codigo).includes(t));
+      const p = exacto ?? (porNombre.length === 1 ? porNombre[0] : undefined);
       if (p) return poner(p, cantidad, conLector || cantidad !== 1);
       if (conLector) {
         setTexto("");
@@ -148,6 +164,12 @@ export default function TablaFactura({ productos, lineas, entrada, texto, setTex
     };
     if (e.key === "Enter") {
       e.preventDefault();
+      const escrito = e.currentTarget.value;
+      if (pareceCodigoDeBarras(escrito)) {
+        // Se escaneo con el foco en la cantidad: es otro producto, no una cantidad.
+        e.currentTarget.value = String(lineas[i].cantidad);
+        return escaneado(escrito);
+      }
       if (confirmar()) irAEntrada();
     } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
       e.preventDefault();
@@ -174,7 +196,7 @@ export default function TablaFactura({ productos, lineas, entrada, texto, setTex
           <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
               <th className="w-12 px-3 py-2 text-center">#</th>
-              <th className="w-44 px-3 py-2">Codigo</th>
+              <th className="w-24 px-3 py-2">Codigo</th>
               <th className="px-3 py-2">Descripcion</th>
               <th className="w-28 px-3 py-2 text-right">Cant.</th>
               <th className="w-32 px-3 py-2 text-right">Precio</th>
@@ -186,7 +208,7 @@ export default function TablaFactura({ productos, lineas, entrada, texto, setTex
             {lineas.map((l, i) => (
               <tr key={l.producto.id} onClick={() => setLineaSel(i)} className={`border-t border-slate-100 ${i === lineaSel ? "bg-brand-50/70" : ""}`}>
                 <td className="px-3 py-1.5 text-center text-slate-400">{i + 1}</td>
-                <td className="px-3 py-1.5 font-mono text-xs text-slate-500">{l.producto.codigo}</td>
+                <td className="px-3 py-1.5 font-mono text-slate-600">{l.producto.codigo}</td>
                 <td className="px-3 py-1.5 font-medium text-slate-800">{l.producto.nombre}</td>
                 <td className="px-2 py-1">
                   <input
@@ -198,7 +220,7 @@ export default function TablaFactura({ productos, lineas, entrada, texto, setTex
                     onKeyDown={(e) => teclaCantidad(e, i)}
                     onBlur={(e) => {
                       const n = leerCantidad(e.target.value);
-                      if (Number.isFinite(n) && n >= 0 && n !== l.cantidad) {
+                      if (Number.isFinite(n) && n >= 0 && n !== l.cantidad && !pareceCodigoDeBarras(e.target.value)) {
                         if (!fijarCantidad(i, n)) e.target.value = String(l.cantidad);
                       } else e.target.value = String(l.cantidad);
                     }}
@@ -266,10 +288,10 @@ function BuscadorProductos({ productos, inicial, onElegir, onCerrar }: { product
     // Primero el codigo exacto, luego los que empiezan con lo escrito ("plat" -> Platano antes que Lavaplatos).
     const orden = (p: Producto) => {
       const nombre = sinAcentos(p.nombre);
-      return sinAcentos(p.codigo) === t ? 0 : nombre.startsWith(t) ? 1 : nombre.split(/\s+/).some((w) => w.startsWith(t)) ? 2 : 3;
+      return sinAcentos(p.codigo) === t || sinAcentos(p.codigo_barras ?? "") === t ? 0 : nombre.startsWith(t) ? 1 : nombre.split(/\s+/).some((w) => w.startsWith(t)) ? 2 : 3;
     };
     return productos
-      .filter((p) => !t || sinAcentos(`${p.nombre} ${p.codigo} ${p.grupo ?? ""}`).includes(t))
+      .filter((p) => !t || sinAcentos(`${p.nombre} ${p.codigo} ${p.codigo_barras ?? ""} ${p.grupo ?? ""}`).includes(t))
       .sort((a, b) => orden(a) - orden(b) || a.nombre.localeCompare(b.nombre))
       .slice(0, 100);
   }, [productos, texto]);

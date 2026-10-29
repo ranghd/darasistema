@@ -208,8 +208,8 @@ export function seedDemoColmado(db: DB) {
   ].forEach(([codigo, nombre, telefono, direccion]) => insertCliente.run({ codigo, nombre, telefono, direccion }));
 
   const insertProducto = db.prepare(
-    `INSERT INTO productos (codigo, nombre, categoria, unidad, precio_contenido, costo_contenido, maneja_envase, fianza_envase, itbis_rate, cuenta_ingreso_id, cuenta_costo_id, cuenta_inventario_id, existencia, activo, grupo)
-     VALUES (@codigo, @nombre, 'OTRO', @unidad, @precio, @costo, 0, 0, @itbis, @ing, @cos, @inv, @existencia, 1, @grupo)`
+    `INSERT INTO productos (codigo, nombre, categoria, unidad, precio_contenido, costo_contenido, maneja_envase, fianza_envase, itbis_rate, cuenta_ingreso_id, cuenta_costo_id, cuenta_inventario_id, existencia, activo, grupo, codigo_barras)
+     VALUES (@codigo, @nombre, 'OTRO', @unidad, @precio, @costo, 0, 0, @itbis, @ing, @cos, @inv, @existencia, 1, @grupo, @barras)`
   );
   const cuentas = { ing: id("4.1.01"), cos: id("5.1.01"), inv: id("1.1.04") };
   // precio sin ITBIS; los basicos (arroz, habichuelas, huevos, pan, leche) van exentos
@@ -231,9 +231,10 @@ export function seedDemoColmado(db: DB) {
     ["7460001000154", "Galletas Club Social", "Picaderas", "UNIDAD", 12.71, 9, 0.18, 100],
     ["7460001000161", "Platano verde", "Viveres", "UNIDAD", 25, 18, 0, 90],
   ];
-  for (const [codigo, nombre, grupo, unidad, precio, costo, itbis, existencia] of productos) {
-    insertProducto.run({ codigo, nombre, grupo, unidad, precio, costo, itbis, existencia, ...cuentas });
-  }
+  // codigo corto 1, 2, 3... y el de barras para la pistola
+  productos.forEach(([barras, nombre, grupo, unidad, precio, costo, itbis, existencia], i) => {
+    insertProducto.run({ codigo: String(i + 1), barras, nombre, grupo, unidad, precio, costo, itbis, existencia, ...cuentas });
+  });
   cuadrarInventarioContable(db, "Inventario inicial (datos de ejemplo)");
 }
 

@@ -55,6 +55,8 @@ export function migrar(db: DB) {
     // Edicion colmado: grupo libre del producto (Viveres, Bebidas...) y tipo de negocio de la empresa.
     `ALTER TABLE productos ADD COLUMN grupo TEXT`,
     `ALTER TABLE company_config ADD COLUMN rubro TEXT NOT NULL DEFAULT 'gas'`,
+    // Colmado: el codigo es corto (1, 2, 3...) y el de barras va aparte, para la pistola.
+    `ALTER TABLE productos ADD COLUMN codigo_barras TEXT`,
   ];
   for (const sql of columnas) {
     try {

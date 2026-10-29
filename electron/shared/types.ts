@@ -66,6 +66,8 @@ export interface Producto {
   activo: number;
   /** Grupo libre del producto (edicion colmado): Viveres, Bebidas, Lacteos... */
   grupo?: string | null;
+  /** Codigo de barras (lo lee la pistola); el codigo del producto es el corto. */
+  codigo_barras?: string | null;
 }
 
 export type TipoNcf = "B01" | "B02" | "B03" | "B04" | "B11" | "B12" | "B13" | "B14" | "B15" | "B16";
