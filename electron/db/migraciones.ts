@@ -26,8 +26,15 @@ export function prepararBancosYGastos(db: DB) {
   for (const t of TIPOS_GASTO_INICIALES) {
     if (db.prepare(`SELECT id FROM tipos_gasto WHERE nombre = ?`).get(t.nombre)) continue;
     const cuentaId = asegurarCuenta(db, { codigo: t.codigo, nombre: t.cuenta, tipo: "GASTOS", naturaleza: "DEUDORA", padreCodigo: "6" });
-    db.prepare(`INSERT INTO tipos_gasto (nombre, cuenta_id) VALUES (?, ?)`).run(t.nombre, cuentaId);
+    db.prepare(`INSERT INTO tipos_gasto (nombre, cuenta_id, tipo_dgii) VALUES (?, ?, ?)`).run(t.nombre, cuentaId, t.dgii);
   }
+}
+
+// Tipo de gasto de la DGII (606) para los tipos de gasto y los gastos que ya existian.
+function ponerTiposDgii(db: DB) {
+  for (const t of TIPOS_GASTO_INICIALES) db.prepare(`UPDATE tipos_gasto SET tipo_dgii = ? WHERE nombre = ? AND tipo_dgii IS NULL`).run(t.dgii, t.nombre);
+  db.prepare(`UPDATE tipos_gasto SET tipo_dgii = '02' WHERE tipo_dgii IS NULL`).run();
+  db.prepare(`UPDATE gastos SET tipo_dgii = (SELECT tipo_dgii FROM tipos_gasto WHERE id = gastos.tipo_gasto_id) WHERE tipo_dgii IS NULL`).run();
 }
 
 // Agrega columnas nuevas a bases de datos que ya existian antes de una
@@ -57,6 +64,9 @@ export function migrar(db: DB) {
     `ALTER TABLE company_config ADD COLUMN rubro TEXT NOT NULL DEFAULT 'gas'`,
     // Colmado: el codigo es corto (1, 2, 3...) y el de barras va aparte, para la pistola.
     `ALTER TABLE productos ADD COLUMN codigo_barras TEXT`,
+    // Tipo de bienes y servicios del 606 de la DGII.
+    `ALTER TABLE tipos_gasto ADD COLUMN tipo_dgii TEXT`,
+    `ALTER TABLE gastos ADD COLUMN tipo_dgii TEXT`,
   ];
   for (const sql of columnas) {
     try {
@@ -83,6 +93,7 @@ export function migrar(db: DB) {
     ["cuenta-diferencias-caja", () => crearCuentaSiFalta(db, "6.1.04", "Diferencias de Caja (faltantes y sobrantes)", "GASTOS", "DEUDORA", "6")],
     // Banco principal (la cuenta 1.1.02 que ya usaba el sistema) y tipos de gasto de inicio.
     ["bancos-y-tipos-de-gasto", () => prepararBancosYGastos(db)],
+    ["tipos-de-gasto-dgii-606", () => ponerTiposDgii(db)],
   ];
   db.exec(`CREATE INDEX IF NOT EXISTS ix_cobros_recibo ON cobros(recibo_id)`);
   for (const [nombre, aplicar] of datos) {

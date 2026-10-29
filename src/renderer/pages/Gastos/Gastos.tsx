@@ -3,7 +3,7 @@ import { api, mensajeDeError } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { descargarCsv, imprimirTabla } from "../../lib/exportar";
-import type { Banco, Gasto, ProveedorConResumen, ResumenGastoTipo, TipoGasto } from "../../lib/types";
+import { TIPOS_DGII_606, type Banco, type Gasto, type ProveedorConResumen, type ResumenGastoTipo, type TipoGasto } from "../../lib/types";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 import { BotonesExportar, RangoFechas, rangoDe } from "../../components/reportes";
 import PagoSuplidorModal, { type DocumentoPorPagar } from "../../components/PagoSuplidor";
@@ -12,6 +12,20 @@ const num = (t: string) => Number(String(t).replace(/,/g, "")) || 0;
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const tonoEstado = (e: string) => (e === "PAGADA" ? "green" : e === "ANULADA" ? "red" : "amber");
 const nombreEstado = (e: string) => (e === "PAGADA" ? "Pagada" : e === "ANULADA" ? "Anulada" : "Por pagar");
+// "02 - Gastos por trabajos, suministros y servicios"
+const nombreDgii = (c?: string | null) => (c ? `${c} - ${TIPOS_DGII_606.find(([x]) => x === c)?.[1] ?? ""}` : "");
+
+function SelectDgii({ value, onChange, className = "" }: { value: string; onChange: (v: string) => void; className?: string }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} className={`rounded-lg border border-slate-300 px-2 py-1.5 text-sm ${className}`}>
+      {TIPOS_DGII_606.map(([c, n]) => (
+        <option key={c} value={c}>
+          {c} - {n}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 export default function Gastos() {
   const [rango, setRango] = useState(rangoDe("MES"));
@@ -50,17 +64,17 @@ export default function Gastos() {
   const totalResumen = resumen.reduce((s, x) => s + x.total, 0);
 
   function exportar(imprimir: boolean) {
-    const enc = ["No.", "Fecha", "Suplidor", "RNC", "NCF", "Tipo de gasto", "Concepto", "Monto", "ITBIS", "Total", "Condicion", "Estado", "Debe"];
-    const filas = gastos.map((g) => [g.numero, g.fecha, g.suplidor, g.rnc ?? "", g.ncf ?? "", g.tipo_nombre ?? "", g.concepto ?? "", g.subtotal, g.itbis, g.total, g.condicion_pago === "CONTADO" ? "Contado" : "Credito", nombreEstado(g.estado), g.saldo ?? 0]);
+    const enc = ["No.", "Fecha", "Suplidor", "RNC", "NCF", "Tipo de gasto", "Tipo DGII (606)", "Concepto", "Monto", "ITBIS", "Total", "Condicion", "Estado", "Debe"];
+    const filas = gastos.map((g) => [g.numero, g.fecha, g.suplidor, g.rnc ?? "", g.ncf ?? "", g.tipo_nombre ?? "", nombreDgii(g.tipo_dgii), g.concepto ?? "", g.subtotal, g.itbis, g.total, g.condicion_pago === "CONTADO" ? "Contado" : "Credito", nombreEstado(g.estado), g.saldo ?? 0]);
     if (!imprimir) return descargarCsv(`gastos-${rango.desde}-a-${rango.hasta}.csv`, enc, filas);
     imprimirTabla({
       titulo: "Gastos y facturas de suplidores",
       subtitulo: `Del ${formatDate(rango.desde)} al ${formatDate(rango.hasta)}`,
       empresa,
-      encabezados: ["No.", "Fecha", "Suplidor", "NCF", "Tipo", "Monto", "ITBIS", "Total", "Estado"],
-      derecha: [5, 6, 7],
-      filas: gastos.map((g) => [g.numero, formatDate(g.fecha), g.suplidor, g.ncf ?? "", g.tipo_nombre ?? "", formatMoney(g.subtotal), formatMoney(g.itbis), formatMoney(g.total), nombreEstado(g.estado)]),
-      pie: ["", "", "", "", "TOTAL", formatMoney(validos.reduce((s, g) => s + g.subtotal, 0)), formatMoney(itbis), formatMoney(total), ""],
+      encabezados: ["No.", "Fecha", "Suplidor", "NCF", "Tipo", "DGII", "Monto", "ITBIS", "Total", "Estado"],
+      derecha: [6, 7, 8],
+      filas: gastos.map((g) => [g.numero, formatDate(g.fecha), g.suplidor, g.ncf ?? "", g.tipo_nombre ?? "", g.tipo_dgii ?? "", formatMoney(g.subtotal), formatMoney(g.itbis), formatMoney(g.total), nombreEstado(g.estado)]),
+      pie: ["", "", "", "", "", "TOTAL", formatMoney(validos.reduce((s, g) => s + g.subtotal, 0)), formatMoney(itbis), formatMoney(total), ""],
       resumen: resumen.map((x) => [x.nombre, formatMoney(x.total)]),
     });
   }
@@ -130,8 +144,8 @@ export default function Gastos() {
         </Card>
       </div>
 
-      <Table columns={["No.", "Fecha", "Suplidor", "NCF", "Tipo de gasto", "Total", "Estado", ""]}>
-        {gastos.length === 0 && <EmptyRow colSpan={8} label="No hay gastos registrados en este periodo" />}
+      <Table columns={["No.", "Fecha", "Suplidor", "NCF", "Tipo de gasto", "Tipo DGII (606)", "Total", "Estado", ""]}>
+        {gastos.length === 0 && <EmptyRow colSpan={9} label="No hay gastos registrados en este periodo" />}
         {gastos.map((g) => (
           <tr key={g.id} className={g.estado === "ANULADA" ? "opacity-50" : ""}>
             <td className="px-4 py-2 font-mono text-xs">{g.numero}</td>
@@ -142,6 +156,14 @@ export default function Gastos() {
             </td>
             <td className="px-4 py-2 font-mono text-xs">{g.ncf ?? "-"}</td>
             <td className="px-4 py-2 text-slate-600">{g.tipo_nombre}</td>
+            <td className="px-4 py-2" title={nombreDgii(g.tipo_dgii)}>
+              {/* Se puede corregir aqui mismo, sin anular la factura */}
+              {g.estado === "ANULADA" ? (
+                <span className="font-mono text-xs">{g.tipo_dgii ?? "-"}</span>
+              ) : (
+                <SelectDgii value={g.tipo_dgii ?? "02"} onChange={(v) => api.gastos.cambiarTipoDgii(g.id, v).then(cargar)} className="w-28 text-xs" />
+              )}
+            </td>
             <td className="px-4 py-2 text-right font-semibold">
               {formatMoney(g.total)}
               {g.itbis > 0 && <span className="block text-xs font-normal text-slate-400">ITBIS {formatMoney(g.itbis)}</span>}
@@ -178,7 +200,7 @@ function NuevoGastoModal({ open, tipos, onClose, onGuardado, onTiposCambiados }:
   const { usuario } = useAuth();
   const [proveedores, setProveedores] = useState<ProveedorConResumen[]>([]);
   const [bancos, setBancos] = useState<Banco[]>([]);
-  const [f, setF] = useState({ suplidor: "", rnc: "", ncf: "", tipo: "" as number | "", fecha: todayIso(), concepto: "", subtotal: "", itbis: "", condicion: "CONTADO", metodo: "EFECTIVO", banco: "" as number | "", referencia: "", vence: "" });
+  const [f, setF] = useState({ suplidor: "", rnc: "", ncf: "", tipo: "" as number | "", dgii: "", fecha: todayIso(), concepto: "", subtotal: "", itbis: "", condicion: "CONTADO", metodo: "EFECTIVO", banco: "" as number | "", referencia: "", vence: "" });
   const [tipoNuevo, setTipoNuevo] = useState("");
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -186,7 +208,7 @@ function NuevoGastoModal({ open, tipos, onClose, onGuardado, onTiposCambiados }:
 
   useEffect(() => {
     if (!open) return;
-    setF({ suplidor: "", rnc: "", ncf: "", tipo: "", fecha: todayIso(), concepto: "", subtotal: "", itbis: "", condicion: "CONTADO", metodo: "EFECTIVO", banco: "", referencia: "", vence: "" });
+    setF({ suplidor: "", rnc: "", ncf: "", tipo: "", dgii: "", fecha: todayIso(), concepto: "", subtotal: "", itbis: "", condicion: "CONTADO", metodo: "EFECTIVO", banco: "", referencia: "", vence: "" });
     setError("");
     setTipoNuevo("");
     api.proveedores.listar().then(setProveedores);
@@ -228,6 +250,7 @@ function NuevoGastoModal({ open, tipos, onClose, onGuardado, onTiposCambiados }:
         rnc: f.rnc,
         ncf: f.ncf,
         tipo_gasto_id: Number(f.tipo),
+        tipo_dgii: f.dgii || null,
         concepto: f.concepto,
         subtotal: num(f.subtotal),
         itbis: num(f.itbis),
@@ -264,7 +287,16 @@ function NuevoGastoModal({ open, tipos, onClose, onGuardado, onTiposCambiados }:
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Input label="NCF de la factura" value={f.ncf} onChange={(e) => set("ncf", e.target.value.toUpperCase())} placeholder="B0100000123" />
           <Input label="Fecha de la factura" type="date" value={f.fecha} onChange={(e) => set("fecha", e.target.value)} />
-          <Select label="Tipo de gasto" value={f.tipo} onChange={(e) => set("tipo", e.target.value ? Number(e.target.value) : "")}>
+          <Select
+            label="Tipo de gasto"
+            value={f.tipo}
+            onChange={(e) => {
+              const id = e.target.value ? Number(e.target.value) : "";
+              set("tipo", id);
+              // el tipo DGII (606) se pone solo segun el tipo de gasto; se puede cambiar abajo
+              set("dgii", tipos.find((t) => t.id === id)?.tipo_dgii ?? "02");
+            }}
+          >
             <option value="">Elegir...</option>
             {tipos.map((t) => (
               <option key={t.id} value={t.id}>
@@ -279,6 +311,10 @@ function NuevoGastoModal({ open, tipos, onClose, onGuardado, onTiposCambiados }:
             Agregar tipo
           </Button>
         </div>
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Tipo de bienes y servicios (DGII, formato 606)</span>
+          <SelectDgii value={f.dgii || "02"} onChange={(v) => set("dgii", v)} className="w-full py-2" />
+        </label>
         <Input label="Concepto (que se compro o que se hizo)" value={f.concepto} onChange={(e) => set("concepto", e.target.value)} placeholder="Ej. Cambio de frenos camion placa L123456" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Input label="Monto sin ITBIS (RD$)" inputMode="decimal" value={f.subtotal} onChange={(e) => set("subtotal", e.target.value)} required />
@@ -363,12 +399,15 @@ function TiposGastoModal({ open, tipos, onClose, onCambio }: { open: boolean; ti
         </Button>
       </form>
       {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-      <Table columns={["Tipo de gasto", "Cuenta contable", "Usos", ""]}>
+      <Table columns={["Tipo de gasto", "Cuenta contable", "DGII (606) por defecto", "Usos", ""]}>
         {tipos.map((t) => (
           <tr key={t.id} className={t.activo ? "" : "opacity-50"}>
             <td className="px-4 py-2 font-medium">{t.nombre}</td>
             <td className="px-4 py-2 text-xs text-slate-500">
               <span className="font-mono">{t.cuenta_codigo}</span> {t.cuenta_nombre}
+            </td>
+            <td className="px-4 py-2">
+              <SelectDgii value={t.tipo_dgii ?? "02"} onChange={(v) => api.tiposGasto.actualizar(t.id, { tipo_dgii: v }).then(onCambio)} className="w-36 text-xs" />
             </td>
             <td className="px-4 py-2 text-center">{t.usos ?? 0}</td>
             <td className="px-4 py-2 text-right">

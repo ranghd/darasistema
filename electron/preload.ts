@@ -56,6 +56,7 @@ const api = {
   gastos: {
     listar: (filtros?: any) => invoke("gastos:listar", filtros),
     obtener: (id: number) => invoke("gastos:obtener", id),
+    cambiarTipoDgii: (id: number, codigo: string) => invoke("gastos:cambiarTipoDgii", id, codigo),
     crear: (data: any) => invoke("gastos:crear", data),
     anular: (id: number, motivo: string) => invoke("gastos:anular", id, motivo),
     pagar: (data: any) => invoke("pagosGasto:crear", data),

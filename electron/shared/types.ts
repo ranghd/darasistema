@@ -623,10 +623,28 @@ export interface ReporteVentas {
 
 // ---------- Gastos y cuentas por pagar ----------
 
+// Tipos de bienes y servicios comprados del formato 606 de la DGII.
+export const TIPOS_DGII_606: [string, string][] = [
+  ["01", "Gastos de personal"],
+  ["02", "Gastos por trabajos, suministros y servicios"],
+  ["03", "Arrendamientos"],
+  ["04", "Gastos de activos fijos"],
+  ["05", "Gastos de representación"],
+  ["06", "Otras deducciones admitidas"],
+  ["07", "Gastos financieros"],
+  ["08", "Gastos extraordinarios"],
+  ["09", "Compras y gastos que forman parte del costo de venta"],
+  ["10", "Adquisiciones de activos"],
+  ["11", "Gastos de seguros"],
+];
+export const esTipoDgii = (codigo: unknown): codigo is string => TIPOS_DGII_606.some(([c]) => c === codigo);
+
 export interface TipoGasto {
   id: number;
   nombre: string;
   cuenta_id: number;
+  /** Codigo DGII (606) que se pone por defecto a los gastos de este tipo. */
+  tipo_dgii?: string | null;
   cuenta_codigo?: string;
   cuenta_nombre?: string;
   activo: number;
@@ -635,6 +653,7 @@ export interface TipoGasto {
 
 export interface NuevoGastoInput {
   fecha: string;
+  tipo_dgii?: string | null;
   vence?: string | null;
   proveedor_id?: number | null;
   /** Nombre del suplidor si no esta guardado (se crea solo). */
@@ -655,6 +674,8 @@ export interface NuevoGastoInput {
 export interface Gasto {
   id: number;
   numero: number;
+  /** Tipo de bienes y servicios del 606 de la DGII (01 a 11). */
+  tipo_dgii?: string | null;
   fecha: string;
   vence: string | null;
   proveedor_id: number | null;

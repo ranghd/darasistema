@@ -206,7 +206,9 @@ export function registerCobrosIpc(db: DB) {
     return obtenerRecibo(db, id)!;
   });
 
-  ipcMain.handle("recibos:listar", (_e, filtros: { cliente_id?: number; desde?: string; hasta?: string } = {}) => {
+  ipcMain.handle("recibos:listar", (_e, recibido: { cliente_id?: number; desde?: string; hasta?: string } | null = {}) => {
+    // Por la red (nube o servidor local) un argumento que no se paso llega como null.
+    const filtros = recibido ?? {};
     const where: string[] = [];
     const params: Record<string, unknown> = {};
     if (filtros.cliente_id) (where.push("r.cliente_id = @cliente"), (params.cliente = filtros.cliente_id));

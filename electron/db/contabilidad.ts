@@ -179,16 +179,17 @@ export function cuentaDeBanco(db: DB, bancoId?: number | null): { banco_id: numb
   return { banco_id: null, cuenta_id: cuenta };
 }
 
-export const TIPOS_GASTO_INICIALES: { nombre: string; codigo: string; cuenta: string }[] = [
-  { nombre: "Combustible", codigo: "6.1.03", cuenta: "Gastos de Combustible y Transporte" },
-  { nombre: "Reparacion de vehiculos", codigo: "6.1.05", cuenta: "Reparacion y Mantenimiento de Vehiculos" },
-  { nombre: "Electricidad", codigo: "6.1.06", cuenta: "Energia Electrica" },
-  { nombre: "Agua, telefono e internet", codigo: "6.1.07", cuenta: "Agua, Telefono e Internet" },
-  { nombre: "Alquiler", codigo: "6.1.08", cuenta: "Alquiler de Local" },
-  { nombre: "Sueldos y salarios", codigo: "6.1.09", cuenta: "Sueldos y Salarios" },
-  { nombre: "Mantenimiento de local y equipos", codigo: "6.1.10", cuenta: "Mantenimiento de Local y Equipos" },
-  { nombre: "Cargos y comisiones bancarias", codigo: "6.1.11", cuenta: "Gastos Bancarios y Comisiones" },
-  { nombre: "Publicidad", codigo: "6.1.02", cuenta: "Gastos de Venta" },
-  { nombre: "Papeleria y oficina", codigo: "6.1.01", cuenta: "Gastos de Administracion" },
-  { nombre: "Otros gastos", codigo: "6.1.12", cuenta: "Otros Gastos" },
+// dgii = tipo de bienes y servicios del 606 que llevan por defecto.
+export const TIPOS_GASTO_INICIALES: { nombre: string; codigo: string; cuenta: string; dgii: string }[] = [
+  { nombre: "Combustible", codigo: "6.1.03", cuenta: "Gastos de Combustible y Transporte", dgii: "02" },
+  { nombre: "Reparacion de vehiculos", codigo: "6.1.05", cuenta: "Reparacion y Mantenimiento de Vehiculos", dgii: "02" },
+  { nombre: "Electricidad", codigo: "6.1.06", cuenta: "Energia Electrica", dgii: "02" },
+  { nombre: "Agua, telefono e internet", codigo: "6.1.07", cuenta: "Agua, Telefono e Internet", dgii: "02" },
+  { nombre: "Alquiler", codigo: "6.1.08", cuenta: "Alquiler de Local", dgii: "03" },
+  { nombre: "Sueldos y salarios", codigo: "6.1.09", cuenta: "Sueldos y Salarios", dgii: "01" },
+  { nombre: "Mantenimiento de local y equipos", codigo: "6.1.10", cuenta: "Mantenimiento de Local y Equipos", dgii: "02" },
+  { nombre: "Cargos y comisiones bancarias", codigo: "6.1.11", cuenta: "Gastos Bancarios y Comisiones", dgii: "07" },
+  { nombre: "Publicidad", codigo: "6.1.02", cuenta: "Gastos de Venta", dgii: "02" },
+  { nombre: "Papeleria y oficina", codigo: "6.1.01", cuenta: "Gastos de Administracion", dgii: "02" },
+  { nombre: "Otros gastos", codigo: "6.1.12", cuenta: "Otros Gastos", dgii: "06" },
 ];

@@ -88,7 +88,8 @@ export function registerClientesIpc(db: DB) {
     return { facturas, envases };
   });
 
-  ipcMain.handle("clientes:historial", (_e, clienteId: number, filtros: FiltrosHistorial = {}): HistorialCliente => {
+  ipcMain.handle("clientes:historial", (_e, clienteId: number, recibido: FiltrosHistorial | null = {}): HistorialCliente => {
+    const filtros = recibido ?? {}; // por la red llega null si no se paso
     const { clause, params } = filtroHistorial(clienteId, filtros);
     const porPagina = Math.min(Math.max(Number(filtros.porPagina) || 25, 1), MAX_POR_PAGINA);
     const pagina = Math.max(Number(filtros.pagina) || 1, 1);

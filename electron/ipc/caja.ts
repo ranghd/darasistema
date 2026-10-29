@@ -350,7 +350,8 @@ export function registerCajaIpc(db: DB) {
   });
 
   // ---------- administracion: consultar y auditar cierres ----------
-  ipcMain.handle("cierres:listar", (_e, filtros: FiltrosCierres = {}): ListaCierres => {
+  ipcMain.handle("cierres:listar", (_e, recibido: FiltrosCierres | null = {}): ListaCierres => {
+    const filtros = recibido ?? {}; // por la red llega null si no se paso
     const where: string[] = [];
     const params: Record<string, unknown> = {};
     if (filtros.desde) {

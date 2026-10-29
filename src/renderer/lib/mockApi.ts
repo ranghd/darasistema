@@ -147,11 +147,12 @@ export const mockApi = {
   tiposGasto: {
     listar: async (): Promise<TipoGasto[]> => [],
     crear: async (_data: { nombre: string; cuenta_id?: number | null }): Promise<TipoGasto> => { warn(); throw new Error("No disponible en vista previa"); },
-    actualizar: async (_id: number, _data: { nombre?: string; activo?: number }): Promise<TipoGasto> => { warn(); throw new Error("No disponible en vista previa"); },
+    actualizar: async (_id: number, _data: { nombre?: string; activo?: number; tipo_dgii?: string }): Promise<TipoGasto> => { warn(); throw new Error("No disponible en vista previa"); },
   },
   gastos: {
     listar: async (_filtros?: { desde?: string; hasta?: string; tipo_gasto_id?: number; proveedor_id?: number; estado?: string }): Promise<Gasto[]> => [],
     obtener: async (_id: number): Promise<GastoDetalle | undefined> => undefined,
+    cambiarTipoDgii: async (_id: number, _codigo: string): Promise<GastoDetalle | undefined> => undefined,
     crear: async (_data: NuevoGastoInput): Promise<GastoDetalle> => { warn(); throw new Error("No disponible en vista previa"); },
     anular: async (_id: number, _motivo: string): Promise<GastoDetalle> => { warn(); throw new Error("No disponible en vista previa"); },
     pagar: async (_data: { gasto_id: number; fecha: string; monto: number; metodo: string; banco_id?: number | null; referencia?: string }): Promise<GastoDetalle> => { warn(); throw new Error("No disponible en vista previa"); },

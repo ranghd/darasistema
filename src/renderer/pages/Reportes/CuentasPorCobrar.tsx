@@ -35,10 +35,11 @@ export default function CuentasPorCobrar() {
   const [buscar, setBuscar] = useState("");
 
   async function cargar() {
-    const [f, c, r] = await Promise.all([api.reportes.cuentasPorCobrar(), api.reportes.cxcPorCliente(), api.recibos.listar()]);
-    setFilas(f as Fila[]);
-    setClientes(c);
-    setRecibos(r);
+    // Si una de las listas falla, las demas igual se muestran (antes todo quedaba en cero).
+    const [f, c, r] = await Promise.allSettled([api.reportes.cuentasPorCobrar(), api.reportes.cxcPorCliente(), api.recibos.listar()]);
+    if (f.status === "fulfilled") setFilas(f.value as Fila[]);
+    if (c.status === "fulfilled") setClientes(c.value);
+    if (r.status === "fulfilled") setRecibos(r.value);
   }
 
   useEffect(() => {

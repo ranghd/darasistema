@@ -2,6 +2,7 @@ import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { asegurarCuenta, crearAsiento, cuentaDeBanco, fechaHoyRD } from "../db/contabilidad";
 import { buscarOCrearProveedor } from "../db/proveedores";
+import { esTipoDgii } from "../shared/types";
 import type { CxpDocumento, CxpSuplidor, Gasto, GastoDetalle, NuevoGastoInput, PagoGasto, ResumenGastoTipo, TipoGasto } from "../shared/types";
 
 const CODIGO_CAJA = "1.1.01";
@@ -57,7 +58,7 @@ export function registerGastosIpc(db: DB) {
   });
 
   // Sin cuenta elegida se crea una cuenta de gasto nueva con el mismo nombre.
-  ipcMain.handle("tiposGasto:crear", (_e, data: { nombre: string; cuenta_id?: number | null }): TipoGasto => {
+  ipcMain.handle("tiposGasto:crear", (_e, data: { nombre: string; cuenta_id?: number | null; tipo_dgii?: string | null }): TipoGasto => {
     const nombre = String(data.nombre ?? "").trim().replace(/\s+/g, " ");
     if (!nombre) throw new Error("Escribe el nombre del tipo de gasto");
     if (db.prepare(`SELECT id FROM tipos_gasto WHERE lower(nombre) = lower(?)`).get(nombre)) throw new Error(`Ya existe el tipo de gasto "${nombre}"`);
@@ -70,18 +71,19 @@ export function registerGastosIpc(db: DB) {
         const titulo = nombre.charAt(0).toUpperCase() + nombre.slice(1);
         cuentaId = asegurarCuenta(db, { codigo: "6.1.13", nombre: titulo, tipo: "GASTOS", naturaleza: "DEUDORA", padreCodigo: "6" });
       }
-      return Number(db.prepare(`INSERT INTO tipos_gasto (nombre, cuenta_id) VALUES (?, ?)`).run(nombre, cuentaId).lastInsertRowid);
+      return Number(db.prepare(`INSERT INTO tipos_gasto (nombre, cuenta_id, tipo_dgii) VALUES (?, ?, ?)`).run(nombre, cuentaId, esTipoDgii(data.tipo_dgii) ? data.tipo_dgii : "02").lastInsertRowid);
     })();
     return db.prepare(`SELECT t.*, c.codigo AS cuenta_codigo, c.nombre AS cuenta_nombre FROM tipos_gasto t JOIN cuentas_contables c ON c.id = t.cuenta_id WHERE t.id = ?`).get(id) as TipoGasto;
   });
 
-  ipcMain.handle("tiposGasto:actualizar", (_e, id: number, data: { nombre?: string; activo?: number }): TipoGasto => {
+  ipcMain.handle("tiposGasto:actualizar", (_e, id: number, data: { nombre?: string; activo?: number; tipo_dgii?: string | null }): TipoGasto => {
     const actual = db.prepare(`SELECT * FROM tipos_gasto WHERE id = ?`).get(id) as TipoGasto | undefined;
     if (!actual) throw new Error("Tipo de gasto no encontrado");
     const nombre = data.nombre !== undefined ? String(data.nombre).trim().replace(/\s+/g, " ") : actual.nombre;
     if (!nombre) throw new Error("Escribe el nombre del tipo de gasto");
     if (db.prepare(`SELECT id FROM tipos_gasto WHERE lower(nombre) = lower(?) AND id != ?`).get(nombre, id)) throw new Error(`Ya existe el tipo de gasto "${nombre}"`);
-    db.prepare(`UPDATE tipos_gasto SET nombre = ?, activo = ? WHERE id = ?`).run(nombre, data.activo ?? actual.activo, id);
+    if (data.tipo_dgii !== undefined && !esTipoDgii(data.tipo_dgii)) throw new Error("Elige un tipo de gasto de la DGII (01 a 11)");
+    db.prepare(`UPDATE tipos_gasto SET nombre = ?, activo = ?, tipo_dgii = ? WHERE id = ?`).run(nombre, data.activo ?? actual.activo, data.tipo_dgii ?? actual.tipo_dgii ?? "02", id);
     return db.prepare(`SELECT t.*, c.codigo AS cuenta_codigo, c.nombre AS cuenta_nombre FROM tipos_gasto t JOIN cuentas_contables c ON c.id = t.cuenta_id WHERE t.id = ?`).get(id) as TipoGasto;
   });
 
@@ -89,7 +91,8 @@ export function registerGastosIpc(db: DB) {
 
   ipcMain.handle(
     "gastos:listar",
-    (_e, f: { desde?: string; hasta?: string; tipo_gasto_id?: number; proveedor_id?: number; estado?: string } = {}): Gasto[] => {
+    (_e, recibido: { desde?: string; hasta?: string; tipo_gasto_id?: number; proveedor_id?: number; estado?: string } | null = {}): Gasto[] => {
+      const f = recibido ?? {}; // por la red llega null si no se paso
       const where: string[] = [];
       const p: Record<string, unknown> = {};
       if (f.desde) (where.push("g.fecha >= @desde"), (p.desde = f.desde));
@@ -106,11 +109,21 @@ export function registerGastosIpc(db: DB) {
 
   ipcMain.handle("gastos:obtener", (_e, id: number) => obtenerGasto(db, id));
 
+  // Corrige el tipo de gasto DGII (606) de una factura ya registrada (no cambia la contabilidad).
+  ipcMain.handle("gastos:cambiarTipoDgii", (_e, id: number, codigo: string) => {
+    if (!esTipoDgii(codigo)) throw new Error("Elige un tipo de gasto de la DGII (01 a 11)");
+    if (!db.prepare(`SELECT id FROM gastos WHERE id = ?`).get(id)) throw new Error("Gasto no encontrado");
+    db.prepare(`UPDATE gastos SET tipo_dgii = ? WHERE id = ?`).run(codigo, id);
+    return obtenerGasto(db, id);
+  });
+
   ipcMain.handle("gastos:crear", (_e, input: NuevoGastoInput): GastoDetalle => {
     const tipo = db
-      .prepare(`SELECT t.id, t.nombre, t.cuenta_id FROM tipos_gasto t WHERE t.id = ?`)
-      .get(input.tipo_gasto_id) as { id: number; nombre: string; cuenta_id: number } | undefined;
+      .prepare(`SELECT t.id, t.nombre, t.cuenta_id, t.tipo_dgii FROM tipos_gasto t WHERE t.id = ?`)
+      .get(input.tipo_gasto_id) as { id: number; nombre: string; cuenta_id: number; tipo_dgii: string | null } | undefined;
     if (!tipo) throw new Error("Elige el tipo de gasto");
+    if (input.tipo_dgii && !esTipoDgii(input.tipo_dgii)) throw new Error("Elige un tipo de gasto de la DGII (01 a 11)");
+    const tipoDgii = input.tipo_dgii || tipo.tipo_dgii || "02";
     const subtotal = r2(Number(input.subtotal));
     const itbis = r2(Number(input.itbis || 0));
     if (!(subtotal > 0)) throw new Error("El monto del gasto debe ser mayor a cero");
@@ -157,8 +170,8 @@ export function registerGastosIpc(db: DB) {
       const gastoId = Number(
         db
           .prepare(
-            `INSERT INTO gastos (numero, fecha, vence, proveedor_id, suplidor, rnc, ncf, tipo_gasto_id, concepto, subtotal, itbis, total, condicion_pago, estado, asiento_id, creado_por)
-             VALUES (@numero, @fecha, @vence, @proveedor_id, @suplidor, @rnc, @ncf, @tipo, @concepto, @subtotal, @itbis, @total, @condicion, @estado, @asiento_id, @creado_por)`
+            `INSERT INTO gastos (numero, fecha, vence, proveedor_id, suplidor, rnc, ncf, tipo_gasto_id, tipo_dgii, concepto, subtotal, itbis, total, condicion_pago, estado, asiento_id, creado_por)
+             VALUES (@numero, @fecha, @vence, @proveedor_id, @suplidor, @rnc, @ncf, @tipo, @tipo_dgii, @concepto, @subtotal, @itbis, @total, @condicion, @estado, @asiento_id, @creado_por)`
           )
           .run({
             numero,
@@ -169,6 +182,7 @@ export function registerGastosIpc(db: DB) {
             rnc,
             ncf,
             tipo: tipo.id,
+            tipo_dgii: tipoDgii,
             concepto: input.concepto?.trim() || null,
             subtotal,
             itbis,
