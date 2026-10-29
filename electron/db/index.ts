@@ -17,7 +17,7 @@ export async function getDb(): Promise<DB> {
   db = await createDatabase(dbPath);
   db.exec(SCHEMA_SQL);
   migrar(db);
-  seedIfEmpty(db, APP_VARIANT === "colmado" ? "colmado" : "gas");
+  seedIfEmpty(db, APP_VARIANT === "colmado" || APP_VARIANT === "cajacolmado" ? "colmado" : "gas");
   seedUsuarios(db);
   db.persist();
 

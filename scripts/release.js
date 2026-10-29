@@ -18,6 +18,7 @@ const variantes = [
   { nombre: 'full', config: 'electron-builder.yml' },
   { nombre: 'caja', config: 'electron-builder.caja.yml' },
   { nombre: 'colmado', config: 'electron-builder.colmado.yml' },
+  { nombre: 'cajacolmado', config: 'electron-builder.cajacolmado.yml' },
 ];
 
 for (const v of variantes) {
@@ -27,4 +28,4 @@ for (const v of variantes) {
   run(`npx electron-builder --config ${v.config} --publish always`);
 }
 
-console.log('\nListo. Ambas apps publicadas en GitHub Releases.');
+console.log('\nListo. Las cuatro apps publicadas en GitHub Releases.');

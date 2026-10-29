@@ -1,11 +1,11 @@
-import { APP_VARIANT, EDICION } from "../lib/variant";
+import { APP_VARIANT, EDICION, esColmado } from "../lib/variant";
 
 // Logo de la app (monograma). Los mismos dibujos estan en build/logos/*.svg para los iconos del instalador.
 export default function Logo({ size = 36, className = "" }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" className={`shrink-0 ${className}`} role="img" aria-label={EDICION.nombre}>
-      <rect width="100" height="100" rx="22" fill={APP_VARIANT === "colmado" ? "#0E5E3B" : "#042C53"} />
-      {APP_VARIANT === "caja" && (
+      <rect width="100" height="100" rx="22" fill={esColmado ? "#0E5E3B" : "#042C53"} />
+      {(APP_VARIANT === "caja" || APP_VARIANT === "cajacolmado") && (
         <>
           <path d="M68 32 A24 24 0 1 0 68 68" fill="none" stroke="#ffffff" strokeWidth="13" strokeLinecap="round" />
           <circle cx="71" cy="50" r="7" fill="#EF9F27" />

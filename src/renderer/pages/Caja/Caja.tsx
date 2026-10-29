@@ -9,9 +9,11 @@ import CajaCerradaAviso from "../../components/CajaCerradaAviso";
 import AvisoBorrador from "../../components/AvisoBorrador";
 import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
 import type { Cliente, ModalidadLinea, Producto } from "../../lib/types";
-import { formatMoney, todayIso } from "../../lib/format";
+import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { Button, Modal } from "../../components/ui";
 import { esColmado, manejaEnvases } from "../../lib/variant";
+import TablaFactura from "./TablaFactura";
+import { leerBusqueda, sinAcentos } from "./buscar";
 
 interface LineaCarrito {
   producto_id: number;
@@ -35,20 +37,7 @@ const CATEGORIAS = [
   { value: "OTRO", label: "Otro" },
 ];
 
-const sinAcentos = (t: string) =>
-  t
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
-
 const r2 = (n: number) => Math.round(n * 100) / 100;
-
-// "3*gas" -> 3 unidades de lo que coincida con "gas".
-function leerBusqueda(texto: string): { cantidad: number; q: string } {
-  const m = texto.match(/^\s*(\d+(?:[.,]\d+)?)\s*\*\s*(.*)$/);
-  if (m) return { cantidad: Number(m[1].replace(",", ".")) || 1, q: m[2] };
-  return { cantidad: 1, q: texto };
-}
 
 function Tecla({ children }: { children: React.ReactNode }) {
   return <kbd className="ml-1 rounded border border-slate-300 px-1 font-mono text-[10px] opacity-70">{children}</kbd>;
@@ -138,23 +127,43 @@ export default function Caja() {
   }, [carrito, productos]);
 
   // ---------- carrito ----------
-  function agregar(p: Producto, cantidad = 1) {
+  // Devuelve la linea donde quedo el producto (-1 si no hay existencia).
+  function agregar(p: Producto, cantidad = 1, volverAlBuscador = true): number {
     setError("");
     const actual = carrito.find((l) => l.producto_id === p.id)?.cantidad ?? 0;
-    if (actual + cantidad > p.existencia) {
+    if (r2(actual + cantidad) > p.existencia) {
       setError(`No hay suficiente ${p.nombre}: quedan ${p.existencia}.`);
-      return;
+      return -1;
     }
-    const i = carrito.findIndex((l) => l.producto_id === p.id);
+    let i = carrito.findIndex((l) => l.producto_id === p.id);
     if (i >= 0) {
-      setCarrito(carrito.map((l, j) => (j === i ? { ...l, cantidad: l.cantidad + cantidad } : l)));
-      setLineaSel(i);
+      setCarrito(carrito.map((l, j) => (j === i ? { ...l, cantidad: r2(l.cantidad + cantidad) } : l)));
     } else {
+      i = carrito.length;
       setCarrito([...carrito, { producto_id: p.id, cantidad, modalidad: p.maneja_envase ? "INTERCAMBIO" : "LLENO" }]);
-      setLineaSel(carrito.length);
     }
+    setLineaSel(i);
     setBusqueda("");
-    enfocar();
+    if (volverAlBuscador) enfocar();
+    return i;
+  }
+
+  // Cantidad escrita en la tabla (0 quita la linea).
+  function fijarCantidad(i: number, cantidad: number): boolean {
+    const l = carrito[i];
+    if (!l) return false;
+    if (cantidad <= 0) {
+      quitar(i);
+      return true;
+    }
+    const p = productos.find((x) => x.id === l.producto_id);
+    if (p && cantidad > p.existencia) {
+      setError(`No hay suficiente ${p.nombre}: quedan ${p.existencia}.`);
+      return false;
+    }
+    setError("");
+    setCarrito(carrito.map((x, j) => (j === i ? { ...x, cantidad: r2(cantidad) } : x)));
+    return true;
   }
 
   function cambiarCantidad(i: number, delta: number) {
@@ -369,197 +378,306 @@ export default function Caja() {
     .slice(0, 3);
 
   return (
-    <div className="flex h-[calc(100vh-56px)] gap-5" data-nav-propio>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <CajaCerradaAviso />
-        {avisoRecuperada && carrito.length > 0 && (
-          <AvisoBorrador
-            texto={`Se recupero la venta que estabas haciendo (${carrito.length} producto${carrito.length === 1 ? "" : "s"}).`}
-            onOcultar={() => setAvisoRecuperada(false)}
-            onDescartar={nuevaVenta}
-          />
-        )}
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h1 className="mr-1 text-xl font-semibold text-slate-900">Punto de venta</h1>
-          {sesion && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">{sesion.caja_nombre} abierta</span>}
-          <div className="relative min-w-[18rem] flex-1">
-            <input
-              ref={buscador}
-              className="w-full rounded-lg border-2 border-brand-300 px-3 py-2 text-base outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-              placeholder="Escribe producto o codigo y Enter  (3* para varias unidades)"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              onKeyDown={teclaBuscador}
+    <div className={`flex h-[calc(100vh-56px)] gap-5 ${esColmado ? "flex-col" : ""}`} data-nav-propio>
+      {esColmado ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <CajaCerradaAviso />
+          {avisoRecuperada && carrito.length > 0 && (
+            <AvisoBorrador
+              texto={`Se recupero la venta que estabas haciendo (${carrito.length} producto${carrito.length === 1 ? "" : "s"}).`}
+              onOcultar={() => setAvisoRecuperada(false)}
+              onDescartar={nuevaVenta}
             />
-            {cantidadBuscada > 1 && <span className="absolute right-3 top-2.5 rounded bg-brand-600 px-1.5 text-xs font-bold text-white">×{cantidadBuscada}</span>}
-          </div>
-          <div className="flex gap-1.5">
-            {pestanas.map((c) => (
-              <button
-                key={c.value}
-                tabIndex={-1}
-                onClick={() => {
-                  setCategoria(c.value);
-                  enfocar();
-                }}
-                className={`rounded-full px-3 py-1 text-xs font-medium ${categoria === c.value ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid flex-1 auto-rows-max grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 xl:grid-cols-4">
-          {resultados.map((p, i) => (
+          )}
+          {/* Encabezado de la factura */}
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 shadow-sm lg:grid-cols-[2fr_1fr_1fr_1fr]">
             <button
-              key={p.id}
+              type="button"
               tabIndex={-1}
-              onClick={() => agregar(p)}
-              disabled={p.existencia <= 0}
-              className={`flex flex-col items-start rounded-xl border bg-white p-3 text-left shadow-sm transition-colors hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 ${
-                busqueda.trim() && i === resaltado ? "border-brand-500 ring-2 ring-brand-200" : "border-slate-200"
-              }`}
+              onClick={() => {
+                setTextoCliente("");
+                setClienteSel(0);
+                setEligiendoCliente(true);
+              }}
+              className="flex items-center justify-between bg-white px-4 py-2.5 text-left hover:bg-slate-50"
             >
-              <span className="flex w-full justify-between text-xs font-medium uppercase tracking-wide text-brand-600">
-                <span className="truncate">{esColmado ? p.grupo || "Otros" : p.categoria}</span>
-                {/* en el colmado el codigo es el de barras (largo): no se muestra en la tarjeta */}
-                {!esColmado && <span className="font-mono normal-case text-slate-400">{p.codigo}</span>}
+              <span>
+                <span className="block text-[11px] font-medium uppercase tracking-wide text-slate-400">Cliente</span>
+                <span className="block text-base font-semibold text-slate-900">{cliente?.nombre === "Consumidor Final" ? "Contado" : cliente?.nombre ?? "Elegir cliente"}</span>
               </span>
-              <span className="mt-1 text-sm font-semibold text-slate-800">{p.nombre}</span>
-              {/* en el colmado se ve el precio final, el que paga el cliente (con ITBIS) */}
-              <span className="mt-1.5 text-base font-bold text-slate-900">{formatMoney(esColmado ? p.precio_contenido * (1 + (p.itbis_rate ?? 0)) : p.precio_contenido)}</span>
-              <span className="mt-1 text-xs text-slate-400">Existencia: {p.existencia}</span>
+              <span className="text-xs text-brand-600">
+                Cambiar <Tecla>F2</Tecla>
+              </span>
             </button>
-          ))}
-          {resultados.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-400">No hay productos que coincidan</p>}
+            <div className="bg-white px-4 py-2.5">
+              <span className="block text-[11px] font-medium uppercase tracking-wide text-slate-400">Comprobante</span>
+              <span className="block text-base font-semibold text-slate-900">B02 · Consumo</span>
+            </div>
+            <div className="bg-white px-4 py-2.5">
+              <span className="block text-[11px] font-medium uppercase tracking-wide text-slate-400">Factura</span>
+              <span className="block text-base font-semibold text-slate-900">Nueva</span>
+            </div>
+            <div className="bg-white px-4 py-2.5">
+              <span className="block text-[11px] font-medium uppercase tracking-wide text-slate-400">Fecha</span>
+              <span className="block text-base font-semibold text-slate-900">{formatDate(todayIso())}</span>
+              {sesion && <span className="text-[11px] font-medium text-emerald-700">{sesion.caja_nombre} abierta</span>}
+            </div>
+          </div>
+
+          <TablaFactura
+            productos={productos}
+            lineas={calculo.lineas}
+            entrada={buscador}
+            texto={busqueda}
+            setTexto={setBusqueda}
+            agregar={(p, cantidad) => agregar(p, cantidad, false)}
+            fijarCantidad={fijarCantidad}
+            quitar={quitar}
+            setError={setError}
+            lineaSel={lineaSel}
+            setLineaSel={setLineaSel}
+          />
+
+          {/* Pie: pago y totales */}
+          <div className="flex flex-wrap items-end justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex max-w-xl gap-1">
+                {METODOS.map((m) => (
+                  <button
+                    key={m.valor}
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setMetodoPago(m.valor)}
+                    className={`flex-1 rounded-lg border px-1 py-1.5 text-xs font-medium ${metodoPago === m.valor ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+                  >
+                    {m.nombre}
+                    <Tecla>{m.tecla}</Tecla>
+                  </button>
+                ))}
+              </div>
+              {error && <p className="max-w-xl rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-600">{error}</p>}
+              <p className="text-[11px] text-slate-400">
+                Enter agregar · F3 buscar producto · ↑↓ cambiar cantidad · Supr quitar · F2 cliente (fiao) · F6-F8 pago · F12 cobrar · Esc cancelar · F1 ayuda
+              </p>
+            </div>
+            <div className="w-72 space-y-1 text-sm">
+              <div className="flex justify-between text-slate-600">
+                <span>Subtotal</span>
+                <span>{formatMoney(calculo.subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>ITBIS</span>
+                <span>{formatMoney(calculo.itbis)}</span>
+              </div>
+              <div className="flex justify-between border-t border-slate-200 pt-1.5 text-2xl font-bold text-slate-900">
+                <span>Total</span>
+                <span>{formatMoney(calculo.total)}</span>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button variant="secondary" tabIndex={-1} onClick={() => carrito.length && setConfirmarCancelar(true)} disabled={carrito.length === 0}>
+                  Cancelar <Tecla>Esc</Tecla>
+                </Button>
+                <Button className="flex-1" tabIndex={-1} onClick={iniciarCobro} disabled={cobrando || carrito.length === 0 || (usaCaja && !sesion)}>
+                  Cobrar <Tecla>F12</Tecla>
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
-        <p className="mt-2 text-[11px] text-slate-400">
-          ↑↓ elegir · Enter agregar · + / − cantidad · Supr quitar · F2 o Ctrl+B cliente · {manejaEnvases ? "F4 o Ctrl+E lleno/intercambio · " : ""}F6-F8 o Ctrl+1-3 pago · F12 o Ctrl+Enter cobrar · Esc cancelar · F1 ayuda
-        </p>
-      </div>
+      ) : (
+        <>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <CajaCerradaAviso />
+            {avisoRecuperada && carrito.length > 0 && (
+              <AvisoBorrador
+                texto={`Se recupero la venta que estabas haciendo (${carrito.length} producto${carrito.length === 1 ? "" : "s"}).`}
+                onOcultar={() => setAvisoRecuperada(false)}
+                onDescartar={nuevaVenta}
+              />
+            )}
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <h1 className="mr-1 text-xl font-semibold text-slate-900">Punto de venta</h1>
+              {sesion && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">{sesion.caja_nombre} abierta</span>}
+              <div className="relative min-w-[18rem] flex-1">
+                <input
+                  ref={buscador}
+                  className="w-full rounded-lg border-2 border-brand-300 px-3 py-2 text-base outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                  placeholder="Escribe producto o codigo y Enter  (3* para varias unidades)"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  onKeyDown={teclaBuscador}
+                />
+                {cantidadBuscada > 1 && <span className="absolute right-3 top-2.5 rounded bg-brand-600 px-1.5 text-xs font-bold text-white">×{cantidadBuscada}</span>}
+              </div>
+              <div className="flex gap-1.5">
+                {pestanas.map((c) => (
+                  <button
+                    key={c.value}
+                    tabIndex={-1}
+                    onClick={() => {
+                      setCategoria(c.value);
+                      enfocar();
+                    }}
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${categoria === c.value ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-      <div className="flex w-96 shrink-0 flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={() => {
-            setTextoCliente("");
-            setClienteSel(0);
-            setEligiendoCliente(true);
-          }}
-          className="flex items-center justify-between border-b border-slate-200 p-4 text-left hover:bg-slate-50"
-        >
-          <span>
-            <span className="block text-xs text-slate-400">Cliente</span>
-            <span className="block text-sm font-semibold text-slate-800">{cliente?.nombre ?? "Elegir cliente"}</span>
-          </span>
-          <span className="text-xs text-brand-600">
-            Cambiar <Tecla>F2 · CtrlB</Tecla>
-          </span>
-        </button>
-
-        <div className="flex-1 overflow-y-auto p-4">
-          {calculo.lineas.length === 0 ? (
-            <p className="py-10 text-center text-sm text-slate-400">Escribe un producto y presiona Enter, o tocalo</p>
-          ) : (
-            <div className="space-y-2">
-              {calculo.lineas.map((l, i) => (
-                <div
-                  key={l.producto_id}
-                  onClick={() => setLineaSel(i)}
-                  className={`cursor-pointer rounded-lg border p-2.5 ${i === seleccionVisible ? "border-brand-400 bg-brand-50/60" : "border-slate-100 bg-slate-50"}`}
+            <div className="grid flex-1 auto-rows-max grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 xl:grid-cols-4">
+              {resultados.map((p, i) => (
+                <button
+                  key={p.id}
+                  tabIndex={-1}
+                  onClick={() => agregar(p)}
+                  disabled={p.existencia <= 0}
+                  className={`flex flex-col items-start rounded-xl border bg-white p-3 text-left shadow-sm transition-colors hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 ${
+                    busqueda.trim() && i === resaltado ? "border-brand-500 ring-2 ring-brand-200" : "border-slate-200"
+                  }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-medium text-slate-800">{l.producto.nombre}</span>
-                    <button tabIndex={-1} onClick={() => quitar(i)} className="text-xs text-red-500 hover:underline">
-                      Quitar
-                    </button>
-                  </div>
-                  <div className="mt-1.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <button tabIndex={-1} onClick={() => cambiarCantidad(i, -1)} className="h-6 w-6 rounded bg-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-300">
-                        -
-                      </button>
-                      <span className="w-8 text-center text-sm font-medium">{l.cantidad}</span>
-                      <button tabIndex={-1} onClick={() => cambiarCantidad(i, 1)} className="h-6 w-6 rounded bg-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-300">
-                        +
-                      </button>
-                    </div>
-                    <span className="text-sm font-semibold text-slate-900">{formatMoney(l.bruto + l.itbisLinea + l.fianzaLinea)}</span>
-                  </div>
-                  {l.producto.maneja_envase && (
-                    <div className="mt-2 flex gap-1.5 text-xs">
-                      <button
-                        tabIndex={-1}
-                        onClick={() => alternarModalidad(i, "INTERCAMBIO")}
-                        className={`rounded-full px-2 py-0.5 ${l.modalidad === "INTERCAMBIO" ? "bg-brand-600 text-white" : "bg-slate-200 text-slate-600"}`}
-                      >
-                        Intercambio
-                      </button>
-                      <button
-                        tabIndex={-1}
-                        onClick={() => alternarModalidad(i, "LLENO")}
-                        className={`rounded-full px-2 py-0.5 ${l.modalidad === "LLENO" ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-600"}`}
-                      >
-                        Lleno (+fianza)
-                      </button>
-                      {i === seleccionVisible && <span className="self-center text-[10px] text-slate-400">F4</span>}
-                    </div>
-                  )}
-                </div>
+                  <span className="flex w-full justify-between text-xs font-medium uppercase tracking-wide text-brand-600">
+                    <span className="truncate">{esColmado ? p.grupo || "Otros" : p.categoria}</span>
+                    {/* en el colmado el codigo es el de barras (largo): no se muestra en la tarjeta */}
+                    {!esColmado && <span className="font-mono normal-case text-slate-400">{p.codigo}</span>}
+                  </span>
+                  <span className="mt-1 text-sm font-semibold text-slate-800">{p.nombre}</span>
+                  {/* en el colmado se ve el precio final, el que paga el cliente (con ITBIS) */}
+                  <span className="mt-1.5 text-base font-bold text-slate-900">{formatMoney(esColmado ? p.precio_contenido * (1 + (p.itbis_rate ?? 0)) : p.precio_contenido)}</span>
+                  <span className="mt-1 text-xs text-slate-400">Existencia: {p.existencia}</span>
+                </button>
               ))}
+              {resultados.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-400">No hay productos que coincidan</p>}
             </div>
-          )}
-        </div>
+            <p className="mt-2 text-[11px] text-slate-400">
+              ↑↓ elegir · Enter agregar · + / − cantidad · Supr quitar · F2 o Ctrl+B cliente · {manejaEnvases ? "F4 o Ctrl+E lleno/intercambio · " : ""}F6-F8 o Ctrl+1-3 pago · F12 o Ctrl+Enter cobrar · Esc cancelar · F1 ayuda
+            </p>
+          </div>
 
-        <div className="space-y-1 border-t border-slate-200 p-4 text-sm">
-          <div className="flex justify-between text-slate-600">
-            <span>Subtotal</span>
-            <span>{formatMoney(calculo.subtotal)}</span>
-          </div>
-          <div className="flex justify-between text-slate-600">
-            <span>ITBIS</span>
-            <span>{formatMoney(calculo.itbis)}</span>
-          </div>
-          {calculo.fianza > 0 && (
-            <div className="flex justify-between text-slate-600">
-              <span>Fianza</span>
-              <span>{formatMoney(calculo.fianza)}</span>
+          <div className="flex w-96 shrink-0 flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => {
+                setTextoCliente("");
+                setClienteSel(0);
+                setEligiendoCliente(true);
+              }}
+              className="flex items-center justify-between border-b border-slate-200 p-4 text-left hover:bg-slate-50"
+            >
+              <span>
+                <span className="block text-xs text-slate-400">Cliente</span>
+                <span className="block text-sm font-semibold text-slate-800">{cliente?.nombre ?? "Elegir cliente"}</span>
+              </span>
+              <span className="text-xs text-brand-600">
+                Cambiar <Tecla>F2 · CtrlB</Tecla>
+              </span>
+            </button>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {calculo.lineas.length === 0 ? (
+                <p className="py-10 text-center text-sm text-slate-400">Escribe un producto y presiona Enter, o tocalo</p>
+              ) : (
+                <div className="space-y-2">
+                  {calculo.lineas.map((l, i) => (
+                    <div
+                      key={l.producto_id}
+                      onClick={() => setLineaSel(i)}
+                      className={`cursor-pointer rounded-lg border p-2.5 ${i === seleccionVisible ? "border-brand-400 bg-brand-50/60" : "border-slate-100 bg-slate-50"}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm font-medium text-slate-800">{l.producto.nombre}</span>
+                        <button tabIndex={-1} onClick={() => quitar(i)} className="text-xs text-red-500 hover:underline">
+                          Quitar
+                        </button>
+                      </div>
+                      <div className="mt-1.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <button tabIndex={-1} onClick={() => cambiarCantidad(i, -1)} className="h-6 w-6 rounded bg-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-300">
+                            -
+                          </button>
+                          <span className="w-8 text-center text-sm font-medium">{l.cantidad}</span>
+                          <button tabIndex={-1} onClick={() => cambiarCantidad(i, 1)} className="h-6 w-6 rounded bg-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-300">
+                            +
+                          </button>
+                        </div>
+                        <span className="text-sm font-semibold text-slate-900">{formatMoney(l.bruto + l.itbisLinea + l.fianzaLinea)}</span>
+                      </div>
+                      {l.producto.maneja_envase && (
+                        <div className="mt-2 flex gap-1.5 text-xs">
+                          <button
+                            tabIndex={-1}
+                            onClick={() => alternarModalidad(i, "INTERCAMBIO")}
+                            className={`rounded-full px-2 py-0.5 ${l.modalidad === "INTERCAMBIO" ? "bg-brand-600 text-white" : "bg-slate-200 text-slate-600"}`}
+                          >
+                            Intercambio
+                          </button>
+                          <button
+                            tabIndex={-1}
+                            onClick={() => alternarModalidad(i, "LLENO")}
+                            className={`rounded-full px-2 py-0.5 ${l.modalidad === "LLENO" ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-600"}`}
+                          >
+                            Lleno (+fianza)
+                          </button>
+                          {i === seleccionVisible && <span className="self-center text-[10px] text-slate-400">F4</span>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-          <div className="flex justify-between border-t border-slate-200 pt-2 text-lg font-bold text-slate-900">
-            <span>Total</span>
-            <span>{formatMoney(calculo.total)}</span>
-          </div>
 
-          <div className="flex gap-1 pt-2">
-            {METODOS.map((m) => (
-              <button
-                key={m.valor}
-                type="button"
-                tabIndex={-1}
-                onClick={() => setMetodoPago(m.valor)}
-                className={`flex-1 rounded-lg border px-1 py-1.5 text-xs font-medium ${metodoPago === m.valor ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
-              >
-                {m.nombre}
-                <Tecla>{m.tecla}</Tecla>
-              </button>
-            ))}
-          </div>
+            <div className="space-y-1 border-t border-slate-200 p-4 text-sm">
+              <div className="flex justify-between text-slate-600">
+                <span>Subtotal</span>
+                <span>{formatMoney(calculo.subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>ITBIS</span>
+                <span>{formatMoney(calculo.itbis)}</span>
+              </div>
+              {calculo.fianza > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Fianza</span>
+                  <span>{formatMoney(calculo.fianza)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-slate-200 pt-2 text-lg font-bold text-slate-900">
+                <span>Total</span>
+                <span>{formatMoney(calculo.total)}</span>
+              </div>
 
-          {error && <p className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-600">{error}</p>}
+              <div className="flex gap-1 pt-2">
+                {METODOS.map((m) => (
+                  <button
+                    key={m.valor}
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setMetodoPago(m.valor)}
+                    className={`flex-1 rounded-lg border px-1 py-1.5 text-xs font-medium ${metodoPago === m.valor ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500"}`}
+                  >
+                    {m.nombre}
+                    <Tecla>{m.tecla}</Tecla>
+                  </button>
+                ))}
+              </div>
 
-          <div className="flex gap-2 pt-2">
-            <Button variant="secondary" tabIndex={-1} onClick={() => carrito.length && setConfirmarCancelar(true)} disabled={carrito.length === 0}>
-              Cancelar <Tecla>Esc</Tecla>
-            </Button>
-            <Button className="flex-1" onClick={iniciarCobro} disabled={cobrando || carrito.length === 0 || (usaCaja && !sesion)}>
-              Cobrar <Tecla>F12 · Ctrl↵</Tecla>
-            </Button>
+              {error && <p className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-600">{error}</p>}
+
+              <div className="flex gap-2 pt-2">
+                <Button variant="secondary" tabIndex={-1} onClick={() => carrito.length && setConfirmarCancelar(true)} disabled={carrito.length === 0}>
+                  Cancelar <Tecla>Esc</Tecla>
+                </Button>
+                <Button className="flex-1" onClick={iniciarCobro} disabled={cobrando || carrito.length === 0 || (usaCaja && !sesion)}>
+                  Cobrar <Tecla>F12 · Ctrl↵</Tecla>
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Cliente (F2) */}
       <Modal open={eligiendoCliente} onClose={() => (setEligiendoCliente(false), enfocar())} title="Elegir cliente">
