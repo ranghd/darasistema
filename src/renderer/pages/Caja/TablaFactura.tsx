@@ -6,7 +6,7 @@ import { Modal } from "../../components/ui";
 import { leerBusqueda, sinAcentos } from "./buscar";
 
 // Factura rapida del colmado: una tabla (# Codigo Descripcion Cant. Precio Total) donde se escribe
-// o se escanea el codigo en la ultima fila. F3 abre el buscador de productos.
+// o se escanea el codigo en la ultima fila. F3 o Ctrl+F abre el buscador de productos.
 
 export interface LineaTabla {
   producto: Producto;
@@ -37,6 +37,9 @@ const precioFinal = (p: Producto) => p.precio_contenido * (1 + (p.itbis_rate ?? 
 // La pistola de codigos de barras escribe muy rapido (unos pocos ms por tecla) y termina con Enter.
 const MS_POR_TECLA_LECTOR = 35;
 
+// F3 o Ctrl+F (en laptops las F suelen necesitar la tecla Fn).
+const esTeclaBuscar = (e: KeyboardEvent | React.KeyboardEvent) => e.key === "F3" || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f");
+
 const leerCantidad = (t: string) => Number(t.trim().replace(",", "."));
 
 export default function TablaFactura({ productos, lineas, entrada, texto, setTexto, agregar, fijarCantidad, quitar, setError, lineaSel, setLineaSel }: Props) {
@@ -66,7 +69,7 @@ export default function TablaFactura({ productos, lineas, entrada, texto, setTex
     celda.select();
   };
 
-  // F3: buscador de productos (con lo que haya escrito en la celda).
+  // F3 o Ctrl+F: buscador de productos (con lo que haya escrito en la celda).
   const abrirF3 = useRef(() => {});
   abrirF3.current = () => {
     const { cantidad, q } = leerBusqueda(texto);
@@ -74,7 +77,7 @@ export default function TablaFactura({ productos, lineas, entrada, texto, setTex
   };
   useEffect(() => {
     const alPresionar = (e: KeyboardEvent) => {
-      if (e.key !== "F3" || hayModalAbierto() || e.defaultPrevented) return;
+      if (!esTeclaBuscar(e) || hayModalAbierto() || e.defaultPrevented) return;
       e.preventDefault();
       abrirF3.current();
     };
@@ -122,7 +125,7 @@ export default function TablaFactura({ productos, lineas, entrada, texto, setTex
         tiempos.current = [];
         return setError(`El codigo ${q.trim()} no esta registrado. Agregalo en Productos.`);
       }
-      if (porNombre.length === 0) return setError(`No hay ningun producto que coincida con "${q.trim()}". Presiona F3 para buscar.`);
+      if (porNombre.length === 0) return setError(`No hay ningun producto que coincida con "${q.trim()}". Presiona F3 o Ctrl+F para buscar.`);
       setF3({ texto: q.trim(), cantidad });
     }
   }
@@ -221,7 +224,7 @@ export default function TablaFactura({ productos, lineas, entrada, texto, setTex
                     value={texto}
                     onChange={(e) => setTexto(e.target.value)}
                     onKeyDown={teclaEntrada}
-                    placeholder="Escanea o escribe el codigo y Enter · F3 buscar producto"
+                    placeholder="Escanea o escribe el codigo y Enter · F3 o Ctrl+F buscar producto"
                     className="w-full rounded-lg border-2 border-brand-300 bg-white px-3 py-1.5 font-mono text-base outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                   />
                   {cantidadEscrita !== 1 && <span className="absolute right-2 top-2 rounded bg-brand-600 px-1.5 text-xs font-bold text-white">×{cantidadEscrita}</span>}
@@ -283,7 +286,7 @@ function BuscadorProductos({ productos, inicial, onElegir, onCerrar }: { product
   }
 
   return (
-    <Modal open onClose={onCerrar} title="Buscar producto (F3)" width="max-w-3xl">
+    <Modal open onClose={onCerrar} title="Buscar producto (F3 · Ctrl+F)" width="max-w-3xl">
       <input
         autoFocus
         className="w-full rounded-lg border-2 border-brand-300 px-3 py-2 text-base outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
@@ -296,7 +299,7 @@ function BuscadorProductos({ productos, inicial, onElegir, onCerrar }: { product
           else if (e.key === "PageDown") (e.preventDefault(), setSel((s) => Math.min(s + 10, encontrados.length - 1)));
           else if (e.key === "PageUp") (e.preventDefault(), setSel((s) => Math.max(s - 10, 0)));
           else if (e.key === "Enter") (e.preventDefault(), elegir(encontrados[sel]));
-          else if (e.key === "F3") e.preventDefault();
+          else if (esTeclaBuscar(e)) e.preventDefault();
         }}
       />
       <div ref={lista} className="mt-3 max-h-[55vh] overflow-y-auto rounded-lg border border-slate-200">

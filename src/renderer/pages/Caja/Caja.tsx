@@ -457,7 +457,7 @@ export default function Caja() {
               </div>
               {error && <p className="max-w-xl rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-600">{error}</p>}
               <p className="text-[11px] text-slate-400">
-                Enter agregar · F3 buscar producto · ↑↓ cambiar cantidad · Supr quitar · F2 cliente (fiao) · F6-F8 pago · F12 cobrar · Esc cancelar · F1 ayuda
+                Enter agregar · F3 o Ctrl+F buscar producto · ↑↓ cambiar cantidad · Supr quitar · F2 cliente (fiao) · F6-F8 pago · F12 cobrar · Esc cancelar · F1 ayuda
               </p>
             </div>
             <div className="w-72 space-y-1 text-sm">
