@@ -5,7 +5,8 @@ publish:
   owner: ranghd
   repo: darasistema
   channel: caja
-  releaseType: release
+  # Borrador: los clientes no lo ven hasta que release.js lo publica con los 4 programas completos.
+  releaseType: draft
 directories:
   output: release
 files:
