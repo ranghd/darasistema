@@ -152,9 +152,9 @@ export function seedDemo(db: DB) {
     { tipo: "B02", prefijo: "B02", desde: 1, hasta: 2000, actual: 1, vencimiento: "2026-12-31" },
     { tipo: "B03", prefijo: "B03", desde: 1, hasta: 100, actual: 1, vencimiento: "2026-12-31" },
     { tipo: "B04", prefijo: "B04", desde: 1, hasta: 200, actual: 1, vencimiento: "2026-12-31" },
-    { tipo: "B11", prefijo: "B11", desde: 1, hasta: 1000, actual: 1, vencimiento: "2026-12-31" },
-    { tipo: "B12", prefijo: "B12", desde: 1, hasta: 500, actual: 1, vencimiento: "2026-12-31" },
-    { tipo: "B16", prefijo: "B16", desde: 1, hasta: 100, actual: 1, vencimiento: "2026-12-31" },
+    { tipo: "B12", prefijo: "B12", desde: 1, hasta: 1000, actual: 1, vencimiento: "2026-12-31" },
+    { tipo: "B13", prefijo: "B13", desde: 1, hasta: 500, actual: 1, vencimiento: "2026-12-31" },
+    { tipo: "B17", prefijo: "B17", desde: 1, hasta: 100, actual: 1, vencimiento: "2026-12-31" },
   ];
   for (const s of secuenciasNcf) insertNcf.run(s);
 
@@ -194,7 +194,7 @@ export function seedDemoColmado(db: DB) {
   const insertNcf = db.prepare(
     `INSERT INTO ncf_secuencias (tipo, prefijo, desde, hasta, actual, vencimiento, activo) VALUES (@tipo, @tipo, 1, @hasta, 1, '2026-12-31', 1)`
   );
-  for (const [tipo, hasta] of [["B01", 500], ["B02", 5000], ["B03", 100], ["B04", 200], ["B11", 500], ["B12", 500], ["B14", 100], ["B15", 100]] as const) {
+  for (const [tipo, hasta] of [["B01", 500], ["B02", 5000], ["B03", 100], ["B04", 200], ["B12", 500], ["B13", 500], ["B15", 100], ["B16", 100]] as const) {
     insertNcf.run({ tipo, hasta });
   }
 

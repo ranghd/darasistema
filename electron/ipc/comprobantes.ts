@@ -2,6 +2,7 @@ import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { crearAsiento } from "../db/contabilidad";
 import type { ComprobanteVarios, NuevoComprobanteVariosInput } from "../shared/types";
+import { NCF_LABELS, TIPO_COMPROBANTE_INGRESO, TIPOS_COMPROBANTE_VARIOS, tipoNcfRecibido, type TipoComprobanteVarios } from "../shared/ncf";
 
 const CODIGO_CAJA = "1.1.01";
 const CODIGO_BANCO = "1.1.02";
@@ -38,6 +39,8 @@ export function registerComprobantesIpc(db: DB) {
   });
 
   ipcMain.handle("comprobantes:registrar", (_e, input: NuevoComprobanteVariosInput) => {
+    const tipo = tipoNcfRecibido(input.tipo, input.codigos_ncf) as TipoComprobanteVarios;
+    if (!TIPOS_COMPROBANTE_VARIOS.includes(tipo)) throw new Error(`Tipo de comprobante no valido: ${input.tipo}. Use ${TIPOS_COMPROBANTE_VARIOS.map((t) => NCF_LABELS[t]).join(", ")}.`);
     if (input.monto <= 0) throw new Error("El monto debe ser mayor a cero");
 
     const config = db.prepare(`SELECT * FROM company_config WHERE id = 1`).get() as { itbis_rate: number };
@@ -46,11 +49,10 @@ export function registerComprobantesIpc(db: DB) {
     const cuentaCajaBanco = input.metodo === "BANCO" ? CODIGO_BANCO : CODIGO_CAJA;
 
     const run = db.transaction(() => {
-      const ncf = tomarSiguienteNcf(db, input.tipo);
-      const concepto = `${input.tipo} ${ncf} - ${input.concepto}${input.contraparte ? ` (${input.contraparte})` : ""}`;
+      const ncf = tomarSiguienteNcf(db, tipo);
+      const concepto = `${tipo} ${ncf} - ${input.concepto}${input.contraparte ? ` (${input.contraparte})` : ""}`;
 
-      // B11: entra dinero (ingreso). B12 / B16: sale dinero (gasto / pago).
-      const esIngreso = input.tipo === "B11";
+      const esIngreso = tipo === TIPO_COMPROBANTE_INGRESO;
       const lineas = esIngreso
         ? [
             { cuenta_id: cuentaIdPorCodigo(db, cuentaCajaBanco), debito: total, credito: 0, descripcion: concepto },
@@ -75,7 +77,7 @@ export function registerComprobantesIpc(db: DB) {
            VALUES (@tipo, @ncf, @fecha, @concepto, @contraparte, @monto, @itbis, @total, @cuenta_id, @metodo, @asiento_id)`
         )
         .run({
-          tipo: input.tipo,
+          tipo,
           ncf,
           fecha: input.fecha,
           concepto: input.concepto,

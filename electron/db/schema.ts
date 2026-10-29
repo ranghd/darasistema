@@ -1,3 +1,7 @@
+import { listaSql, TIPOS_COMPROBANTE_VARIOS, TODOS_LOS_TIPOS_NCF } from "../shared/ncf";
+
+// Si cambian los tipos de NCF permitidos, las bases que ya existen necesitan una
+// migracion que rehaga la tabla (ver corregirCodigosNcf en migraciones.ts).
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS cuentas_contables (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +66,7 @@ CREATE TABLE IF NOT EXISTS productos (
 
 CREATE TABLE IF NOT EXISTS ncf_secuencias (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  tipo TEXT NOT NULL CHECK (tipo IN ('B01','B02','B03','B04','B11','B12','B13','B14','B15','B16')),
+  tipo TEXT NOT NULL CHECK (tipo IN (${listaSql(TODOS_LOS_TIPOS_NCF)})),
   prefijo TEXT NOT NULL,
   desde INTEGER NOT NULL,
   hasta INTEGER NOT NULL,
@@ -92,7 +96,7 @@ CREATE TABLE IF NOT EXISTS facturas (
 
 CREATE TABLE IF NOT EXISTS comprobantes_varios (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  tipo TEXT NOT NULL CHECK (tipo IN ('B11','B12','B16')),
+  tipo TEXT NOT NULL CHECK (tipo IN (${listaSql(TIPOS_COMPROBANTE_VARIOS)})),
   ncf TEXT NOT NULL,
   fecha TEXT NOT NULL,
   concepto TEXT NOT NULL,

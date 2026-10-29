@@ -3,15 +3,18 @@ import { api } from "../../lib/api";
 import type { ComprobanteVarios, Cuenta, TipoComprobanteVarios } from "../../lib/types";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { Badge, Button, Card, EmptyRow, Input, PageHeader, Select, Table } from "../../components/ui";
+import { NCF_LABELS, TIPO_COMPROBANTE_INGRESO, TIPOS_COMPROBANTE_VARIOS, TIPOS_NCF, VERSION_CODIGOS_NCF } from "../../lib/ncf";
 
-const TABS: { tipo: TipoComprobanteVarios; label: string; descripcion: string }[] = [
-  { tipo: "B11", label: "B11 - Registro de Ingresos", descripcion: "Para consolidar muchas ventas pequenas del dia en un solo comprobante, en vez de un NCF por cada una." },
-  { tipo: "B12", label: "B12 - Gastos Menores", descripcion: "Para registrar gastos pagados en efectivo que no tienen factura formal de un proveedor (ej. un mandado, una reparacion pequena)." },
-  { tipo: "B16", label: "B16 - Pago al Exterior", descripcion: "Para pagos realizados a proveedores o personas fuera del pais." },
-];
+const TEXTOS: Record<TipoComprobanteVarios, { descripcion: string; concepto: string; contraparte: string }> = {
+  B12: { descripcion: "Para consolidar muchas ventas pequenas del dia en un solo comprobante, en vez de un NCF por cada una.", concepto: "Ej. Ventas menores del dia", contraparte: "Fuente (opcional)" },
+  B13: { descripcion: "Para registrar gastos pagados en efectivo que no tienen factura formal de un proveedor (ej. un mandado, una reparacion pequena).", concepto: "Ej. Compra de materiales de limpieza", contraparte: "Pagado a (opcional)" },
+  B17: { descripcion: "Para pagos realizados a proveedores o personas fuera del pais.", concepto: "Ej. Pago a proveedor en el exterior", contraparte: "Proveedor en el exterior" },
+};
+
+const TABS = TIPOS_COMPROBANTE_VARIOS.map((tipo) => ({ tipo, label: NCF_LABELS[tipo], ...TEXTOS[tipo] }));
 
 export default function Comprobantes() {
-  const [tab, setTab] = useState<TipoComprobanteVarios>("B11");
+  const [tab, setTab] = useState<TipoComprobanteVarios>(TIPO_COMPROBANTE_INGRESO);
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
   const [historial, setHistorial] = useState<ComprobanteVarios[]>([]);
   const [fecha, setFecha] = useState(todayIso());
@@ -34,7 +37,7 @@ export default function Comprobantes() {
     cargar();
   }, []);
 
-  const tipoCuenta = tab === "B11" ? "INGRESOS" : "GASTOS";
+  const tipoCuenta = tab === TIPO_COMPROBANTE_INGRESO ? "INGRESOS" : "GASTOS";
   const cuentasFiltradas = cuentas.filter((c) => c.tipo === tipoCuenta && c.es_movimiento);
 
   function cambiarTab(t: TipoComprobanteVarios) {
@@ -54,7 +57,7 @@ export default function Comprobantes() {
     if (monto <= 0) return setError("El monto debe ser mayor a cero");
     setGuardando(true);
     try {
-      await api.comprobantes.registrar({ tipo: tab, fecha, concepto: concepto || TABS.find((t) => t.tipo === tab)!.label, contraparte: contraparte || undefined, monto, aplicaItbis, cuenta_id: cuentaId, metodo });
+      await api.comprobantes.registrar({ tipo: tab, fecha, concepto: concepto || TABS.find((t) => t.tipo === tab)!.label, contraparte: contraparte || undefined, monto, aplicaItbis, cuenta_id: cuentaId, metodo, codigos_ncf: VERSION_CODIGOS_NCF });
       setConcepto("");
       setContraparte("");
       setMonto(0);
@@ -68,7 +71,7 @@ export default function Comprobantes() {
 
   return (
     <div>
-      <PageHeader title="Otros Comprobantes" subtitle="Registro de Ingresos (B11), Gastos Menores (B12) y Pagos al Exterior (B16)" />
+      <PageHeader title="Otros Comprobantes" subtitle={TIPOS_COMPROBANTE_VARIOS.map((t) => `${TIPOS_NCF[t]} (${t})`).join(", ")} />
 
       <div className="mb-4 flex gap-1.5">
         {TABS.map((t) => (
@@ -84,19 +87,19 @@ export default function Comprobantes() {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card className="p-5">
-          <p className="mb-3 text-sm text-slate-500">{TABS.find((t) => t.tipo === tab)?.descripcion}</p>
+          <p className="mb-3 text-sm text-slate-500">{TEXTOS[tab].descripcion}</p>
           <form onSubmit={registrar} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <Input label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
               <Input label="Monto" type="number" step="0.01" value={monto} onChange={(e) => setMonto(Number(e.target.value))} />
             </div>
-            <Input label="Concepto" value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder={tab === "B11" ? "Ej. Ventas menores del dia" : tab === "B12" ? "Ej. Compra de materiales de limpieza" : "Ej. Pago a proveedor en el exterior"} />
+            <Input label="Concepto" value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder={TEXTOS[tab].concepto} />
             <Input
-              label={tab === "B11" ? "Fuente (opcional)" : tab === "B12" ? "Pagado a (opcional)" : "Proveedor en el exterior"}
+              label={TEXTOS[tab].contraparte}
               value={contraparte}
               onChange={(e) => setContraparte(e.target.value)}
             />
-            <Select label={tab === "B11" ? "Cuenta de ingreso" : "Cuenta de gasto"} value={cuentaId} onChange={(e) => setCuentaId(Number(e.target.value))}>
+            <Select label={tab === TIPO_COMPROBANTE_INGRESO ? "Cuenta de ingreso" : "Cuenta de gasto"} value={cuentaId} onChange={(e) => setCuentaId(Number(e.target.value))}>
               <option value="">Seleccione...</option>
               {cuentasFiltradas.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -108,7 +111,7 @@ export default function Comprobantes() {
               <option value="CAJA">Caja</option>
               <option value="BANCO">Banco</option>
             </Select>
-            {tab === "B11" && (
+            {tab === TIPO_COMPROBANTE_INGRESO && (
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input type="checkbox" checked={aplicaItbis} onChange={(e) => setAplicaItbis(e.target.checked)} />
                 Aplica ITBIS sobre este monto

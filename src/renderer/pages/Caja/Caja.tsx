@@ -10,6 +10,7 @@ import AvisoBorrador from "../../components/AvisoBorrador";
 import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
 import type { Cliente, ModalidadLinea, Producto } from "../../lib/types";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
+import { VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Modal } from "../../components/ui";
 import { esColmado, manejaEnvases } from "../../lib/variant";
 import TablaFactura from "./TablaFactura";
@@ -227,6 +228,7 @@ export default function Caja() {
         condicion_pago: "CONTADO",
         metodo_pago: metodoPago,
         tipo_ncf: "B02",
+        codigos_ncf: VERSION_CODIGOS_NCF,
         creado_por: usuario?.nombre,
         caja_sesion_id: sesion?.id ?? null,
         lineas: carrito.map((l) => ({ producto_id: l.producto_id, modalidad: l.modalidad, cantidad: l.cantidad, precio_unitario: productos.find((p) => p.id === l.producto_id)!.precio_contenido, descuento: 0 })),

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import type { CompanyConfig, NcfSecuencia, RolUsuario, TipoNcf, Usuario } from "../../lib/types";
 import { formatDate } from "../../lib/format";
-import { NCF_LABELS, TODOS_LOS_TIPOS_NCF } from "../../lib/ncf";
+import { NCF_LABELS, TODOS_LOS_TIPOS_NCF, VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { esVariantCaja } from "../../lib/variant";
 import { useAuth } from "../../lib/auth";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
@@ -117,7 +117,7 @@ export default function Configuracion() {
 
   async function crearSecuencia(e: React.FormEvent) {
     e.preventDefault();
-    await api.ncf.crear({ ...form, actual: form.desde, prefijo: form.tipo });
+    await api.ncf.crear({ ...form, actual: form.desde, prefijo: form.tipo, codigos_ncf: VERSION_CODIGOS_NCF });
     setOpen(false);
     await cargar();
   }

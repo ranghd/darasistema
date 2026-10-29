@@ -9,6 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src/renderer"),
+      "@shared": path.resolve(__dirname, "electron/shared"),
     },
   },
   server: {

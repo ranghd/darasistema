@@ -3,6 +3,7 @@ import type { DB } from "../db/types";
 import { crearAsiento, fechaHoyRD } from "../db/contabilidad";
 import { validarSesionAbierta } from "./caja";
 import type { Factura, FacturaDetalle, NuevaFacturaInput, Producto, TipoNcf } from "../shared/types";
+import { NCF_LABELS, TIPOS_NCF_VENTA, tipoNcfRecibido, type TipoNcfVenta } from "../shared/ncf";
 
 const CODIGO_CAJA = "1.1.01";
 const CODIGO_BANCO = "1.1.02";
@@ -80,6 +81,8 @@ export function registerFacturasIpc(db: DB) {
 
   ipcMain.handle("facturas:crear", (_e, input: NuevaFacturaInput) => {
     if (!input.lineas || input.lineas.length === 0) throw new Error("La factura debe tener al menos una linea");
+    const tipoNcf = tipoNcfRecibido(input.tipo_ncf, input.codigos_ncf) as TipoNcfVenta;
+    if (!TIPOS_NCF_VENTA.includes(tipoNcf)) throw new Error(`Tipo de comprobante no valido para una factura: ${input.tipo_ncf}. Use ${TIPOS_NCF_VENTA.map((t) => NCF_LABELS[t]).join(", ")}.`);
     const cajaSesionId = validarSesionAbierta(db, input.caja_sesion_id);
 
     const productos = new Map<number, Producto>();
@@ -108,7 +111,7 @@ export function registerFacturasIpc(db: DB) {
     const total = subtotal + itbisTotal + fianzaTotal;
 
     const run = db.transaction(() => {
-      const ncf = tomarSiguienteNcf(db, input.tipo_ncf);
+      const ncf = tomarSiguienteNcf(db, tipoNcf);
       const maxNumero = (db.prepare(`SELECT COALESCE(MAX(numero), 0) as m FROM facturas`).get() as { m: number }).m;
 
       const estadoInicial = input.condicion_pago === "CONTADO" ? "PAGADA" : "PENDIENTE";

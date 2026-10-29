@@ -2,6 +2,7 @@ import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { fechaHoyRD } from "../db/contabilidad";
 import type { CxcCliente, ReporteVentas } from "../shared/types";
+import { TIPO_COMPROBANTE_INGRESO } from "../shared/ncf";
 
 function rangoClause(desde?: string, hasta?: string) {
   const where: string[] = [];
@@ -103,33 +104,35 @@ export function registerReportesIpc(db: DB) {
     };
   });
 
+  // Facturas no anuladas y Registros Unicos de Ingresos (B12): los dos llevan ITBIS por pagar.
   ipcMain.handle("reportes:itbis", (_e, desde?: string, hasta?: string) => {
     const where: string[] = [];
-    const params: Record<string, string> = {};
+    const params: Record<string, string> = { ingreso: TIPO_COMPROBANTE_INGRESO };
     if (desde) {
-      where.push("f.fecha >= @desde");
+      where.push("d.fecha >= @desde");
       params.desde = desde;
     }
     if (hasta) {
-      where.push("f.fecha <= @hasta");
+      where.push("d.fecha <= @hasta");
       params.hasta = hasta;
     }
-    where.push("f.estado != 'ANULADA'");
-    const clause = `WHERE ${where.join(" AND ")}`;
+    const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const documentos = `(
+      SELECT f.numero, f.ncf, f.fecha, c.nombre AS cliente_nombre, f.subtotal, f.itbis, f.total
+      FROM facturas f JOIN clientes c ON c.id = f.cliente_id WHERE f.estado != 'ANULADA'
+      UNION ALL
+      SELECT NULL, cv.ncf, cv.fecha, COALESCE(cv.contraparte, cv.concepto), cv.monto, cv.itbis, cv.total
+      FROM comprobantes_varios cv WHERE cv.tipo = @ingreso
+    ) d`;
 
     const resumen = db
       .prepare(
-        `SELECT COUNT(*) as cantidad_facturas, COALESCE(SUM(f.subtotal),0) as subtotal, COALESCE(SUM(f.itbis),0) as itbis, COALESCE(SUM(f.total),0) as total
-         FROM facturas f ${clause}`
+        `SELECT COUNT(*) as cantidad_facturas, COALESCE(SUM(d.subtotal),0) as subtotal, COALESCE(SUM(d.itbis),0) as itbis, COALESCE(SUM(d.total),0) as total
+         FROM ${documentos} ${clause}`
       )
       .get(params);
 
-    const facturas = db
-      .prepare(
-        `SELECT f.numero, f.ncf, f.fecha, c.nombre as cliente_nombre, f.subtotal, f.itbis, f.total
-         FROM facturas f JOIN clientes c ON c.id = f.cliente_id ${clause} ORDER BY f.fecha`
-      )
-      .all(params);
+    const facturas = db.prepare(`SELECT d.* FROM ${documentos} ${clause} ORDER BY d.fecha`).all(params);
 
     return { resumen, facturas };
   });

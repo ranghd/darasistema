@@ -1,3 +1,5 @@
+import type { TipoComprobanteVarios, TipoNcf, TipoNcfVenta } from "@shared/ncf";
+
 export type TipoCuenta = "ACTIVO" | "PASIVO" | "PATRIMONIO" | "INGRESOS" | "GASTOS" | "COSTOS";
 export type Naturaleza = "DEUDORA" | "ACREEDORA";
 
@@ -88,7 +90,8 @@ export interface Producto {
   codigo_barras?: string | null;
 }
 
-export type TipoNcf = "B01" | "B02" | "B03" | "B04" | "B11" | "B12" | "B13" | "B14" | "B15" | "B16";
+// Los codigos NCF salen de una sola lista (Norma General 06-2018 de la DGII).
+export type { TipoComprobanteVarios, TipoNcf, TipoNcfVenta };
 
 export interface NcfSecuencia {
   id: number;
@@ -151,7 +154,9 @@ export interface NuevaFacturaInput {
   fecha: string;
   condicion_pago: "CONTADO" | "CREDITO";
   metodo_pago?: MetodoPago;
-  tipo_ncf: "B01" | "B02" | "B13" | "B14" | "B15";
+  tipo_ncf: TipoNcfVenta;
+  /** VERSION_CODIGOS_NCF de la pantalla que pide (sin ella, el tipo es un codigo de antes de la correccion). */
+  codigos_ncf?: number;
   lineas: FacturaLineaInput[];
   /** Nombre del usuario que hizo la venta. */
   creado_por?: string;
@@ -328,8 +333,6 @@ export interface PagoCompra {
   asiento_id: number | null;
 }
 
-export type TipoComprobanteVarios = "B11" | "B12" | "B16";
-
 export interface NuevoComprobanteVariosInput {
   tipo: TipoComprobanteVarios;
   fecha: string;
@@ -339,6 +342,8 @@ export interface NuevoComprobanteVariosInput {
   aplicaItbis: boolean;
   cuenta_id: number;
   metodo: "CAJA" | "BANCO";
+  /** VERSION_CODIGOS_NCF de la pantalla que pide. */
+  codigos_ncf?: number;
 }
 
 export interface ComprobanteVarios {

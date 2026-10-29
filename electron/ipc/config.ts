@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import type { CompanyConfig, NcfSecuencia } from "../shared/types";
+import { TODOS_LOS_TIPOS_NCF, tipoNcfRecibido, type TipoNcf } from "../shared/ncf";
 
 export function registerConfigIpc(db: DB) {
   ipcMain.handle("config:obtener", () => {
@@ -24,14 +25,18 @@ export function registerConfigIpc(db: DB) {
     return db.prepare(`SELECT * FROM ncf_secuencias ORDER BY tipo, id DESC`).all() as NcfSecuencia[];
   });
 
-  ipcMain.handle("ncf:crear", (_e, data: Partial<NcfSecuencia>) => {
+  ipcMain.handle("ncf:crear", (_e, data: Partial<NcfSecuencia> & { codigos_ncf?: number }) => {
+    const tipo = tipoNcfRecibido(data.tipo ?? "", data.codigos_ncf) as TipoNcf;
+    if (!TODOS_LOS_TIPOS_NCF.includes(tipo)) throw new Error(`Tipo de comprobante no valido: ${data.tipo}`);
+    // Una pantalla vieja manda el prefijo igual al codigo viejo: se corrige igual que el tipo.
+    const prefijo = data.prefijo === data.tipo ? tipo : data.prefijo;
     const info = db
       .prepare(
         `INSERT INTO ncf_secuencias (tipo, prefijo, desde, hasta, actual, vencimiento, activo) VALUES (@tipo, @prefijo, @desde, @hasta, @actual, @vencimiento, 1)`
       )
       .run({
-        tipo: data.tipo,
-        prefijo: data.prefijo,
+        tipo,
+        prefijo,
         desde: data.desde ?? 1,
         hasta: data.hasta,
         actual: data.actual ?? data.desde ?? 1,

@@ -7,9 +7,9 @@ import { useCaja } from "../../lib/caja";
 import CajaCerradaAviso from "../../components/CajaCerradaAviso";
 import AvisoBorrador from "../../components/AvisoBorrador";
 import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
-import type { Cliente, FacturaLineaInput, Producto } from "../../lib/types";
+import type { Cliente, FacturaLineaInput, Producto, TipoNcfVenta } from "../../lib/types";
 import { formatMoney, todayIso } from "../../lib/format";
-import { NCF_LABELS, TIPOS_NCF_VENTA } from "../../lib/ncf";
+import { NCF_LABELS, TIPOS_NCF_VENTA, VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Card, Input, PageHeader, Select } from "../../components/ui";
 
 interface LineaForm extends FacturaLineaInput {
@@ -29,7 +29,8 @@ export default function NuevaFactura() {
   const [fecha, setFecha] = useBorrador("factura.fecha", todayIso());
   const [condicionPago, setCondicionPago] = useBorrador<"CONTADO" | "CREDITO">("factura.condicion", "CONTADO");
   const [metodoPago, setMetodoPago] = useBorrador<"EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE">("factura.metodo", "EFECTIVO");
-  const [tipoNcf, setTipoNcf] = useBorrador<"B01" | "B02" | "B13" | "B14" | "B15">("factura.ncf", "B02");
+  // (la clave cambio con la correccion de codigos NCF: un borrador viejo traeria el codigo de antes)
+  const [tipoNcf, setTipoNcf] = useBorrador<TipoNcfVenta>("factura.tipoNcf", "B02");
   const [lineas, setLineas] = useBorrador<LineaForm[]>("factura.lineas", []);
   const habiaFactura = useHabiaBorrador("factura.lineas", (v) => Array.isArray(v) && v.length > 0);
   const [avisoRecuperada, setAvisoRecuperada] = useState(habiaFactura);
@@ -115,6 +116,7 @@ export default function NuevaFactura() {
         condicion_pago: condicionPago,
         metodo_pago: condicionPago === "CONTADO" ? metodoPago : undefined,
         tipo_ncf: tipoNcf,
+        codigos_ncf: VERSION_CODIGOS_NCF,
         creado_por: usuario?.nombre,
         caja_sesion_id: sesion?.id ?? null,
         lineas: lineas.map(({ key, ...rest }) => rest),
@@ -163,7 +165,7 @@ export default function NuevaFactura() {
               <option value="CHEQUE">Cheque</option>
             </Select>
           )}
-          <Select label="Tipo de comprobante (NCF)" value={tipoNcf} onChange={(e) => setTipoNcf(e.target.value as any)}>
+          <Select label="Tipo de comprobante (NCF)" value={tipoNcf} onChange={(e) => setTipoNcf(e.target.value as TipoNcfVenta)}>
             {TIPOS_NCF_VENTA.map((t) => (
               <option key={t} value={t}>
                 {NCF_LABELS[t]}

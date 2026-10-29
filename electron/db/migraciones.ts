@@ -1,6 +1,8 @@
 import type { DB } from "./types";
 import { asegurarCuenta, cuadrarInventarioContable, TIPOS_GASTO_INICIALES } from "./contabilidad";
 import { proveedoresDesdeComprasAnteriores } from "./proveedores";
+import { SCHEMA_SQL } from "./schema";
+import { CODIGO_NCF_CORREGIDO, listaSql } from "../shared/ncf";
 
 // Agrega una cuenta al catalogo si la empresa no la tiene (solo si existe su cuenta padre).
 function crearCuentaSiFalta(db: DB, codigo: string, nombre: string, tipo: string, naturaleza: string, padreCodigo: string) {
@@ -35,6 +37,91 @@ function ponerTiposDgii(db: DB) {
   for (const t of TIPOS_GASTO_INICIALES) db.prepare(`UPDATE tipos_gasto SET tipo_dgii = ? WHERE nombre = ? AND tipo_dgii IS NULL`).run(t.dgii, t.nombre);
   db.prepare(`UPDATE tipos_gasto SET tipo_dgii = '02' WHERE tipo_dgii IS NULL`).run();
   db.prepare(`UPDATE gastos SET tipo_dgii = (SELECT tipo_dgii FROM tipos_gasto WHERE id = gastos.tipo_gasto_id) WHERE tipo_dgii IS NULL`).run();
+}
+
+// Rehace una tabla con su definicion actual de schema.ts (en SQLite no se puede
+// cambiar el CHECK de una tabla que ya existe). `columnas`: cada columna de la tabla
+// nueva y la expresion que la llena desde la vieja. Los id se conservan.
+function rehacerTabla(db: DB, tabla: string, columnas: Record<string, string>) {
+  const inicio = SCHEMA_SQL.indexOf(`CREATE TABLE IF NOT EXISTS ${tabla} (`);
+  const fin = inicio < 0 ? -1 : SCHEMA_SQL.indexOf("\n);", inicio);
+  if (fin < 0) throw new Error(`La tabla ${tabla} no esta en el schema`);
+  const ddl = SCHEMA_SQL.slice(inicio, fin + 3);
+  const nueva = `${tabla}_nueva`;
+  db.exec(ddl.replace(`IF NOT EXISTS ${tabla} (`, `${nueva} (`));
+  db.exec(`INSERT INTO ${nueva} (${Object.keys(columnas).join(", ")}) SELECT ${Object.values(columnas).join(", ")} FROM ${tabla}`);
+  db.exec(`DROP TABLE ${tabla}`);
+  db.exec(`ALTER TABLE ${nueva} RENAME TO ${tabla}`);
+}
+
+// Los codigos B11 a B16 estaban corridos un lugar frente a la Norma General 06-2018
+// de la DGII (el Registro Unico de Ingresos salia como B11, Gastos Menores como B12...
+// y Pagos al Exterior como B16). Se pasan al codigo correcto las secuencias, los NCF
+// ya emitidos en facturas y en Otros Comprobantes, y el texto de sus asientos. Se
+// conserva el numero de cada NCF (solo cambian las 3 primeras letras), lo que falta
+// de cada secuencia, los id y los montos. Los NCF de suplidores (compras y gastos)
+// no se tocan: esos los puso el suplidor.
+function corregirCodigosNcf(db: DB) {
+  const viejos = listaSql(Object.keys(CODIGO_NCF_CORREGIDO));
+  const casos = Object.entries(CODIGO_NCF_CORREGIDO)
+    .map(([viejo, nuevo]) => `WHEN '${viejo}' THEN '${nuevo}'`)
+    .join(" ");
+  const codigo = (expr: string) => `CASE ${expr} ${casos} ELSE ${expr} END`;
+  // Un NCF (o prefijo) que empieza con el codigo viejo de su tipo pasa a empezar con el nuevo.
+  const ncf = (col: string, tipo: string) => `CASE WHEN substr(${col}, 1, 3) = ${tipo} THEN ${codigo(tipo)} || substr(${col}, 4) ELSE ${col} END`;
+
+  // Antes de cambiar nada: que NCF cambian y por cual (para corregir el texto de los asientos).
+  const filas = db
+    .prepare(
+      `SELECT ncf AS viejo, ${ncf("ncf", "substr(ncf, 1, 3)")} AS nuevo FROM facturas WHERE substr(ncf, 1, 3) IN (${viejos})
+       UNION ALL
+       SELECT tipo || ' ' || ncf, ${codigo("tipo")} || ' ' || ${ncf("ncf", "tipo")} FROM comprobantes_varios WHERE tipo IN (${viejos})
+       UNION ALL
+       SELECT ncf, ${ncf("ncf", "tipo")} FROM comprobantes_varios WHERE tipo IN (${viejos})`
+    )
+    .all() as { viejo: string; nuevo: string }[];
+  const cambios = [...new Map(filas.filter((f) => f.viejo !== f.nuevo).map((f) => [f.viejo, f.nuevo])).entries()]
+    // el texto mas largo primero: "B11 B1100000001" antes que "B1100000001"
+    .sort((a, b) => b[0].length - a[0].length);
+
+  rehacerTabla(db, "ncf_secuencias", {
+    id: "id",
+    tipo: codigo("tipo"),
+    prefijo: ncf("prefijo", "tipo"),
+    desde: "desde",
+    hasta: "hasta",
+    actual: "actual",
+    vencimiento: "vencimiento",
+    activo: "activo",
+  });
+  rehacerTabla(db, "comprobantes_varios", {
+    id: "id",
+    tipo: codigo("tipo"),
+    ncf: ncf("ncf", "tipo"),
+    fecha: "fecha",
+    concepto: "concepto",
+    contraparte: "contraparte",
+    monto: "monto",
+    itbis: "itbis",
+    total: "total",
+    cuenta_id: "cuenta_id",
+    metodo: "metodo",
+    asiento_id: "asiento_id",
+    creado_en: "creado_en",
+  });
+  db.prepare(`UPDATE facturas SET ncf = ${ncf("ncf", "substr(ncf, 1, 3)")} WHERE substr(ncf, 1, 3) IN (${viejos})`).run();
+
+  // En dos pasos (primero una marca, despues el NCF nuevo) para que un NCF ya
+  // corregido no se vuelva a cambiar: el B13 nuevo de uno puede ser el B13 viejo de otro.
+  const textos = [
+    ["asientos", "concepto"],
+    ["asiento_lineas", "descripcion"],
+  ];
+  const pasos: [string, string][] = [...cambios.map(([viejo], i): [string, string] => [viejo, `{{ncf:${i}}}`]), ...cambios.map(([, nuevo], i): [string, string] => [`{{ncf:${i}}}`, nuevo])];
+  for (const [tabla, col] of textos) {
+    const reemplazar = db.prepare(`UPDATE ${tabla} SET ${col} = REPLACE(${col}, @de, @a) WHERE instr(${col}, @de) > 0`);
+    for (const [de, a] of pasos) reemplazar.run({ de, a });
+  }
 }
 
 // Agrega columnas nuevas a bases de datos que ya existian antes de una
@@ -94,6 +181,7 @@ export function migrar(db: DB) {
     // Banco principal (la cuenta 1.1.02 que ya usaba el sistema) y tipos de gasto de inicio.
     ["bancos-y-tipos-de-gasto", () => prepararBancosYGastos(db)],
     ["tipos-de-gasto-dgii-606", () => ponerTiposDgii(db)],
+    ["codigos-ncf-norma-06-2018", () => corregirCodigosNcf(db)],
   ];
   db.exec(`CREATE INDEX IF NOT EXISTS ix_cobros_recibo ON cobros(recibo_id)`);
   for (const [nombre, aplicar] of datos) {

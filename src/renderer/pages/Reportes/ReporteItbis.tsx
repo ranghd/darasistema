@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { formatDate, formatMoney } from "../../lib/format";
 import { Card, EmptyRow, PageHeader, StatCard, Table } from "../../components/ui";
+import { NCF_LABELS, TIPO_COMPROBANTE_INGRESO } from "../../lib/ncf";
 
 interface Resumen {
   cantidad_facturas: number;
@@ -11,7 +12,7 @@ interface Resumen {
 }
 
 interface FacturaItbis {
-  numero: number;
+  numero: number | null;
   ncf: string;
   fecha: string;
   cliente_nombre: string;
@@ -33,10 +34,10 @@ export default function ReporteItbis() {
 
   return (
     <div>
-      <PageHeader title="Reporte de ITBIS" subtitle="ITBIS facturado (18%) sobre ventas, util para la declaracion mensual" />
+      <PageHeader title="Reporte de ITBIS" subtitle={`ITBIS facturado (18%) sobre ventas y ${NCF_LABELS[TIPO_COMPROBANTE_INGRESO]}, util para la declaracion mensual`} />
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Facturas emitidas" value={String(resumen?.cantidad_facturas ?? 0)} />
+        <StatCard label="Comprobantes emitidos" value={String(resumen?.cantidad_facturas ?? 0)} />
         <StatCard label="Subtotal gravado" value={formatMoney(resumen?.subtotal)} />
         <StatCard label="ITBIS a pagar" value={formatMoney(resumen?.itbis)} tone="amber" />
       </div>
