@@ -44,6 +44,10 @@ export const CANALES_CAJERO = new Set([
   "envases:saldos",
   "envases:movimientos",
   "envases:devolucion",
+  "fiados:saldos",
+  "fiados:movimientos",
+  "fiados:fiar",
+  "fiados:devolver",
 ]);
 
 export type Rol = "ADMIN" | "CAJERO";

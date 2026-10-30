@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard/Dashboard";
 import Caja from "./pages/Caja/Caja";
 import ListaClientes from "./pages/Clientes/ListaClientes";
 import DetalleCliente from "./pages/Clientes/DetalleCliente";
+import BotellasFiadas from "./pages/Clientes/BotellasFiadas";
 import ListaProductos from "./pages/Productos/ListaProductos";
 import ControlEnvases from "./pages/Productos/ControlEnvases";
 import ListaFacturas from "./pages/Facturacion/ListaFacturas";
@@ -60,6 +61,7 @@ const RUTAS_PUNTO_VENTA = [
   { path: "/cierre-caja", element: <CierreCaja /> },
   { path: "/clientes", element: <ListaClientes /> },
   { path: "/clientes/:id", element: <DetalleCliente /> },
+  { path: "/botellas-fiadas", element: <BotellasFiadas /> },
   { path: "/facturas/:id", element: <DetalleFactura /> },
 ];
 

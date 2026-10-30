@@ -109,7 +109,13 @@ const NAV_PUNTO_VENTA = [
       { to: "/cierre-caja", label: "Cierre de Caja" },
     ],
   },
-  { section: "Clientes", items: [{ to: "/clientes", label: "Clientes" }] },
+  {
+    section: "Clientes",
+    items: [
+      { to: "/clientes", label: "Clientes" },
+      { to: "/botellas-fiadas", label: "Botellas fiadas" },
+    ],
+  },
   { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
 ];
 

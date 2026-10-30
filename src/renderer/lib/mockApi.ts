@@ -2,7 +2,7 @@
 // cuando la app corre como pagina web normal (sin Electron), para poder revisar
 // visualmente las pantallas en el navegador integrado durante el desarrollo.
 // La app real siempre usa window.api expuesto por electron/preload.ts.
-import type {
+import type { BotellaFiadaInput, MovimientoBotellaFiada, SaldoBotellaFiada,
   AsientoConLineas,
   Autor,
   Caja,
@@ -203,6 +203,12 @@ export const mockApi = {
     ],
     movimientos: async (..._args: any[]) => [],
     devolucion: async (..._args: any[]) => { warn(); return true; },
+  },
+  fiados: {
+    saldos: async (): Promise<SaldoBotellaFiada[]> => [],
+    movimientos: async (_clienteId?: number | null): Promise<MovimientoBotellaFiada[]> => [],
+    fiar: async (_data: BotellaFiadaInput): Promise<number> => { warn(); throw new Error("No disponible en vista previa"); },
+    devolver: async (_data: BotellaFiadaInput): Promise<number> => { warn(); throw new Error("No disponible en vista previa"); },
   },
   reportes: {
     estadoResultados: async (..._args: any[]) => ({ ingresos: 185000, costos: 98000, utilidadBruta: 87000, gastos: 32000, utilidadNeta: 55000, detalle: [] }),

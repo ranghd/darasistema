@@ -821,3 +821,38 @@ export interface ResultadoImportacion {
   repetidos: number;
   conciliados: number;
 }
+
+/** Lo que debe un cliente de una botella fiada (fiadas - devueltas). */
+export interface SaldoBotellaFiada {
+  cliente_id: number;
+  cliente_nombre: string;
+  cliente_telefono: string | null;
+  producto_id: number;
+  producto_nombre: string;
+  fiadas: number;
+  devueltas: number;
+  pendientes: number;
+  ultima_fecha: string;
+}
+
+export interface MovimientoBotellaFiada {
+  id: number;
+  cliente_id: number;
+  cliente_nombre: string;
+  producto_id: number;
+  producto_nombre: string;
+  tipo: "FIADO" | "DEVOLUCION";
+  cantidad: number;
+  fecha: string;
+  nota: string | null;
+  creado_por: string | null;
+}
+
+export interface BotellaFiadaInput {
+  cliente_id: number;
+  producto_id: number;
+  cantidad: number;
+  fecha?: string;
+  nota?: string | null;
+  creado_por?: string | null;
+}

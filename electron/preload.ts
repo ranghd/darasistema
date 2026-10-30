@@ -106,6 +106,12 @@ const api = {
     movimientos: (clienteId?: number) => invoke("envases:movimientos", clienteId),
     devolucion: (data: any) => invoke("envases:devolucion", data),
   },
+  fiados: {
+    saldos: () => invoke("fiados:saldos"),
+    movimientos: (clienteId?: number | null) => invoke("fiados:movimientos", clienteId),
+    fiar: (data: any) => invoke("fiados:fiar", data),
+    devolver: (data: any) => invoke("fiados:devolver", data),
+  },
   reportes: {
     estadoResultados: (desde?: string, hasta?: string) => invoke("reportes:estadoResultados", desde, hasta),
     balanceGeneral: (hasta?: string) => invoke("reportes:balanceGeneral", hasta),

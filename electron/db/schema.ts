@@ -199,6 +199,21 @@ CREATE TABLE IF NOT EXISTS envase_movimientos (
   nota TEXT
 );
 
+-- Botellas fiadas: el cliente se lleva la botella sin dejar la suya ni pagar deposito, y la debe.
+-- Solo es un control (no mueve la contabilidad): FIADO suma lo que debe, DEVOLUCION lo resta.
+CREATE TABLE IF NOT EXISTS botellas_fiadas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cliente_id INTEGER NOT NULL REFERENCES clientes(id),
+  producto_id INTEGER NOT NULL REFERENCES productos(id),
+  tipo TEXT NOT NULL CHECK (tipo IN ('FIADO','DEVOLUCION')),
+  cantidad REAL NOT NULL CHECK (cantidad > 0),
+  fecha TEXT NOT NULL,
+  nota TEXT,
+  creado_por TEXT,
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS ix_botellas_fiadas_cliente ON botellas_fiadas(cliente_id, producto_id);
+
 CREATE TABLE IF NOT EXISTS cobros (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   factura_id INTEGER NOT NULL REFERENCES facturas(id),
