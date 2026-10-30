@@ -3,13 +3,16 @@
 //   caja        = Cajapunto1 (la caja del negocio de gas)
 //   colmado     = Darasistema Colmado (la oficina del colmado)
 //   cajacolmado = Cajapunto1 Colmado (la caja del colmado: factura rapida en tabla)
-//   puntoventa  = Punto de Venta Dara (solo vender y clientes; factura en hoja carta con firmas)
-export type Variante = "caja" | "full" | "colmado" | "cajacolmado" | "puntoventa";
+//   puntoventa  = Gas Damian (la caja: solo vender y clientes; factura en hoja carta con firmas)
+//   puntoventaadmin = Gas Damian Admin (el dueno: ventas, clientes, productos y precios, reportes de ventas y usuarios)
+export type Variante = "caja" | "full" | "colmado" | "cajacolmado" | "puntoventa" | "puntoventaadmin";
 export const APP_VARIANT: Variante = (import.meta.env.VITE_APP_VARIANT as Variante) || "full";
 // Es el programa de la caja (pantallas de cajero; la oficina queda en el otro programa).
 export const esVariantCaja = APP_VARIANT === "caja" || APP_VARIANT === "cajacolmado" || APP_VARIANT === "puntoventa";
-// Solo vender y clientes (Punto de Venta Dara).
-export const soloVentas = APP_VARIANT === "puntoventa";
+// Gas Damian: su logo, factura en hoja carta y botellas fiadas (la caja y el programa del dueno).
+export const soloVentas = APP_VARIANT === "puntoventa" || APP_VARIANT === "puntoventaadmin";
+// Gas Damian Admin: ademas de vender, productos y precios, reportes de ventas y usuarios (sin contabilidad).
+export const adminVentas = APP_VARIANT === "puntoventaadmin";
 // Es para un colmado (productos con grupo y codigo de barras, sin envases).
 export const esColmado = APP_VARIANT === "colmado" || APP_VARIANT === "cajacolmado";
 // Abre, opera y cierra la caja en esta computadora.
@@ -23,6 +26,7 @@ const EDICIONES = {
   colmado: { nombre: "Darasistema Colmado", lema: "Administracion del colmado" },
   cajacolmado: { nombre: "Cajapunto1 Colmado", lema: "Facturacion rapida" },
   puntoventa: { nombre: "Gas Damian", lema: "Oxigeno · Acetileno · Gas propano" },
+  puntoventaadmin: { nombre: "Gas Damian Admin", lema: "Oxigeno · Acetileno · Gas propano" },
 } as const;
 export const EDICION = EDICIONES[APP_VARIANT];
 

@@ -1,0 +1,27 @@
+appId: com.darasistema.puntoventaadmin
+productName: Gas Damian Admin
+publish:
+  provider: github
+  owner: ranghd
+  repo: darasistema
+  channel: puntoventaadmin
+  # Borrador: los clientes no lo ven hasta que release.js lo publica con los 4 programas completos.
+  releaseType: draft
+directories:
+  output: release
+files:
+  - dist/**
+  - dist-electron/**
+  - package.json
+  - node_modules/sql.js/dist/sql-wasm.wasm
+  - node_modules/sql.js/dist/sql-wasm.js
+  - node_modules/sql.js/package.json
+win:
+  target: nsis
+  icon: build/icon-puntoventaadmin.png
+nsis:
+  # Nombre fijo (sin version): asi el enlace .../releases/latest/download/Gas-Damian-Admin-Setup.exe
+  # siempre baja la ultima version.
+  artifactName: Gas-Damian-Admin-Setup.${ext}
+  oneClick: false
+  allowToChangeInstallationDirectory: true

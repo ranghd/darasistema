@@ -18,7 +18,7 @@ export async function getDb(): Promise<DB> {
   db.exec(SCHEMA_SQL);
   migrar(db);
   seedIfEmpty(db, APP_VARIANT === "colmado" || APP_VARIANT === "cajacolmado" ? "colmado" : "gas");
-  seedUsuarios(db, APP_VARIANT === "puntoventa");
+  seedUsuarios(db, APP_VARIANT === "puntoventa" || APP_VARIANT === "puntoventaadmin");
   db.persist();
 
   return db;

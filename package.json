@@ -19,6 +19,7 @@
     "dist:caja": "node scripts/set-variant.js caja && cross-env VITE_APP_VARIANT=caja npm run build && electron-builder --config electron-builder.caja.yml",
     "dist:cajacolmado": "node scripts/set-variant.js cajacolmado && cross-env VITE_APP_VARIANT=cajacolmado npm run build && electron-builder --config electron-builder.cajacolmado.yml",
     "dist:puntoventa": "node scripts/set-variant.js puntoventa && cross-env VITE_APP_VARIANT=puntoventa npm run build && electron-builder --config electron-builder.puntoventa.yml",
+    "dist:puntoventaadmin": "node scripts/set-variant.js puntoventaadmin && cross-env VITE_APP_VARIANT=puntoventaadmin npm run build && electron-builder --config electron-builder.puntoventaadmin.yml",
     "dist:colmado": "node scripts/set-variant.js colmado && cross-env VITE_APP_VARIANT=colmado npm run build && electron-builder --config electron-builder.colmado.yml",
     "push": "node scripts/push.js",
     "release": "node scripts/release.js",

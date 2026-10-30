@@ -20,7 +20,7 @@ export const NUBE_URL_POR_DEFECTO = "https://darasistema.ranghd732.workers.dev";
 // actualizacion automatica nunca "pierde" de vista los datos de quien ya la usa.
 function configPorDefecto(): ConfigRed {
   const base = { puerto: 4500, nubeUrl: NUBE_URL_POR_DEFECTO };
-  if (APP_VARIANT !== "caja" && APP_VARIANT !== "cajacolmado" && APP_VARIANT !== "puntoventa" && fs.existsSync(path.join(app.getPath("userData"), "darasistema.db"))) {
+  if (APP_VARIANT !== "caja" && APP_VARIANT !== "cajacolmado" && APP_VARIANT !== "puntoventa" && APP_VARIANT !== "puntoventaadmin" && fs.existsSync(path.join(app.getPath("userData"), "darasistema.db"))) {
     return { ...base, modo: "SERVIDOR" };
   }
   return { ...base, modo: "NUBE" };

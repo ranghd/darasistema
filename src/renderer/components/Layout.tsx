@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { isPreviewMode } from "../lib/api";
-import { EDICION, esColmado, esVariantCaja, manejaEnvases, operaCaja, soloVentas } from "../lib/variant";
+import { adminVentas, EDICION, esColmado, esVariantCaja, manejaEnvases, operaCaja, soloVentas } from "../lib/variant";
 import { useAuth } from "../lib/auth";
 import ConnectionBanner from "./ConnectionBanner";
 import Logo from "./Logo";
@@ -100,7 +100,7 @@ const NAV_CAJA = [
   { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
 ];
 
-// Punto de Venta Dara: solo vender (con su caja) y clientes.
+// Gas Damian: solo vender (con su caja) y clientes.
 const NAV_PUNTO_VENTA = [
   {
     section: "Ventas",
@@ -117,6 +117,35 @@ const NAV_PUNTO_VENTA = [
     ],
   },
   { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
+];
+
+// Gas Damian Admin: el programa del dueno.
+const NAV_ADMIN_VENTAS = [
+  {
+    section: "Ventas",
+    items: [
+      { to: "/caja", label: "Punto de venta" },
+      { to: "/facturas", label: "Facturas", end: true },
+      { to: "/cuentas-por-cobrar", label: "Cuentas por Cobrar" },
+      { to: "/cierres-caja", label: "Cierres de Caja" },
+    ],
+  },
+  {
+    section: "Clientes",
+    items: [
+      { to: "/clientes", label: "Clientes" },
+      { to: "/botellas-fiadas", label: "Botellas fiadas" },
+    ],
+  },
+  {
+    section: "Productos",
+    items: [
+      { to: "/productos", label: "Productos y precios" },
+      { to: "/envases", label: "Control de Envases" },
+    ],
+  },
+  { section: "Reportes", items: [{ to: "/reportes/ventas", label: "Reporte de Ventas" }] },
+  { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion y usuarios" }] },
 ];
 
 // Darasistema Colmado: un solo programa, con la caja primero.
@@ -181,7 +210,7 @@ export default function Layout() {
   const { usuario, logout } = useAuth();
 
   const mostrarCaja = esVariantCaja || usuario?.rol === "CAJERO";
-  const nav = (soloVentas ? NAV_PUNTO_VENTA : mostrarCaja ? NAV_CAJA : esColmado ? NAV_COLMADO : NAV_COMPLETO)
+  const nav = (adminVentas && usuario?.rol === "ADMIN" ? NAV_ADMIN_VENTAS : soloVentas ? NAV_PUNTO_VENTA : mostrarCaja ? NAV_CAJA : esColmado ? NAV_COLMADO : NAV_COMPLETO)
     .filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN")
     .map((g) => ({ ...g, items: g.items.filter((i) => manejaEnvases || i.to !== "/envases") }));
   const [paleta, setPaleta] = useState(false);

@@ -5,7 +5,7 @@ import { AuthProvider, useAuth } from "./lib/auth";
 import { CajaProvider } from "./lib/caja";
 import CierreCaja from "./pages/CierreCaja/CierreCaja";
 import CierresCaja from "./pages/CierreCaja/CierresCaja";
-import { esColmado, esVariantCaja, manejaEnvases, operaCaja, soloVentas } from "./lib/variant";
+import { adminVentas, esColmado, esVariantCaja, manejaEnvases, operaCaja, soloVentas } from "./lib/variant";
 import Layout from "./components/Layout";
 import Login from "./pages/Login/Login";
 import ConfigurarConexion from "./pages/Configuracion/ConfigurarConexion";
@@ -55,7 +55,7 @@ const RUTAS_COMUNES = [
   ...(manejaEnvases ? [{ path: "/envases", element: <ControlEnvases /> }] : []),
 ];
 
-// Punto de Venta Dara: vender, su caja y clientes (la factura se abre desde el cliente para reimprimir).
+// Gas Damian: vender, su caja y clientes (la factura se abre desde el cliente para reimprimir).
 const RUTAS_PUNTO_VENTA = [
   { path: "/caja", element: <Caja /> },
   { path: "/cierre-caja", element: <CierreCaja /> },
@@ -63,6 +63,17 @@ const RUTAS_PUNTO_VENTA = [
   { path: "/clientes/:id", element: <DetalleCliente /> },
   { path: "/botellas-fiadas", element: <BotellasFiadas /> },
   { path: "/facturas/:id", element: <DetalleFactura /> },
+];
+
+// Gas Damian Admin: lo que el dueno agrega a la caja (sin contabilidad, compras ni gastos).
+const RUTAS_ADMIN_VENTAS = [
+  { path: "/facturas", element: <ListaFacturas /> },
+  { path: "/cuentas-por-cobrar", element: <CuentasPorCobrar /> },
+  { path: "/cierres-caja", element: <CierresCaja /> },
+  { path: "/productos", element: <ListaProductos /> },
+  { path: "/envases", element: <ControlEnvases /> },
+  { path: "/reportes/ventas", element: <ReporteVentas /> },
+  { path: "/configuracion", element: <Configuracion /> },
 ];
 
 // Rutas adicionales solo para administradores (no cajeros, no la variante Caja).
@@ -96,8 +107,8 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
   const hijos = usuario
     ? [
         ...(soloVentas ? RUTAS_PUNTO_VENTA : RUTAS_COMUNES),
-        ...(restringido ? rutaConexionCaja : RUTAS_ADMIN_EXTRA),
-        { path: "*", element: <Navigate to={restringido || esColmado ? "/caja" : "/"} replace /> },
+        ...(adminVentas ? (restringido ? [] : RUTAS_ADMIN_VENTAS) : restringido ? rutaConexionCaja : RUTAS_ADMIN_EXTRA),
+        { path: "*", element: <Navigate to={restringido || esColmado || soloVentas ? "/caja" : "/"} replace /> },
       ]
     : [];
 
