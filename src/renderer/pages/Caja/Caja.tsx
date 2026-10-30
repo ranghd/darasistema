@@ -12,7 +12,8 @@ import type { Cliente, ModalidadLinea, Producto } from "../../lib/types";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Modal } from "../../components/ui";
-import { esColmado, manejaEnvases } from "../../lib/variant";
+import { esColmado, manejaEnvases, soloVentas } from "../../lib/variant";
+import { imprimirFacturaCarta } from "../../lib/facturaCarta";
 import TablaFactura from "./TablaFactura";
 import { leerBusqueda, sinAcentos } from "./buscar";
 
@@ -235,7 +236,7 @@ export default function Caja() {
       })) as any;
       setPagando(false);
       const cfg = await api.impresion.obtenerConfig().catch(() => null);
-      const auto = cfg?.formato === "TICKET" && cfg.imprimirAlCobrar;
+      const auto = !soloVentas && cfg?.formato === "TICKET" && cfg.imprimirAlCobrar;
       setVenta({
         id: factura.id,
         ncf: factura.ncf,
@@ -262,7 +263,8 @@ export default function Caja() {
   async function imprimirVenta() {
     if (!venta) return;
     setImprimiendo(true);
-    const aviso = await imprimirReciboFactura(venta.id);
+    // Punto de Venta Dara: factura en hoja carta con "Recibido por" y "Entregado por".
+    const aviso = soloVentas ? await imprimirFacturaCarta(venta.id) : await imprimirReciboFactura(venta.id);
     setVenta({ ...venta, aviso });
     setImprimiendo(false);
   }
@@ -816,7 +818,7 @@ export default function Caja() {
               </Button>
               {!venta.impresoSolo && (
                 <Button autoFocus onClick={imprimirVenta} disabled={imprimiendo}>
-                  {imprimiendo ? "Imprimiendo..." : "Imprimir recibo"} <Tecla>Enter</Tecla>
+                  {imprimiendo ? "Imprimiendo..." : soloVentas ? "Imprimir factura" : "Imprimir recibo"} <Tecla>Enter</Tecla>
                 </Button>
               )}
             </div>

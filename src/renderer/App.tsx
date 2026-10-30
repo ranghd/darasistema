@@ -5,7 +5,7 @@ import { AuthProvider, useAuth } from "./lib/auth";
 import { CajaProvider } from "./lib/caja";
 import CierreCaja from "./pages/CierreCaja/CierreCaja";
 import CierresCaja from "./pages/CierreCaja/CierresCaja";
-import { esColmado, esVariantCaja, manejaEnvases, operaCaja } from "./lib/variant";
+import { esColmado, esVariantCaja, manejaEnvases, operaCaja, soloVentas } from "./lib/variant";
 import Layout from "./components/Layout";
 import Login from "./pages/Login/Login";
 import ConfigurarConexion from "./pages/Configuracion/ConfigurarConexion";
@@ -54,6 +54,15 @@ const RUTAS_COMUNES = [
   ...(manejaEnvases ? [{ path: "/envases", element: <ControlEnvases /> }] : []),
 ];
 
+// Punto de Venta Dara: vender, su caja y clientes (la factura se abre desde el cliente para reimprimir).
+const RUTAS_PUNTO_VENTA = [
+  { path: "/caja", element: <Caja /> },
+  { path: "/cierre-caja", element: <CierreCaja /> },
+  { path: "/clientes", element: <ListaClientes /> },
+  { path: "/clientes/:id", element: <DetalleCliente /> },
+  { path: "/facturas/:id", element: <DetalleFactura /> },
+];
+
 // Rutas adicionales solo para administradores (no cajeros, no la variante Caja).
 const RUTAS_ADMIN_EXTRA = [
   { path: "/compras", element: <Compras /> },
@@ -84,7 +93,7 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
 
   const hijos = usuario
     ? [
-        ...RUTAS_COMUNES,
+        ...(soloVentas ? RUTAS_PUNTO_VENTA : RUTAS_COMUNES),
         ...(restringido ? rutaConexionCaja : RUTAS_ADMIN_EXTRA),
         { path: "*", element: <Navigate to={restringido || esColmado ? "/caja" : "/"} replace /> },
       ]
@@ -95,7 +104,7 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
   // En el colmado se entra directo al punto de venta.
   const navegar = useNavigate();
   useEffect(() => {
-    if (usuario && esColmado && (location.hash === "" || location.hash === "#/")) navegar("/caja", { replace: true });
+    if (usuario && (esColmado || soloVentas) && (location.hash === "" || location.hash === "#/")) navegar("/caja", { replace: true });
   }, [usuario?.id]);
 
   if (!usuario) return <Login modoNube={modoNube} />;

@@ -3,10 +3,13 @@
 //   caja        = Cajapunto1 (la caja del negocio de gas)
 //   colmado     = Darasistema Colmado (la oficina del colmado)
 //   cajacolmado = Cajapunto1 Colmado (la caja del colmado: factura rapida en tabla)
-export type Variante = "caja" | "full" | "colmado" | "cajacolmado";
+//   puntoventa  = Punto de Venta Dara (solo vender y clientes; factura en hoja carta con firmas)
+export type Variante = "caja" | "full" | "colmado" | "cajacolmado" | "puntoventa";
 export const APP_VARIANT: Variante = (import.meta.env.VITE_APP_VARIANT as Variante) || "full";
 // Es el programa de la caja (pantallas de cajero; la oficina queda en el otro programa).
-export const esVariantCaja = APP_VARIANT === "caja" || APP_VARIANT === "cajacolmado";
+export const esVariantCaja = APP_VARIANT === "caja" || APP_VARIANT === "cajacolmado" || APP_VARIANT === "puntoventa";
+// Solo vender y clientes (Punto de Venta Dara).
+export const soloVentas = APP_VARIANT === "puntoventa";
 // Es para un colmado (productos con grupo y codigo de barras, sin envases).
 export const esColmado = APP_VARIANT === "colmado" || APP_VARIANT === "cajacolmado";
 // Abre, opera y cierra la caja en esta computadora.
@@ -19,6 +22,7 @@ const EDICIONES = {
   caja: { nombre: "Cajapunto1", lema: "Gas · Oxigeno · Agua" },
   colmado: { nombre: "Darasistema Colmado", lema: "Administracion del colmado" },
   cajacolmado: { nombre: "Cajapunto1 Colmado", lema: "Facturacion rapida" },
+  puntoventa: { nombre: "Punto de Venta Dara", lema: "Oxigeno y productos relacionados" },
 } as const;
 export const EDICION = EDICIONES[APP_VARIANT];
 

@@ -1,3 +1,5 @@
+import { soloVentas } from "../../lib/variant";
+import { imprimirFacturaCarta } from "../../lib/facturaCarta";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
@@ -77,6 +79,7 @@ export default function DetalleFactura() {
   const saldo = factura.total - cobrado;
 
   async function imprimir() {
+    if (soloVentas) return imprimirFacturaCarta(factura!.id);
     if (formatoImpresion === "CARTA") return window.print();
     setImprimiendo(true);
     setAvisoImpresion(null);
@@ -197,7 +200,7 @@ export default function DetalleFactura() {
         actions={
           <div className="flex gap-2 print:hidden">
             <Button variant="secondary" onClick={imprimir} disabled={imprimiendo}>
-              {imprimiendo ? "Imprimiendo..." : formatoImpresion === "TICKET" ? "Imprimir recibo" : "Imprimir"}
+              {imprimiendo ? "Imprimiendo..." : soloVentas ? "Imprimir factura" : formatoImpresion === "TICKET" ? "Imprimir recibo" : "Imprimir"}
             </Button>
             {formatoImpresion === "TICKET" && (
               <Button variant="ghost" onClick={() => window.print()} title="Imprimir en hoja carta con el dialogo de Windows">

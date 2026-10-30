@@ -19,6 +19,7 @@ const variantes = [
   { nombre: 'caja', config: 'electron-builder.caja.yml' },
   { nombre: 'colmado', config: 'electron-builder.colmado.yml' },
   { nombre: 'cajacolmado', config: 'electron-builder.cajacolmado.yml' },
+  { nombre: 'puntoventa', config: 'electron-builder.puntoventa.yml' },
 ];
 
 for (const v of variantes) {
@@ -33,4 +34,4 @@ for (const v of variantes) {
 const version = require('../package.json').version;
 run(`gh release edit v${version} --draft=false --latest`);
 
-console.log('\nListo. Las cuatro apps publicadas en GitHub Releases.');
+console.log('\nListo. Las cinco apps publicadas en GitHub Releases.');

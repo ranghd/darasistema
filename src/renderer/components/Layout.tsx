@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { isPreviewMode } from "../lib/api";
-import { EDICION, esColmado, esVariantCaja, manejaEnvases, operaCaja } from "../lib/variant";
+import { EDICION, esColmado, esVariantCaja, manejaEnvases, operaCaja, soloVentas } from "../lib/variant";
 import { useAuth } from "../lib/auth";
 import ConnectionBanner from "./ConnectionBanner";
 import Logo from "./Logo";
@@ -100,6 +100,19 @@ const NAV_CAJA = [
   { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
 ];
 
+// Punto de Venta Dara: solo vender (con su caja) y clientes.
+const NAV_PUNTO_VENTA = [
+  {
+    section: "Ventas",
+    items: [
+      { to: "/caja", label: "Punto de venta" },
+      { to: "/cierre-caja", label: "Cierre de Caja" },
+    ],
+  },
+  { section: "Clientes", items: [{ to: "/clientes", label: "Clientes" }] },
+  { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
+];
+
 // Darasistema Colmado: un solo programa, con la caja primero.
 const NAV_COLMADO = [
   { section: "General", items: [{ to: "/", label: "Panel Principal", end: true }] },
@@ -162,7 +175,7 @@ export default function Layout() {
   const { usuario, logout } = useAuth();
 
   const mostrarCaja = esVariantCaja || usuario?.rol === "CAJERO";
-  const nav = (mostrarCaja ? NAV_CAJA : esColmado ? NAV_COLMADO : NAV_COMPLETO)
+  const nav = (soloVentas ? NAV_PUNTO_VENTA : mostrarCaja ? NAV_CAJA : esColmado ? NAV_COLMADO : NAV_COMPLETO)
     .filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN")
     .map((g) => ({ ...g, items: g.items.filter((i) => manejaEnvases || i.to !== "/envases") }));
   const [paleta, setPaleta] = useState(false);
