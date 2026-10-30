@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { EDICION } from "../../lib/variant";
+import { EDICION, soloVentas } from "../../lib/variant";
 import { Button, Input } from "../../components/ui";
 import { api } from "../../lib/api";
 import Logo from "../../components/Logo";
@@ -56,7 +56,7 @@ export default function Login({ modoNube = false }: { modoNube?: boolean }) {
     <div className="flex h-screen w-screen items-center justify-center bg-slate-100">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
-          <Logo size={44} />
+          <Logo size={soloVentas ? 72 : 44} />
           <div>
             <p className="text-lg font-semibold text-slate-900">{EDICION.nombre}</p>
             <p className="text-xs text-slate-400">{EDICION.lema}</p>

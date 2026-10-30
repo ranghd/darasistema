@@ -241,12 +241,18 @@ export function seedDemoColmado(db: DB) {
 // Crea los usuarios por defecto si aun no existen. Se ejecuta en cada arranque
 // (no solo cuando la base esta vacia) para que cualquier instalacion o
 // actualizacion tenga siempre estas cuentas disponibles.
-export function seedUsuarios(db: DB) {
-  const usuariosPorDefecto = [
-    { usuario: "admin", nombre: "Administrador", password: "admin", rol: "ADMIN" },
-    { usuario: "dara", nombre: "Darasistema", password: "123", rol: "ADMIN" },
-    { usuario: "venta", nombre: "Caja / Venta", password: "123", rol: "CAJERO" },
-  ] as const;
+export function seedUsuarios(db: DB, soloVentas = false) {
+  // Gas Damian (Punto de Venta) solo usa admin para el dueno y caja para quien vende
+  const usuariosPorDefecto = soloVentas
+    ? ([
+        { usuario: "admin", nombre: "Administrador", password: "admin", rol: "ADMIN" },
+        { usuario: "caja", nombre: "Caja", password: "123", rol: "CAJERO" },
+      ] as const)
+    : ([
+        { usuario: "admin", nombre: "Administrador", password: "admin", rol: "ADMIN" },
+        { usuario: "dara", nombre: "Darasistema", password: "123", rol: "ADMIN" },
+        { usuario: "venta", nombre: "Caja / Venta", password: "123", rol: "CAJERO" },
+      ] as const);
 
   const existe = db.prepare(`SELECT id FROM usuarios WHERE usuario = ?`);
   const insert = db.prepare(

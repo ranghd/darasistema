@@ -3,7 +3,7 @@ const path = require("path");
 
 // full = Darasistema (oficina, gas) · caja = Cajapunto1 · colmado = Darasistema Colmado (oficina del colmado)
 // cajacolmado = Cajapunto1 Colmado (la caja del colmado, factura en tabla)
-// puntoventa = Punto de Venta Dara (solo vender y clientes, con apertura y cierre de caja)
+// puntoventa = Gas Damian (solo vender y clientes, con apertura y cierre de caja)
 const VARIANTES = ["full", "caja", "colmado", "cajacolmado", "puntoventa"];
 const variant = VARIANTES.includes(process.argv[2]) ? process.argv[2] : "full";
 const target = path.join(__dirname, "..", "electron", "variant.generated.ts");

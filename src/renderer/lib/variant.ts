@@ -22,7 +22,7 @@ const EDICIONES = {
   caja: { nombre: "Cajapunto1", lema: "Gas · Oxigeno · Agua" },
   colmado: { nombre: "Darasistema Colmado", lema: "Administracion del colmado" },
   cajacolmado: { nombre: "Cajapunto1 Colmado", lema: "Facturacion rapida" },
-  puntoventa: { nombre: "Punto de Venta Dara", lema: "Oxigeno y productos relacionados" },
+  puntoventa: { nombre: "Gas Damian", lema: "Oxigeno · Acetileno · Gas propano" },
 } as const;
 export const EDICION = EDICIONES[APP_VARIANT];
 

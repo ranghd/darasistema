@@ -27,7 +27,7 @@ import { APP_VARIANT } from "./variant.generated";
 
 const isDev = process.env.NODE_ENV === "development";
 
-const NOMBRES = { full: "Darasistema", caja: "Cajapunto1", colmado: "Darasistema Colmado", cajacolmado: "Cajapunto1 Colmado", puntoventa: "Punto de Venta Dara" } as const;
+const NOMBRES = { full: "Darasistema", caja: "Cajapunto1", colmado: "Darasistema Colmado", cajacolmado: "Cajapunto1 Colmado", puntoventa: "Gas Damian" } as const;
 app.setName(NOMBRES[APP_VARIANT]);
 
 async function registerAllIpc() {

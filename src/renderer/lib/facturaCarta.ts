@@ -1,4 +1,4 @@
-// Factura en hoja carta (Punto de Venta Dara): ITBIS de cada producto y, al final,
+// Factura en hoja carta (Gas Damian): ITBIS de cada producto y, al final,
 // "Entregado por" y "Recibido por" con espacio para la firma y la cedula de quien recibe.
 import { api, mensajeDeError } from "./api";
 import { html } from "./exportar";
@@ -6,6 +6,7 @@ import { formatDate, formatMoney } from "./format";
 import { NCF_LABELS } from "./ncf";
 import type { Cliente, CompanyConfig, FacturaDetalle, TipoNcf } from "./types";
 import type { AvisoImpresion } from "./ticket";
+import logo from "../assets/gas-damian.png?inline";
 
 const METODOS: Record<string, string> = { EFECTIVO: "Efectivo", TRANSFERENCIA: "Transferencia", TARJETA: "Tarjeta", CHEQUE: "Cheque" };
 
@@ -33,6 +34,8 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
     body { margin: 0; font-family: Arial, "Segoe UI", sans-serif; font-size: 12px; color: #111; }
     .cab { display: flex; justify-content: space-between; gap: 20px; border-bottom: 2px solid #111; padding-bottom: 10px; }
     .empresa { font-size: 20px; font-weight: 700; }
+    .marca { display: flex; gap: 12px; align-items: center; }
+    .marca img { width: 78px; height: 78px; }
     .gris { color: #555; }
     .doc { text-align: right; }
     .doc .tit { font-size: 15px; font-weight: 700; text-transform: uppercase; }
@@ -55,12 +58,12 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
     .anulada { margin-top: 10px; text-align: center; font-size: 18px; font-weight: 700; color: #b00; }
   </style></head><body>
     <div class="cab">
-      <div>
+      <div class="marca"><img src="${logo}" alt=""><div>
         <div class="empresa">${html(empresa?.nombre_empresa ?? "")}</div>
         ${empresa?.rnc ? `<div>RNC: ${html(empresa.rnc)}</div>` : ""}
         ${empresa?.direccion ? `<div class="gris">${html(empresa.direccion)}</div>` : ""}
         ${empresa?.telefono ? `<div class="gris">Tel: ${html(empresa.telefono)}</div>` : ""}
-      </div>
+      </div></div>
       <div class="doc">
         <div class="tit">${html(titulo)}</div>
         <div class="ncf">NCF: ${html(f.ncf ?? "-")}</div>

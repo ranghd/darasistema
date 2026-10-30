@@ -1,17 +1,13 @@
 import { APP_VARIANT, EDICION, esColmado, soloVentas } from "../lib/variant";
+import logoGasDamian from "../assets/gas-damian.png?inline";
 
 // Logo de la app (monograma). Los mismos dibujos estan en build/logos/*.svg para los iconos del instalador.
 export default function Logo({ size = 36, className = "" }: { size?: number; className?: string }) {
+  // Gas Damian usa su propio logo
+  if (soloVentas) return <img src={logoGasDamian} width={size} height={size} alt={EDICION.nombre} className={`shrink-0 rounded-full bg-white ${className}`} />;
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" className={`shrink-0 ${className}`} role="img" aria-label={EDICION.nombre}>
-      <rect width="100" height="100" rx="22" fill={esColmado ? "#0E5E3B" : soloVentas ? "#1f3a5f" : "#042C53"} />
-      {soloVentas && (
-        <>
-          {/* la D de DARA con su aro dorado */}
-          <circle cx="50" cy="50" r="36" fill="none" stroke="#c9a24b" strokeWidth="3" />
-          <path d="M37 30 V70 H47 A20 20 0 0 0 47 30 Z M43 36 H47 A14 14 0 0 1 47 64 H43 Z" fill="#f4ecd8" fillRule="evenodd" />
-        </>
-      )}
+      <rect width="100" height="100" rx="22" fill={esColmado ? "#0E5E3B" : "#042C53"} />
       {(APP_VARIANT === "caja" || APP_VARIANT === "cajacolmado") && (
         <>
           <path d="M68 32 A24 24 0 1 0 68 68" fill="none" stroke="#ffffff" strokeWidth="13" strokeLinecap="round" />
