@@ -100,7 +100,7 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
         <div class="campo">Cedula:</div>
       </div>
     </div>
-    <div class="pie">Gracias por su compra</div>
+    <div class="pie">Gracias por su compra · El mejor gas de Santo Domingo · www.gasdamian.com</div>
   </body></html>`;
 }
 

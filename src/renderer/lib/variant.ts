@@ -29,6 +29,8 @@ const EDICIONES = {
   puntoventaadmin: { nombre: "Gas Damian Admin", lema: "Oxigeno · Acetileno · Gas propano" },
 } as const;
 export const EDICION = EDICIONES[APP_VARIANT];
+// Codigo de empresa en la nube que ya trae escrito el inicio de sesion de Gas Damian.
+export const EMPRESA_POR_DEFECTO = soloVentas ? "gas-damian" : "";
 
 // Grupos que se sugieren al crear productos en un colmado.
 export const GRUPOS_COLMADO = ["Viveres", "Bebidas", "Lacteos", "Embutidos", "Carnes", "Panaderia", "Limpieza", "Higiene personal", "Picaderas", "Licores", "Frutas y vegetales", "Otros"];

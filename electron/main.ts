@@ -95,8 +95,32 @@ async function registerAllIpc() {
   });
 }
 
-function createWindow() {
+// Pantalla de carga con el logo (solo Gas Damian) mientras arranca el programa.
+const CON_PANTALLA_DE_CARGA = APP_VARIANT === "puntoventa" || APP_VARIANT === "puntoventaadmin";
+
+function mostrarPantallaDeCarga(): BrowserWindow {
+  const splash = new BrowserWindow({
+    width: 460,
+    height: 370,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    center: true,
+    webPreferences: { sandbox: true },
+  });
+  const query = { nombre: NOMBRES[APP_VARIANT], version: app.getVersion() };
+  if (isDev) splash.loadURL(`http://localhost:5173/splash.html?${new URLSearchParams(query)}`);
+  else splash.loadFile(path.join(__dirname, "../dist/splash.html"), { query });
+  return splash;
+}
+
+function createWindow(splash?: BrowserWindow | null) {
+  const desde = Date.now();
   const win = new BrowserWindow({
+    show: !splash,
     width: 1360,
     height: 860,
     minWidth: 1024,
@@ -117,11 +141,25 @@ function createWindow() {
   } else {
     win.loadFile(path.join(__dirname, "../dist/index.html"));
   }
+
+  if (splash) {
+    let listo = false;
+    const cambiar = () => {
+      if (listo) return;
+      listo = true;
+      win.show();
+      if (!splash.isDestroyed()) splash.destroy();
+    };
+    // el logo se ve al menos 2 segundos; si algo tarda demasiado, se abre igual
+    win.once("ready-to-show", () => setTimeout(cambiar, Math.max(0, 2000 - (Date.now() - desde))));
+    setTimeout(cambiar, 15000);
+  }
 }
 
 app.whenReady().then(async () => {
+  const splash = CON_PANTALLA_DE_CARGA ? mostrarPantallaDeCarga() : null;
   await registerAllIpc();
-  createWindow();
+  createWindow(splash);
   configurarAutoUpdate();
 
   app.on("activate", () => {

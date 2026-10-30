@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { EDICION, soloVentas } from "../../lib/variant";
+import { EDICION, EMPRESA_POR_DEFECTO, soloVentas } from "../../lib/variant";
 import { Button, Input } from "../../components/ui";
 import { api } from "../../lib/api";
 import Logo from "../../components/Logo";
@@ -9,9 +9,9 @@ const CLAVE_EMPRESA = "darasistema.codigoEmpresa";
 
 function empresaRecordada(): string {
   try {
-    return localStorage.getItem(CLAVE_EMPRESA) ?? "";
+    return localStorage.getItem(CLAVE_EMPRESA) ?? EMPRESA_POR_DEFECTO;
   } catch {
-    return "";
+    return EMPRESA_POR_DEFECTO;
   }
 }
 
@@ -53,17 +53,26 @@ export default function Login({ modoNube = false }: { modoNube?: boolean }) {
   }
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-slate-100">
+    <div className="relative flex h-screen w-screen items-center justify-center bg-slate-100">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="mb-6 flex items-center gap-3">
-          <Logo size={soloVentas ? 72 : 44} />
-          <div>
-            <p className="text-lg font-semibold text-slate-900">{EDICION.nombre}</p>
+        {soloVentas ? (
+          // Gas Damian: su logo arriba y centrado
+          <div className="mb-6 flex flex-col items-center text-center">
+            <Logo size={96} className="shadow-sm ring-1 ring-slate-200" />
+            <p className="mt-3 text-xl font-semibold text-slate-900">{EDICION.nombre}</p>
             <p className="text-xs text-slate-400">{EDICION.lema}</p>
           </div>
-        </div>
+        ) : (
+          <div className="mb-6 flex items-center gap-3">
+            <Logo size={44} />
+            <div>
+              <p className="text-lg font-semibold text-slate-900">{EDICION.nombre}</p>
+              <p className="text-xs text-slate-400">{EDICION.lema}</p>
+            </div>
+          </div>
+        )}
 
-        <h1 className="mb-5 text-sm text-slate-500">Inicia sesion para continuar</h1>
+        <h1 className={`mb-5 text-sm text-slate-500 ${soloVentas ? "text-center" : ""}`}>Inicia sesion para continuar</h1>
 
         {aviso && <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{aviso}</p>}
 
@@ -111,6 +120,7 @@ export default function Login({ modoNube = false }: { modoNube?: boolean }) {
 
         {modoNube && <p className="mt-4 text-center text-[11px] text-slate-400">Conectado a la nube · tus datos estan disponibles desde cualquier computadora</p>}
       </div>
+      {soloVentas && <p className="absolute bottom-4 text-[11px] text-slate-400">Sistema DARA</p>}
     </div>
   );
 }

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cargando</title>
+    <!-- Pantalla de carga de Gas Damian: la abre electron/main.ts mientras arranca el programa.
+         Mismos colores que el resto del sistema (blanco, grises slate y el azul de la marca). -->
+    <style>
+      * { box-sizing: border-box; margin: 0; }
+      html, body { height: 100%; background: transparent; overflow: hidden; font-family: "Segoe UI", Arial, sans-serif; -webkit-user-select: none; user-select: none; }
+      body { padding: 16px; }
+      .tarjeta {
+        position: relative; height: 100%; border-radius: 18px; overflow: hidden;
+        background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+        display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        animation: entrar 0.4s ease-out both;
+      }
+      .logo { width: 116px; height: 116px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px #e2e8f0, 0 6px 18px rgba(15, 23, 42, 0.1); overflow: hidden; }
+      .logo img { width: 100%; height: 100%; display: block; }
+      h1 { margin-top: 20px; font-size: 24px; font-weight: 600; color: #0f172a; }
+      .lema { margin-top: 3px; font-size: 12px; color: #94a3b8; }
+      .barra { position: relative; margin-top: 26px; width: 200px; height: 3px; border-radius: 99px; background: #e2e8f0; overflow: hidden; }
+      .barra span { position: absolute; top: 0; bottom: 0; width: 40%; border-radius: 99px; background: #1a6ff5; animation: cargar 1.2s ease-in-out infinite; }
+      .estado { margin-top: 10px; font-size: 11px; color: #94a3b8; }
+      .pie { position: absolute; left: 0; right: 0; bottom: 0; padding: 9px; font-size: 10px; color: #94a3b8; border-top: 1px solid #f1f5f9; background: #f8fafc; }
+      @keyframes entrar { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+      @keyframes cargar { from { left: -40%; } to { left: 100%; } }
+    </style>
+  </head>
+  <body>
+    <div class="tarjeta">
+      <div class="logo"><img src="gas-damian.png" alt="" /></div>
+      <h1 id="nombre">Gas Damian</h1>
+      <p class="lema">Oxigeno · Acetileno · Gas propano</p>
+      <div class="barra"><span></span></div>
+      <p class="estado">Cargando...</p>
+      <p class="pie" id="pie">Sistema DARA</p>
+    </div>
+    <script>
+      const q = new URLSearchParams(location.search);
+      if (q.get("nombre")) document.getElementById("nombre").textContent = q.get("nombre");
+      if (q.get("version")) document.getElementById("pie").textContent += " · version " + q.get("version");
+    </script>
+  </body>
+</html>
