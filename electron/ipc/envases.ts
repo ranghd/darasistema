@@ -43,7 +43,7 @@ function guardarBotella(db: DB, tipo: "FIADO" | "DEVOLUCION", input: BotellaFiad
 }
 
 export function registerEnvasesIpc(db: DB) {
-  // ---------- Botellas fiadas ----------
+  // ---------- Botellas prestadas (por dentro: fiados) ----------
 
   ipcMain.handle("fiados:saldos", (): SaldoBotellaFiada[] => {
     return db
@@ -80,7 +80,7 @@ export function registerEnvasesIpc(db: DB) {
   ipcMain.handle("fiados:devolver", (_e, input: BotellaFiadaInput) => {
     const cantidad = validarBotella(db, input);
     const debe = pendientesDe(db, input.cliente_id, input.producto_id);
-    if (cantidad > debe + 0.0001) throw new Error(debe > 0 ? `El cliente solo debe ${debe} de esa botella` : "El cliente no debe ninguna de esa botella");
+    if (cantidad > debe + 0.0001) throw new Error(debe > 0 ? `El cliente solo tiene ${debe} de esa botella prestada${debe === 1 ? "" : "s"}` : "El cliente no tiene ninguna de esa botella prestada");
     guardarBotella(db, "DEVOLUCION", input, cantidad);
     return pendientesDe(db, input.cliente_id, input.producto_id);
   });

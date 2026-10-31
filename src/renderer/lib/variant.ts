@@ -4,12 +4,12 @@
 //   colmado     = Darasistema Colmado (la oficina del colmado)
 //   cajacolmado = Cajapunto1 Colmado (la caja del colmado: factura rapida en tabla)
 //   puntoventa  = Gas Damian (la caja: solo vender y clientes; factura en hoja carta con firmas)
-//   puntoventaadmin = Gas Damian Admin (el dueno: todo lo de Darasistema con su logo, factura en hoja carta y botellas fiadas)
+//   puntoventaadmin = Gas Damian Admin (el dueno: todo lo de Darasistema con su logo, factura en hoja carta y botellas prestadas)
 export type Variante = "caja" | "full" | "colmado" | "cajacolmado" | "puntoventa" | "puntoventaadmin";
 export const APP_VARIANT: Variante = (import.meta.env.VITE_APP_VARIANT as Variante) || "full";
 // Es el programa de la caja (pantallas de cajero; la oficina queda en el otro programa).
 export const esVariantCaja = APP_VARIANT === "caja" || APP_VARIANT === "cajacolmado" || APP_VARIANT === "puntoventa";
-// Gas Damian: su logo, factura en hoja carta y botellas fiadas (la caja y el programa del dueno).
+// Gas Damian: su logo, factura en hoja carta y botellas prestadas (la caja y el programa del dueno).
 export const soloVentas = APP_VARIANT === "puntoventa" || APP_VARIANT === "puntoventaadmin";
 // Gas Damian Admin: todo lo de Darasistema, con lo propio de Gas Damian.
 export const adminVentas = APP_VARIANT === "puntoventaadmin";

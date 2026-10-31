@@ -5,8 +5,8 @@ import { formatDate, todayIso } from "../../lib/format";
 import type { Cliente, MovimientoBotellaFiada, Producto, SaldoBotellaFiada } from "../../lib/types";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 
-// Botellas fiadas: el cliente se lleva la botella sin dejar la suya ni pagar deposito, y queda debiendola.
-// Aqui se anota lo que se fia y, cuando la trae, lo que devolvio.
+// Botellas prestadas: el negocio le presta la botella al cliente, que la tiene que devolver (no es una deuda ni un credito).
+// Aqui se anota lo que se presta y, cuando la trae, lo que devolvio. Por dentro se sigue llamando "fiados".
 
 type Formulario = { tipo: "FIADO" | "DEVOLUCION"; cliente: number | ""; producto: number | ""; cantidad: string; fecha: string; nota: string };
 
@@ -74,14 +74,14 @@ export default function BotellasFiadas() {
   return (
     <div>
       <PageHeader
-        title="Botellas fiadas"
-        subtitle="Las botellas que los clientes se llevaron sin dejar la suya y deben devolver"
+        title="Botellas prestadas"
+        subtitle="Las botellas que se le prestan a los clientes y que luego deben devolver"
         actions={
           <>
             <Button variant="secondary" onClick={() => abrir(nuevo("DEVOLUCION"))}>
               Registrar devolucion
             </Button>
-            <Button onClick={() => abrir(nuevo("FIADO"))}>+ Fiar botellas</Button>
+            <Button onClick={() => abrir(nuevo("FIADO"))}>+ Prestar botellas</Button>
           </>
         }
       />
@@ -92,7 +92,7 @@ export default function BotellasFiadas() {
           <p className="mt-1 text-2xl font-semibold text-amber-600">{totalPendientes}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Clientes que deben botellas</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Clientes con botellas prestadas</p>
           <p className="mt-1 text-2xl font-semibold">{clientesQueDeben}</p>
         </Card>
         <Card className="p-4">
@@ -113,8 +113,8 @@ export default function BotellasFiadas() {
         </label>
       </div>
 
-      <Table columns={["Cliente", "Botella", "Fiadas", "Devueltas", "Debe", "Ultimo movimiento", ""]}>
-        {visibles.length === 0 && <EmptyRow colSpan={7} label={saldos.length ? "Nadie debe botellas" : "Todavia no se ha fiado ninguna botella"} />}
+      <Table columns={["Cliente", "Botella", "Prestadas", "Devueltas", "Por devolver", "Ultimo movimiento", ""]}>
+        {visibles.length === 0 && <EmptyRow colSpan={7} label={saldos.length ? "No hay botellas prestadas por devolver" : "Todavia no se ha prestado ninguna botella"} />}
         {visibles.map((s) => (
           <tr key={`${s.cliente_id}-${s.producto_id}`}>
             <td className="px-4 py-2">
@@ -133,7 +133,7 @@ export default function BotellasFiadas() {
                 </Button>
               )}
               <button className="ml-2 text-xs font-medium text-brand-600 hover:underline" onClick={() => abrir(nuevo("FIADO", s.cliente_id, s.producto_id))}>
-                Fiar mas
+                Prestar mas
               </button>
             </td>
           </tr>
@@ -150,7 +150,7 @@ export default function BotellasFiadas() {
               <td className="px-4 py-2 text-slate-500">{formatDate(m.fecha)}</td>
               <td className="px-4 py-2">{m.cliente_nombre}</td>
               <td className="px-4 py-2">{m.producto_nombre}</td>
-              <td className="px-4 py-2">{m.tipo === "FIADO" ? <Badge tone="amber">Fiada</Badge> : <Badge tone="green">Devuelta</Badge>}</td>
+              <td className="px-4 py-2">{m.tipo === "FIADO" ? <Badge tone="amber">Prestada</Badge> : <Badge tone="green">Devuelta</Badge>}</td>
               <td className="px-4 py-2 text-center">{m.cantidad}</td>
               <td className="px-4 py-2 text-slate-500">{m.nota ?? ""}</td>
               <td className="px-4 py-2 text-slate-500">{m.creado_por ?? ""}</td>
@@ -158,7 +158,7 @@ export default function BotellasFiadas() {
           ))}
       </Table>
 
-      <Modal open={!!form} onClose={() => setForm(null)} title={form?.tipo === "FIADO" ? "Fiar botellas" : "Devolucion de botellas fiadas"}>
+      <Modal open={!!form} onClose={() => setForm(null)} title={form?.tipo === "FIADO" ? "Prestar botellas" : "Devolucion de botellas prestadas"}>
         {form && (
           <form onSubmit={guardar} className="space-y-3">
             <Select label="Cliente" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value ? Number(e.target.value) : "" })} autoFocus>
@@ -180,12 +180,12 @@ export default function BotellasFiadas() {
             </Select>
             {form.cliente && form.producto ? (
               <p className={`rounded-lg px-3 py-2 text-sm ${debe > 0 ? "bg-amber-50 text-amber-800" : "bg-slate-50 text-slate-600"}`}>
-                {debe > 0 ? `Este cliente debe ${debe} de esta botella.` : "Este cliente no debe ninguna de esta botella."}
+                {debe > 0 ? `Este cliente tiene ${debe} de esta botella prestada${debe === 1 ? "" : "s"}.` : "Este cliente no tiene ninguna de esta botella prestada."}
               </p>
             ) : null}
             <div className="grid grid-cols-2 gap-3">
               <Input
-                label={form.tipo === "FIADO" ? "Cantidad que se fia" : "Cantidad que devolvio"}
+                label={form.tipo === "FIADO" ? "Cantidad que se presta" : "Cantidad que devolvio"}
                 type="number"
                 min={1}
                 step="1"
@@ -202,7 +202,7 @@ export default function BotellasFiadas() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={guardando}>
-                {guardando ? "Guardando..." : form.tipo === "FIADO" ? "Fiar" : "Registrar devolucion"}
+                {guardando ? "Guardando..." : form.tipo === "FIADO" ? "Prestar" : "Registrar devolucion"}
               </Button>
             </div>
           </form>
