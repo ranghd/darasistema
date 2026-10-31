@@ -179,7 +179,7 @@ export class Empresa extends DurableObject {
   vaciar(): Record<string, number> {
     // Primero los detalles y despues lo principal, para respetar las relaciones entre tablas.
     const tablas = [
-      "factura_lineas", "cobros", "recibos_cobro", "envase_movimientos", "envases_cliente", "caja_movimientos", "caja_correcciones",
+      "factura_lineas", "cobros", "recibos_cobro", "envase_movimientos", "envases_cliente", "botellas_fiadas", "caja_movimientos", "caja_correcciones",
       "pagos_compra", "compra_lineas", "producto_proveedor", "comprobantes_varios", "pagos_gasto", "gastos", "banco_movimientos",
       "facturas", "compras", "caja_sesiones", "cajas",
       "asiento_lineas", "asientos",
