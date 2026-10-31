@@ -100,25 +100,6 @@ const NAV_CAJA = [
   { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
 ];
 
-// Gas Damian: solo vender (con su caja) y clientes.
-const NAV_PUNTO_VENTA = [
-  {
-    section: "Ventas",
-    items: [
-      { to: "/caja", label: "Punto de venta" },
-      { to: "/cierre-caja", label: "Cierre de Caja" },
-    ],
-  },
-  {
-    section: "Clientes",
-    items: [
-      { to: "/clientes", label: "Clientes" },
-      { to: "/botellas-fiadas", label: "Botellas fiadas" },
-    ],
-  },
-  { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
-];
-
 // Darasistema Colmado: un solo programa, con la caja primero.
 const NAV_COLMADO = [
   { section: "General", items: [{ to: "/", label: "Panel Principal", end: true }] },
@@ -181,11 +162,12 @@ export default function Layout() {
   const { usuario, logout } = useAuth();
 
   const mostrarCaja = esVariantCaja || usuario?.rol === "CAJERO";
-  const nav = (soloVentas && !adminVentas ? NAV_PUNTO_VENTA : mostrarCaja ? NAV_CAJA : esColmado ? NAV_COLMADO : NAV_COMPLETO)
+  const nav = (mostrarCaja ? NAV_CAJA : esColmado ? NAV_COLMADO : NAV_COMPLETO)
     .filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN")
+    .filter((g) => !(soloVentas && !adminVentas && g.section === "General")) // la caja de Gas Damian no lleva Panel Principal
     .map((g) => ({ ...g, items: g.items.filter((i) => manejaEnvases || i.to !== "/envases") }))
-    // Gas Damian Admin: el menu de Darasistema con las botellas fiadas
-    .map((g) => (adminVentas && g.section === "Clientes" ? { ...g, items: [...g.items, { to: "/botellas-fiadas", label: "Botellas fiadas" }] } : g));
+    // Gas Damian: el menu de Cajapunto1 (o de Darasistema en el Admin) con las botellas fiadas
+    .map((g) => (soloVentas && g.section === "Clientes" ? { ...g, items: [...g.items, { to: "/botellas-fiadas", label: "Botellas fiadas" }] } : g));
   const [paleta, setPaleta] = useState(false);
   const [ayuda, setAyuda] = useState(false);
 

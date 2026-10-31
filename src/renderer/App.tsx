@@ -55,16 +55,6 @@ const RUTAS_COMUNES = [
   ...(manejaEnvases ? [{ path: "/envases", element: <ControlEnvases /> }] : []),
 ];
 
-// Gas Damian: vender, su caja y clientes (la factura se abre desde el cliente para reimprimir).
-const RUTAS_PUNTO_VENTA = [
-  { path: "/caja", element: <Caja /> },
-  { path: "/cierre-caja", element: <CierreCaja /> },
-  { path: "/clientes", element: <ListaClientes /> },
-  { path: "/clientes/:id", element: <DetalleCliente /> },
-  { path: "/botellas-fiadas", element: <BotellasFiadas /> },
-  { path: "/facturas/:id", element: <DetalleFactura /> },
-];
-
 // Rutas adicionales solo para administradores (no cajeros, no la variante Caja).
 const RUTAS_ADMIN_EXTRA = [
   { path: "/compras", element: <Compras /> },
@@ -95,8 +85,9 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
 
   const hijos = usuario
     ? [
-        // Gas Damian Admin es Darasistema con las botellas fiadas
-        ...(adminVentas ? [...RUTAS_COMUNES, { path: "/botellas-fiadas", element: <BotellasFiadas /> }] : soloVentas ? RUTAS_PUNTO_VENTA : RUTAS_COMUNES),
+        // Gas Damian (la caja y el Admin) es Cajapunto1 o Darasistema con las botellas fiadas; la caja sin Panel Principal
+        ...RUTAS_COMUNES.filter((r) => !(soloVentas && !adminVentas && r.path === "/")),
+        ...(soloVentas ? [{ path: "/botellas-fiadas", element: <BotellasFiadas /> }] : []),
         ...(restringido ? rutaConexionCaja : RUTAS_ADMIN_EXTRA),
         { path: "*", element: <Navigate to={restringido || esColmado || (soloVentas && !adminVentas) ? "/caja" : "/"} replace /> },
       ]
