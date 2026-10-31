@@ -1,3 +1,4 @@
+import { pedirHttp, type RespuestaHttp } from "./http";
 import { ipcMain } from "electron";
 import { normalizarServidorUrl } from "./config";
 import { registerCuentasIpc } from "../ipc/cuentas";
@@ -84,11 +85,11 @@ async function postJson(servidorUrlCruda: string, ruta: string, cuerpo: unknown,
   const servidorUrl = normalizarServidorUrl(servidorUrlCruda);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), opciones.nube ? 20000 : 8000);
-  let res: Response;
+  let res: RespuestaHttp;
   try {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (opciones.token) headers.Authorization = `Bearer ${opciones.token}`;
-    res = await fetch(`${servidorUrl}${ruta}`, { method: "POST", headers, body: JSON.stringify(cuerpo), signal: controller.signal });
+    res = await pedirHttp(`${servidorUrl}${ruta}`, { method: "POST", headers, body: JSON.stringify(cuerpo), signal: controller.signal });
   } catch (err: any) {
     throw describirFalloDeRed(err, servidorUrl, opciones.nube);
   } finally {

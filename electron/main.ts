@@ -24,6 +24,7 @@ import { cerrarSesionNube, registrarProxiesNube, registrarProxiesRemotos } from 
 import { configurarAutoUpdate } from "./updater";
 import { registrarImpresionIpc } from "./impresion";
 import { APP_VARIANT } from "./variant.generated";
+import { pedirHttp } from "./network/http";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -86,7 +87,7 @@ async function registerAllIpc() {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
-      const res = await fetch(`${servidorUrl}/health`, { signal: controller.signal });
+      const res = await pedirHttp(`${servidorUrl}/health`, { signal: controller.signal });
       clearTimeout(timeout);
       return { ok: res.ok };
     } catch (err: any) {

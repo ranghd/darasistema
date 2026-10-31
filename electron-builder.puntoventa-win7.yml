@@ -1,0 +1,32 @@
+# Windows 7: Electron 22 es el ultimo que abre alli (Electron 23+ no arranca en Windows 7).
+electronVersion: 22.3.27
+appId: com.darasistema.puntoventa
+productName: Gas Damian
+publish:
+  provider: github
+  owner: ranghd
+  repo: darasistema
+  channel: puntoventa-win7
+  # Borrador: los clientes no lo ven hasta que release.js lo publica con los 4 programas completos.
+  releaseType: draft
+directories:
+  output: release
+files:
+  - dist/**
+  - dist-electron/**
+  - package.json
+  - node_modules/sql.js/dist/sql-wasm.wasm
+  - node_modules/sql.js/dist/sql-wasm.js
+  - node_modules/sql.js/package.json
+win:
+  target:
+    - target: nsis
+      # un solo instalador para PCs de 64 y de 32 bits
+      arch: [x64, ia32]
+  icon: build/icon-puntoventa.png
+nsis:
+  # Nombre fijo (sin version): asi el enlace .../releases/latest/download/Gas-Damian-Win7-Setup.exe
+  # siempre baja la ultima version.
+  artifactName: Gas-Damian-Win7-Setup.${ext}
+  oneClick: false
+  allowToChangeInstallationDirectory: true

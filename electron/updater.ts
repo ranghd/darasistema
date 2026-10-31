@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import { autoUpdater } from "electron-updater";
-import { APP_VARIANT } from "./variant.generated";
+import { APP_VARIANT, PARA_WIN7 } from "./variant.generated";
 
 export type EstadoUpdater =
   | { estado: "buscando" }
@@ -25,7 +25,9 @@ export function configurarAutoUpdate() {
   // Cada variante publica en un canal distinto dentro del mismo repositorio
   // para que el update de Darasistema y el de Cajapunto1 no se mezclen.
   // Cada edicion se actualiza por su propio canal (caja.yml, colmado.yml; Darasistema usa latest.yml).
-  if (APP_VARIANT !== "full") autoUpdater.channel = APP_VARIANT;
+  // La version para Windows 7 tiene su canal aparte, para no recibir nunca una que alli no abre.
+  const canal = PARA_WIN7 ? `${APP_VARIANT}-win7` : APP_VARIANT;
+  if (canal !== "full") autoUpdater.channel = canal;
 
   autoUpdater.on("checking-for-update", () => enviarATodasLasVentanas({ estado: "buscando" }));
   autoUpdater.on("update-available", (info) => enviarATodasLasVentanas({ estado: "disponible", version: info.version }));
