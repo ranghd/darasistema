@@ -59,11 +59,18 @@ export default function ListaProductos() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [buscar, setBuscar] = useState("");
+  const esAdmin = usuario?.rol === "ADMIN";
+  const [verInactivos, setVerInactivos] = useState(false);
+  const [aBorrar, setABorrar] = useState<Producto | null>(null);
+  const [borrando, setBorrando] = useState(false);
+  const [aviso, setAviso] = useState("");
+  const [editActivo, setEditActivo] = useState(1);
   const grupos = Array.from(new Set([...GRUPOS_COLMADO, ...productos.map((p) => p.grupo).filter(Boolean) as string[]])).sort();
   const q = buscar.trim().toLowerCase();
   // El que se pone solo si se deja vacio (colmado: 1, 2, 3...).
   const siguienteCodigo = Math.max(0, ...productos.map((p) => (/^\d+$/.test(p.codigo) ? Number(p.codigo) : 0))) + 1;
-  const visibles = productos.filter((p) => !q || `${p.nombre} ${p.codigo} ${p.codigo_barras ?? ""} ${p.grupo ?? ""}`.toLowerCase().includes(q));
+  const inactivos = productos.filter((p) => !p.activo).length;
+  const visibles = productos.filter((p) => (verInactivos || p.activo) && (!q || `${p.nombre} ${p.codigo} ${p.codigo_barras ?? ""} ${p.grupo ?? ""}`.toLowerCase().includes(q)));
   // En el colmado se ven en orden de codigo: 1, 2, 3...
   if (esColmado) visibles.sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
 
@@ -96,6 +103,7 @@ export default function ListaProductos() {
 
   function abrirEditar(p: Producto) {
     setEditId(p.id);
+    setEditActivo(p.activo ? 1 : 0);
     setError("");
     setForm({
       codigo: p.codigo ?? "",
@@ -147,7 +155,7 @@ export default function ListaProductos() {
     setGuardando(true);
     setError("");
     try {
-      if (editId) await api.productos.actualizar(editId, form);
+      if (editId) await api.productos.actualizar(editId, { ...form, activo: editActivo });
       else await api.productos.crear(form);
       setOpen(false);
       await cargar();
@@ -157,6 +165,61 @@ export default function ListaProductos() {
       setGuardando(false);
     }
   }
+
+  async function borrar() {
+    if (!aBorrar) return;
+    setBorrando(true);
+    try {
+      const r = await api.productos.eliminar(aBorrar.id);
+      setAviso(
+        r.borrado
+          ? `Se borro ${aBorrar.nombre}.`
+          : `${aBorrar.nombre} ya tiene ventas, compras o envases, asi que se desactivo para no perder ese historial: ya no sale para vender. Puedes verlo con "Ver inactivos".`
+      );
+      await cargar();
+    } catch (err) {
+      setAviso(mensajeDeError(err));
+    } finally {
+      setABorrar(null);
+      setBorrando(false);
+    }
+  }
+
+  async function reactivar(p: Producto) {
+    await api.productos.actualizar(p.id, { ...p, activo: 1 });
+    setAviso(`${p.nombre} esta activo otra vez.`);
+    await cargar();
+  }
+
+  // Botones de cada fila: proveedores, editar, borrar (solo el admin) o reactivar.
+  const acciones = (p: Producto) => (
+    <td className="whitespace-nowrap px-4 py-2.5 text-right">
+      {verProveedores && (
+        <Button size="sm" variant="ghost" onClick={() => setProveedoresDe(p)}>
+          Proveedores
+        </Button>
+      )}
+      <Button size="sm" variant="secondary" onClick={() => abrirEditar(p)}>
+        Editar
+      </Button>
+      {esAdmin && !!p.activo && (
+        <button className="ml-3 text-xs font-medium text-red-600 hover:underline" onClick={() => setABorrar(p)}>
+          Borrar
+        </button>
+      )}
+      {!p.activo && (
+        <button className="ml-3 text-xs font-medium text-brand-600 hover:underline" onClick={() => reactivar(p)}>
+          Reactivar
+        </button>
+      )}
+    </td>
+  );
+  const marcaInactivo = (p: Producto) =>
+    !p.activo && (
+      <span className="ml-2">
+        <Badge tone="slate">Inactivo</Badge>
+      </span>
+    );
 
   return (
     <div>
@@ -176,6 +239,24 @@ export default function ListaProductos() {
         }
       />
 
+      {(inactivos > 0 || aviso) && (
+        <div className="mb-4 flex flex-wrap items-start gap-4">
+          {inactivos > 0 && (
+            <label className="flex items-center gap-2 pt-2 text-sm text-slate-600">
+              <input type="checkbox" checked={verInactivos} onChange={(e) => setVerInactivos(e.target.checked)} /> Ver inactivos ({inactivos})
+            </label>
+          )}
+          {aviso && (
+            <div className="flex flex-1 items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+              <span>{aviso}</span>
+              <button className="text-slate-400 hover:text-slate-600" onClick={() => setAviso("")} aria-label="Cerrar">
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {esColmado ? (
         <Table columns={["Codigo", "Producto", "Grupo", "Precio final", "ITBIS", "Costo", "Existencia", ""]}>
           {visibles.length === 0 && <EmptyRow colSpan={8} label={productos.length ? "Ningun producto coincide" : "Todavia no hay productos"} />}
@@ -185,6 +266,7 @@ export default function ListaProductos() {
               <td className="px-4 py-2.5 font-medium text-slate-800">
                 {p.nombre}
                 <span className="ml-1 text-xs font-normal text-slate-400">{p.unidad?.toLowerCase()}</span>
+                {marcaInactivo(p)}
                 {p.codigo_barras && <span className="block font-mono text-[11px] font-normal text-slate-400">{p.codigo_barras}</span>}
               </td>
               <td className="px-4 py-2.5">{p.grupo ? <Badge tone="blue">{p.grupo}</Badge> : <span className="text-slate-400">-</span>}</td>
@@ -194,16 +276,7 @@ export default function ListaProductos() {
               <td className="px-4 py-2.5">
                 <span className={p.existencia <= 5 ? "font-semibold text-red-600" : "text-slate-700"}>{p.existencia}</span>
               </td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-right">
-                {verProveedores && (
-                  <Button size="sm" variant="ghost" onClick={() => setProveedoresDe(p)}>
-                    Proveedores
-                  </Button>
-                )}
-                <Button size="sm" variant="secondary" onClick={() => abrirEditar(p)}>
-                  Editar
-                </Button>
-              </td>
+              {acciones(p)}
             </tr>
           ))}
         </Table>
@@ -213,7 +286,10 @@ export default function ListaProductos() {
         {visibles.map((p) => (
           <tr key={p.id} className="hover:bg-slate-50">
             <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{p.codigo}</td>
-            <td className="px-4 py-2.5 font-medium text-slate-800">{p.nombre}</td>
+            <td className="px-4 py-2.5 font-medium text-slate-800">
+              {p.nombre}
+              {marcaInactivo(p)}
+            </td>
             <td className="px-4 py-2.5">
               <Badge tone="blue">{p.categoria}</Badge>
             </td>
@@ -223,20 +299,26 @@ export default function ListaProductos() {
             <td className="px-4 py-2.5">
               <span className={p.existencia <= 10 ? "font-semibold text-red-600" : "text-slate-700"}>{p.existencia}</span>
             </td>
-            <td className="whitespace-nowrap px-4 py-2.5 text-right">
-              {verProveedores && (
-                <Button size="sm" variant="ghost" onClick={() => setProveedoresDe(p)}>
-                  Proveedores
-                </Button>
-              )}
-              <Button size="sm" variant="secondary" onClick={() => abrirEditar(p)}>
-                Editar
-              </Button>
-            </td>
+            {acciones(p)}
           </tr>
         ))}
       </Table>
       )}
+
+      <Modal open={!!aBorrar} onClose={() => setABorrar(null)} title="Borrar producto">
+        <p className="text-sm text-slate-600">
+          Vas a borrar <b className="text-slate-900">{aBorrar?.nombre}</b>. Si ya se vendio, se compro o tiene envases, no se borra: se desactiva para
+          conservar ese historial y deja de salir para vender.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => setABorrar(null)}>
+            Cancelar
+          </Button>
+          <Button type="button" variant="danger" onClick={borrar} disabled={borrando}>
+            {borrando ? "Borrando..." : "Borrar"}
+          </Button>
+        </div>
+      </Modal>
 
       <Modal open={open} onClose={() => setOpen(false)} title={editId ? "Editar Producto" : "Nuevo Producto"}>
         <form onSubmit={guardar} className="space-y-3">

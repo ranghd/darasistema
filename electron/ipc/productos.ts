@@ -70,6 +70,25 @@ export function registerProductosIpc(db: DB) {
     return creado;
   })());
 
+  // Borra el producto. Si ya se vendio, se compro o tiene envases o botellas fiadas, no se puede borrar
+  // sin romper ese historial: se desactiva (deja de salir para vender). Si se borra, su existencia
+  // sale tambien de la contabilidad del inventario.
+  ipcMain.handle("productos:eliminar", (_e, id: number): { borrado: boolean } => db.transaction(() => {
+    const producto = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(id) as Producto | undefined;
+    if (!producto) throw new Error("Producto no encontrado");
+    const usado = ["factura_lineas", "compra_lineas", "envases_cliente", "envase_movimientos", "botellas_fiadas"].some((tabla) =>
+      db.prepare(`SELECT 1 FROM ${tabla} WHERE producto_id = ? LIMIT 1`).get(id)
+    );
+    if (usado) {
+      db.prepare(`UPDATE productos SET activo = 0 WHERE id = ?`).run(id);
+      return { borrado: false };
+    }
+    registrarAjusteInventario(db, producto.cuenta_inventario_id, -producto.existencia * producto.costo_contenido, `Producto borrado: ${producto.nombre}`);
+    db.prepare(`DELETE FROM producto_proveedor WHERE producto_id = ?`).run(id);
+    db.prepare(`DELETE FROM productos WHERE id = ?`).run(id);
+    return { borrado: true };
+  })());
+
   ipcMain.handle("productos:actualizar", (_e, id: number, data: Partial<Producto>) => db.transaction(() => {
     const anterior = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(id) as Producto | undefined;
     if (!anterior) throw new Error("Producto no encontrado");
