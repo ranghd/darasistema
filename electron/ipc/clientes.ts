@@ -187,6 +187,23 @@ export function registerClientesIpc(db: DB) {
     return db.prepare(`SELECT * FROM clientes WHERE id = ?`).get(info.lastInsertRowid) as Cliente;
   });
 
+  // Borra el cliente. Si ya tiene facturas, cobros o envases no se puede borrar sin romper
+  // su historial ni la contabilidad: entonces se desactiva (deja de salir para vender).
+  ipcMain.handle("clientes:eliminar", (_e, id: number): { borrado: boolean } => {
+    const cliente = db.prepare(`SELECT codigo FROM clientes WHERE id = ?`).get(id) as { codigo: string } | undefined;
+    if (!cliente) throw new Error("Cliente no encontrado");
+    if (cliente.codigo === "CLI-0000") throw new Error("Consumidor Final no se puede borrar: lo usa la caja");
+    const usado = ["facturas", "recibos_cobro", "envases_cliente", "envase_movimientos", "botellas_fiadas"].some((tabla) =>
+      db.prepare(`SELECT 1 FROM ${tabla} WHERE cliente_id = ? LIMIT 1`).get(id)
+    );
+    if (usado) {
+      db.prepare(`UPDATE clientes SET activo = 0 WHERE id = ?`).run(id);
+      return { borrado: false };
+    }
+    db.prepare(`DELETE FROM clientes WHERE id = ?`).run(id);
+    return { borrado: true };
+  });
+
   ipcMain.handle("clientes:actualizar", (_e, id: number, data: Partial<Cliente>) => {
     db.prepare(
       `UPDATE clientes SET nombre=@nombre, rnc_cedula=@rnc_cedula, tipo=@tipo, telefono=@telefono, email=@email, direccion=@direccion, activo=@activo WHERE id=@id`

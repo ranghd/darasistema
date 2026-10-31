@@ -24,6 +24,7 @@ const api = {
     resumen: (id: number) => invoke("clientes:resumen", id),
     crear: (data: any) => invoke("clientes:crear", data),
     actualizar: (id: number, data: any) => invoke("clientes:actualizar", id, data),
+    eliminar: (id: number) => invoke("clientes:eliminar", id),
   },
   productos: {
     listar: () => invoke("productos:listar"),

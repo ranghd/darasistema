@@ -119,35 +119,6 @@ const NAV_PUNTO_VENTA = [
   { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
 ];
 
-// Gas Damian Admin: el programa del dueno.
-const NAV_ADMIN_VENTAS = [
-  {
-    section: "Ventas",
-    items: [
-      { to: "/caja", label: "Punto de venta" },
-      { to: "/facturas", label: "Facturas", end: true },
-      { to: "/cuentas-por-cobrar", label: "Cuentas por Cobrar" },
-      { to: "/cierres-caja", label: "Cierres de Caja" },
-    ],
-  },
-  {
-    section: "Clientes",
-    items: [
-      { to: "/clientes", label: "Clientes" },
-      { to: "/botellas-fiadas", label: "Botellas fiadas" },
-    ],
-  },
-  {
-    section: "Productos",
-    items: [
-      { to: "/productos", label: "Productos y precios" },
-      { to: "/envases", label: "Control de Envases" },
-    ],
-  },
-  { section: "Reportes", items: [{ to: "/reportes/ventas", label: "Reporte de Ventas" }] },
-  { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion y usuarios" }] },
-];
-
 // Darasistema Colmado: un solo programa, con la caja primero.
 const NAV_COLMADO = [
   { section: "General", items: [{ to: "/", label: "Panel Principal", end: true }] },
@@ -210,9 +181,11 @@ export default function Layout() {
   const { usuario, logout } = useAuth();
 
   const mostrarCaja = esVariantCaja || usuario?.rol === "CAJERO";
-  const nav = (adminVentas && usuario?.rol === "ADMIN" ? NAV_ADMIN_VENTAS : soloVentas ? NAV_PUNTO_VENTA : mostrarCaja ? NAV_CAJA : esColmado ? NAV_COLMADO : NAV_COMPLETO)
+  const nav = (soloVentas && !adminVentas ? NAV_PUNTO_VENTA : mostrarCaja ? NAV_CAJA : esColmado ? NAV_COLMADO : NAV_COMPLETO)
     .filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN")
-    .map((g) => ({ ...g, items: g.items.filter((i) => manejaEnvases || i.to !== "/envases") }));
+    .map((g) => ({ ...g, items: g.items.filter((i) => manejaEnvases || i.to !== "/envases") }))
+    // Gas Damian Admin: el menu de Darasistema con las botellas fiadas
+    .map((g) => (adminVentas && g.section === "Clientes" ? { ...g, items: [...g.items, { to: "/botellas-fiadas", label: "Botellas fiadas" }] } : g));
   const [paleta, setPaleta] = useState(false);
   const [ayuda, setAyuda] = useState(false);
 

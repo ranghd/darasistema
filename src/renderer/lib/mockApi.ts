@@ -116,6 +116,7 @@ export const mockApi = {
     estadoCuenta: async (..._args: any[]) => ({ facturas, envases: [] }),
     crear: async (data: any, ..._rest: any[]) => { warn(); return { id: Date.now(), ...data }; },
     actualizar: async (_id: number, data: any, ..._rest: any[]) => { warn(); return data; },
+    eliminar: async (_id: number): Promise<{ borrado: boolean }> => { warn(); return { borrado: false }; },
   },
   productos: {
     listar: async (..._args: any[]) => productos,

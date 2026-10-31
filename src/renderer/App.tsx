@@ -65,17 +65,6 @@ const RUTAS_PUNTO_VENTA = [
   { path: "/facturas/:id", element: <DetalleFactura /> },
 ];
 
-// Gas Damian Admin: lo que el dueno agrega a la caja (sin contabilidad, compras ni gastos).
-const RUTAS_ADMIN_VENTAS = [
-  { path: "/facturas", element: <ListaFacturas /> },
-  { path: "/cuentas-por-cobrar", element: <CuentasPorCobrar /> },
-  { path: "/cierres-caja", element: <CierresCaja /> },
-  { path: "/productos", element: <ListaProductos /> },
-  { path: "/envases", element: <ControlEnvases /> },
-  { path: "/reportes/ventas", element: <ReporteVentas /> },
-  { path: "/configuracion", element: <Configuracion /> },
-];
-
 // Rutas adicionales solo para administradores (no cajeros, no la variante Caja).
 const RUTAS_ADMIN_EXTRA = [
   { path: "/compras", element: <Compras /> },
@@ -106,9 +95,10 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
 
   const hijos = usuario
     ? [
-        ...(soloVentas ? RUTAS_PUNTO_VENTA : RUTAS_COMUNES),
-        ...(adminVentas ? (restringido ? [] : RUTAS_ADMIN_VENTAS) : restringido ? rutaConexionCaja : RUTAS_ADMIN_EXTRA),
-        { path: "*", element: <Navigate to={restringido || esColmado || soloVentas ? "/caja" : "/"} replace /> },
+        // Gas Damian Admin es Darasistema con las botellas fiadas
+        ...(adminVentas ? [...RUTAS_COMUNES, { path: "/botellas-fiadas", element: <BotellasFiadas /> }] : soloVentas ? RUTAS_PUNTO_VENTA : RUTAS_COMUNES),
+        ...(restringido ? rutaConexionCaja : RUTAS_ADMIN_EXTRA),
+        { path: "*", element: <Navigate to={restringido || esColmado || (soloVentas && !adminVentas) ? "/caja" : "/"} replace /> },
       ]
     : [];
 
@@ -117,7 +107,7 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
   // En el colmado se entra directo al punto de venta.
   const navegar = useNavigate();
   useEffect(() => {
-    if (usuario && (esColmado || soloVentas) && (location.hash === "" || location.hash === "#/")) navegar("/caja", { replace: true });
+    if (usuario && (esColmado || (soloVentas && !adminVentas)) && (location.hash === "" || location.hash === "#/")) navegar("/caja", { replace: true });
   }, [usuario?.id]);
 
   if (!usuario) return <Login modoNube={modoNube} />;

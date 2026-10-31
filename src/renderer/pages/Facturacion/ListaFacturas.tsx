@@ -4,7 +4,6 @@ import { api } from "../../lib/api";
 import type { Factura } from "../../lib/types";
 import { formatDate, formatMoney } from "../../lib/format";
 import { Badge, Button, EmptyRow, PageHeader, Table } from "../../components/ui";
-import { soloVentas } from "../../lib/variant";
 
 export default function ListaFacturas() {
   const [facturas, setFacturas] = useState<Factura[]>([]);
@@ -19,16 +18,9 @@ export default function ListaFacturas() {
         title="Facturas"
         subtitle="Facturacion de ventas con NCF e ITBIS"
         actions={
-          // Gas Damian factura desde el punto de venta
-          soloVentas ? (
-            <Link to="/caja">
-              <Button>+ Vender</Button>
-            </Link>
-          ) : (
-            <Link to="/facturas/nueva">
-              <Button>+ Nueva Factura</Button>
-            </Link>
-          )
+          <Link to="/facturas/nueva">
+            <Button>+ Nueva Factura</Button>
+          </Link>
         }
       />
 

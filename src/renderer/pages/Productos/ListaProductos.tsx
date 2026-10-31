@@ -4,7 +4,7 @@ import type { Cuenta, Producto } from "../../lib/types";
 import { formatMoney } from "../../lib/format";
 import { Badge, Button, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
-import { esColmado, esVariantCaja, GRUPOS_COLMADO, soloVentas } from "../../lib/variant";
+import { esColmado, esVariantCaja, GRUPOS_COLMADO } from "../../lib/variant";
 import { mensajeDeError } from "../../lib/api";
 import { ProveedoresDeProductoModal } from "../Proveedores/componentes";
 
@@ -48,7 +48,7 @@ function calcularPrecio(costo: number, margenPct: number): number {
 
 export default function ListaProductos() {
   const { usuario } = useAuth();
-  const verProveedores = !esVariantCaja && !soloVentas && usuario?.rol === "ADMIN";
+  const verProveedores = !esVariantCaja && usuario?.rol === "ADMIN";
   const [proveedoresDe, setProveedoresDe] = useState<Producto | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);

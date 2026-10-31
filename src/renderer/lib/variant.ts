@@ -4,14 +4,14 @@
 //   colmado     = Darasistema Colmado (la oficina del colmado)
 //   cajacolmado = Cajapunto1 Colmado (la caja del colmado: factura rapida en tabla)
 //   puntoventa  = Gas Damian (la caja: solo vender y clientes; factura en hoja carta con firmas)
-//   puntoventaadmin = Gas Damian Admin (el dueno: ventas, clientes, productos y precios, reportes de ventas y usuarios)
+//   puntoventaadmin = Gas Damian Admin (el dueno: todo lo de Darasistema con su logo, factura en hoja carta y botellas fiadas)
 export type Variante = "caja" | "full" | "colmado" | "cajacolmado" | "puntoventa" | "puntoventaadmin";
 export const APP_VARIANT: Variante = (import.meta.env.VITE_APP_VARIANT as Variante) || "full";
 // Es el programa de la caja (pantallas de cajero; la oficina queda en el otro programa).
 export const esVariantCaja = APP_VARIANT === "caja" || APP_VARIANT === "cajacolmado" || APP_VARIANT === "puntoventa";
 // Gas Damian: su logo, factura en hoja carta y botellas fiadas (la caja y el programa del dueno).
 export const soloVentas = APP_VARIANT === "puntoventa" || APP_VARIANT === "puntoventaadmin";
-// Gas Damian Admin: ademas de vender, productos y precios, reportes de ventas y usuarios (sin contabilidad).
+// Gas Damian Admin: todo lo de Darasistema, con lo propio de Gas Damian.
 export const adminVentas = APP_VARIANT === "puntoventaadmin";
 // Es para un colmado (productos con grupo y codigo de barras, sin envases).
 export const esColmado = APP_VARIANT === "colmado" || APP_VARIANT === "cajacolmado";
@@ -30,7 +30,7 @@ const EDICIONES = {
 } as const;
 export const EDICION = EDICIONES[APP_VARIANT];
 // Codigo de empresa en la nube que ya trae escrito el inicio de sesion de Gas Damian.
-export const EMPRESA_POR_DEFECTO = soloVentas ? "gas-damian" : "";
+export const EMPRESA_POR_DEFECTO = soloVentas ? "gasdamian" : "";
 
 // Grupos que se sugieren al crear productos en un colmado.
 export const GRUPOS_COLMADO = ["Viveres", "Bebidas", "Lacteos", "Embutidos", "Carnes", "Panaderia", "Limpieza", "Higiene personal", "Picaderas", "Licores", "Frutas y vegetales", "Otros"];

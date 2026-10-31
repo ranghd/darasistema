@@ -23,7 +23,7 @@ export default function DetalleFactura() {
   const navigate = useNavigate();
   const { usuario } = useAuth();
   const { sesion, usaCaja } = useCaja();
-  const verContabilidad = !esVariantCaja && !soloVentas && usuario?.rol === "ADMIN";
+  const verContabilidad = !esVariantCaja && usuario?.rol === "ADMIN";
   const [asientos, setAsientos] = useState<AsientoConLineas[]>([]);
   const [imprimiendo, setImprimiendo] = useState(false);
   const location = useLocation();
