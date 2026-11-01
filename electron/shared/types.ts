@@ -94,6 +94,8 @@ export interface FacturaLineaInput {
   cantidad: number;
   precio_unitario: number;
   descuento: number;
+  /** Gas Damian: el cliente se lleva el cilindro prestado (sin traer el suyo ni pagar fianza). */
+  prestado?: boolean;
 }
 
 export interface FacturaLinea extends FacturaLineaInput {

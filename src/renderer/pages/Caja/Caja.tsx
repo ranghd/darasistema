@@ -21,7 +21,22 @@ interface LineaCarrito {
   producto_id: number;
   cantidad: number;
   modalidad: ModalidadLinea;
+  /** Gas Damian: el cliente se lleva el cilindro prestado. */
+  prestado?: boolean;
 }
+
+// Gas Damian: que pasa con el cilindro, en palabras de todos los dias.
+type ModoCilindro = "TRAJO" | "NUEVO" | "PRESTADO";
+const MODOS_CILINDRO: { modo: ModoCilindro; texto: string; color: string }[] = [
+  { modo: "TRAJO", texto: "🔄 Trajo el suyo", color: "bg-brand-600 text-white" },
+  { modo: "NUEVO", texto: "🆕 Se lleva uno nuevo", color: "bg-amber-500 text-white" },
+  { modo: "PRESTADO", texto: "🤝 Se lo presto", color: "bg-violet-600 text-white" },
+];
+const modoDe = (l: LineaCarrito): ModoCilindro => (l.prestado ? "PRESTADO" : l.modalidad === "LLENO" ? "NUEVO" : "TRAJO");
+
+// Gas Damian: un color por categoria para reconocer las tarjetas de un vistazo.
+const COLORES_CATEGORIA = ["border-t-sky-500", "border-t-amber-500", "border-t-emerald-500", "border-t-violet-500", "border-t-rose-500", "border-t-teal-500", "border-t-orange-500"];
+const colorDe = (grupo: string) => COLORES_CATEGORIA[[...grupo].reduce((s, c) => s + c.charCodeAt(0), 0) % COLORES_CATEGORIA.length];
 
 type Metodo = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA";
 
@@ -49,6 +64,8 @@ const CATEGORIAS = [
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 function Tecla({ children }: { children: React.ReactNode }) {
+  // en Gas Damian no se muestran las teclas (siguen funcionando): la pantalla queda mas limpia
+  if (soloVentas) return null;
   return <kbd className="ml-1 rounded border border-slate-300 px-1 font-mono text-[10px] opacity-70">{children}</kbd>;
 }
 
@@ -200,7 +217,11 @@ export default function Caja() {
   function alternarModalidad(i: number, modalidad?: ModalidadLinea) {
     const l = calculo.lineas[i];
     if (!l || !l.producto.maneja_envase) return;
-    setCarrito(carrito.map((x, j) => (j === i ? { ...x, modalidad: modalidad ?? (x.modalidad === "LLENO" ? "INTERCAMBIO" : "LLENO") } : x)));
+    setCarrito(carrito.map((x, j) => (j === i ? { ...x, prestado: false, modalidad: modalidad ?? (x.modalidad === "LLENO" ? "INTERCAMBIO" : "LLENO") } : x)));
+  }
+
+  function elegirModo(i: number, modo: ModoCilindro) {
+    setCarrito(carrito.map((x, j) => (j === i ? { ...x, modalidad: modo === "NUEVO" ? "LLENO" : "INTERCAMBIO", prestado: modo === "PRESTADO" } : x)));
   }
 
   function nuevaVenta() {
@@ -223,6 +244,8 @@ export default function Caja() {
     if (!clienteId) return setError("Elige un cliente (F2)");
     if (carrito.length === 0) return setError("Agrega al menos un producto");
     if (usaCaja && !sesion) return setError("La caja esta cerrada. Presiona F9 (o Ctrl+O) para abrirla.");
+    if (soloVentas && esConsumidorFinal && carrito.some((l) => l.prestado) && !nombreCliente.trim())
+      return setError("Escribe el nombre de quien se lleva el cilindro prestado");
     if (soloVentas && esConsumidorFinal && rncEscrito) {
       if (rncEscrito.length !== 9 && rncEscrito.length !== 11) return setError("El RNC tiene 9 numeros (empresa) o 11 (cedula). Revisalo.");
       if (!nombreCliente.trim()) return setError("Escribe el nombre de la empresa del RNC");
@@ -265,7 +288,7 @@ export default function Caja() {
         codigos_ncf: VERSION_CODIGOS_NCF,
         creado_por: usuario?.nombre,
         caja_sesion_id: sesion?.id ?? null,
-        lineas: carrito.map((l) => ({ producto_id: l.producto_id, modalidad: l.modalidad, cantidad: l.cantidad, precio_unitario: productos.find((p) => p.id === l.producto_id)!.precio_contenido, descuento: 0 })),
+        lineas: carrito.map((l) => ({ producto_id: l.producto_id, modalidad: l.modalidad, cantidad: l.cantidad, precio_unitario: productos.find((p) => p.id === l.producto_id)!.precio_contenido, descuento: 0, prestado: !!l.prestado })),
       })) as any;
       setPagando(false);
       const cfg = await api.impresion.obtenerConfig().catch(() => null);
@@ -438,9 +461,12 @@ export default function Caja() {
     if (conocido) setNombreCliente(conocido.nombre);
   }
   const seleccionVisible = lineaSel >= 0 ? lineaSel : carrito.length - 1;
-  const billetesRapidos = [...new Set([Math.ceil(calculo.total / 100) * 100, Math.ceil(calculo.total / 500) * 500, Math.ceil(calculo.total / 1000) * 1000, 2000])]
-    .filter((v) => v > calculo.total)
-    .slice(0, 3);
+  const billetesRapidos = soloVentas
+    ? // Gas Damian: "Exacto" y los billetes que alcanzan
+      [calculo.total, ...[...new Set([Math.ceil(calculo.total / 500) * 500, Math.ceil(calculo.total / 1000) * 1000, Math.ceil(calculo.total / 2000) * 2000])].filter((v) => v > calculo.total)].slice(0, 4)
+    : [...new Set([Math.ceil(calculo.total / 100) * 100, Math.ceil(calculo.total / 500) * 500, Math.ceil(calculo.total / 1000) * 1000, 2000])]
+        .filter((v) => v > calculo.total)
+        .slice(0, 3);
 
   return (
     <div className={`flex h-[calc(100vh-56px)] gap-5 ${esColmado ? "flex-col" : ""}`} data-nav-propio>
@@ -591,31 +617,31 @@ export default function Caja() {
               </div>
             </div>
 
-            <div className="grid flex-1 auto-rows-max grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 xl:grid-cols-4">
+            <div className={`grid flex-1 auto-rows-max gap-3 overflow-y-auto pr-1 ${soloVentas ? "grid-cols-2 xl:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-4"}`}>
               {resultados.map((p, i) => (
                 <button
                   key={p.id}
                   tabIndex={-1}
                   onClick={() => agregar(p)}
                   disabled={p.existencia <= 0}
-                  className={`flex flex-col items-start rounded-xl border bg-white p-3 text-left shadow-sm transition-colors hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 ${
-                    busqueda.trim() && i === resaltado ? "border-brand-500 ring-2 ring-brand-200" : "border-slate-200"
-                  }`}
+                  className={`flex flex-col items-start rounded-xl border bg-white text-left shadow-sm transition-colors hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 ${
+                    soloVentas ? `border-t-4 p-4 ${colorDe(grupoDe(p))}` : "p-3"
+                  } ${busqueda.trim() && i === resaltado ? "border-brand-500 ring-2 ring-brand-200" : "border-slate-200"}`}
                 >
                   <span className="flex w-full justify-between text-xs font-medium uppercase tracking-wide text-brand-600">
                     <span className="truncate">{usaGrupos ? grupoDe(p) : p.categoria}</span>
                     {/* en el colmado el codigo es el de barras (largo): no se muestra en la tarjeta */}
-                    {!esColmado && <span className="font-mono normal-case text-slate-400">{p.codigo}</span>}
+                    {!esColmado && !soloVentas && <span className="font-mono normal-case text-slate-400">{p.codigo}</span>}
                   </span>
-                  <span className="mt-1 text-sm font-semibold text-slate-800">{p.nombre}</span>
+                  <span className={`mt-1 font-semibold text-slate-800 ${soloVentas ? "text-base leading-snug" : "text-sm"}`}>{p.nombre}</span>
                   {/* en el colmado y en Gas Damian se ve el precio final, el que paga el cliente (con ITBIS) */}
-                  <span className="mt-1.5 text-base font-bold text-slate-900">{formatMoney(esColmado || soloVentas ? p.precio_contenido * (1 + (p.itbis_rate ?? 0)) : p.precio_contenido)}</span>
-                  <span className="mt-1 text-xs text-slate-400">Existencia: {p.existencia}</span>
+                  <span className={`mt-1.5 font-bold text-slate-900 ${soloVentas ? "text-2xl" : "text-base"}`}>{formatMoney(esColmado || soloVentas ? p.precio_contenido * (1 + (p.itbis_rate ?? 0)) : p.precio_contenido)}</span>
+                  <span className="mt-1 text-xs text-slate-400">{soloVentas ? `Quedan ${p.existencia}` : `Existencia: ${p.existencia}`}</span>
                 </button>
               ))}
               {resultados.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-400">No hay productos que coincidan</p>}
             </div>
-            <p className="mt-2 text-[11px] text-slate-400">
+            <p className={`mt-2 text-[11px] text-slate-400 ${soloVentas ? "hidden" : ""}`}>
               ↑↓ elegir · Enter agregar · + / − cantidad · Supr quitar · F2 o Ctrl+B cliente · {manejaEnvases ? "F4 o Ctrl+E lleno/intercambio · " : ""}F6-F8 o Ctrl+1-3 pago · F12 o Ctrl+Enter cobrar · Esc cancelar · F1 ayuda
             </p>
           </div>
@@ -704,17 +730,32 @@ export default function Caja() {
                       </div>
                       <div className="mt-1.5 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <button tabIndex={-1} onClick={() => cambiarCantidad(i, -1)} className="h-6 w-6 rounded bg-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-300">
+                          <button tabIndex={-1} onClick={() => cambiarCantidad(i, -1)} className={`rounded bg-slate-200 font-bold text-slate-700 hover:bg-slate-300 ${soloVentas ? "h-9 w-9 text-lg" : "h-6 w-6 text-sm"}`}>
                             -
                           </button>
-                          <span className="w-8 text-center text-sm font-medium">{l.cantidad}</span>
-                          <button tabIndex={-1} onClick={() => cambiarCantidad(i, 1)} className="h-6 w-6 rounded bg-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-300">
+                          <span className={`w-8 text-center font-medium ${soloVentas ? "text-lg" : "text-sm"}`}>{l.cantidad}</span>
+                          <button tabIndex={-1} onClick={() => cambiarCantidad(i, 1)} className={`rounded bg-slate-200 font-bold text-slate-700 hover:bg-slate-300 ${soloVentas ? "h-9 w-9 text-lg" : "h-6 w-6 text-sm"}`}>
                             +
                           </button>
                         </div>
                         <span className="text-sm font-semibold text-slate-900">{formatMoney(l.bruto + l.itbisLinea + l.fianzaLinea)}</span>
                       </div>
-                      {l.producto.maneja_envase && (
+                      {l.producto.maneja_envase && soloVentas && (
+                        // Gas Damian: que pasa con el cilindro, con tres botones claros
+                        <div className="mt-2 grid grid-cols-3 gap-1 text-[11px] font-medium leading-tight">
+                          {MODOS_CILINDRO.map((m) => (
+                            <button
+                              key={m.modo}
+                              tabIndex={-1}
+                              onClick={(e) => (e.stopPropagation(), elegirModo(i, m.modo))}
+                              className={`rounded-lg px-1 py-1.5 ${modoDe(l) === m.modo ? m.color : "bg-slate-200 text-slate-600 hover:bg-slate-300"}`}
+                            >
+                              {m.texto}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {l.producto.maneja_envase && !soloVentas && (
                         <div className="mt-2 flex gap-1.5 text-xs">
                           <button
                             tabIndex={-1}
@@ -780,8 +821,12 @@ export default function Caja() {
                 <Button variant="secondary" tabIndex={-1} onClick={() => carrito.length && setConfirmarCancelar(true)} disabled={carrito.length === 0}>
                   Cancelar <Tecla>Esc</Tecla>
                 </Button>
-                <Button className="flex-1" onClick={iniciarCobro} disabled={cobrando || carrito.length === 0 || (usaCaja && !sesion)}>
-                  Cobrar <Tecla>F12 · Ctrl↵</Tecla>
+                <Button
+                  className={`flex-1 ${soloVentas ? "!bg-emerald-600 py-3 text-lg hover:!bg-emerald-700" : ""}`}
+                  onClick={iniciarCobro}
+                  disabled={cobrando || carrito.length === 0 || (usaCaja && !sesion)}
+                >
+                  {soloVentas ? `Cobrar ${formatMoney(calculo.total)}` : "Cobrar"} <Tecla>F12 · Ctrl↵</Tecla>
                 </Button>
               </div>
             </div>
@@ -877,7 +922,7 @@ export default function Caja() {
               className="space-y-2"
             >
               <label className="block text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Recibido del cliente</span>
+                <span className="mb-1 block font-medium text-slate-700">{soloVentas ? "¿Cuánto le dio el cliente?" : "Recibido del cliente"}</span>
                 <input
                   autoFocus
                   onFocus={(e) => e.target.select()}
@@ -889,13 +934,19 @@ export default function Caja() {
               </label>
               <div className="flex gap-2">
                 {billetesRapidos.map((v) => (
-                  <button key={v} type="button" tabIndex={-1} onClick={() => setRecibido(v.toFixed(2))} className="rounded-lg border border-slate-200 px-3 py-1 text-sm text-slate-600 hover:bg-slate-50">
-                    {formatMoney(v)}
+                  <button
+                    key={v}
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setRecibido(v.toFixed(2))}
+                    className={`rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 ${soloVentas ? "flex-1 py-3 text-base font-semibold" : "px-3 py-1 text-sm"}`}
+                  >
+                    {soloVentas && v === calculo.total ? "Exacto" : formatMoney(v)}
                   </button>
                 ))}
               </div>
               <div className={`flex items-end justify-between rounded-lg px-3 py-3 ${devuelta < 0 ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800"}`}>
-                <span className="text-sm font-medium">{devuelta < 0 ? "Falta" : "Devuelta"}</span>
+                <span className="text-sm font-medium">{devuelta < 0 ? "Falta" : soloVentas ? "Devuélvale" : "Devuelta"}</span>
                 <span className="text-3xl font-bold">{formatMoney(Math.abs(devuelta))}</span>
               </div>
             </div>

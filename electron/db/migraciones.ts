@@ -158,6 +158,9 @@ export function migrar(db: DB) {
     `ALTER TABLE facturas ADD COLUMN nombre_cliente TEXT`,
     // Mensaje al pie de la factura en hoja carta (se escribe en Configuracion).
     `ALTER TABLE company_config ADD COLUMN pie_factura TEXT`,
+    // Gas Damian: cilindro prestado desde la venta (queda anotado en botellas_fiadas con su factura).
+    `ALTER TABLE factura_lineas ADD COLUMN prestado INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE botellas_fiadas ADD COLUMN factura_id INTEGER REFERENCES facturas(id)`,
   ];
   for (const sql of columnas) {
     try {

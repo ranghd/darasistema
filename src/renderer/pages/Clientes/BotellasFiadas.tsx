@@ -22,6 +22,7 @@ export default function BotellasFiadas() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [buscar, setBuscar] = useState("");
   const [verTodos, setVerTodos] = useState(false);
+  const [verHistorial, setVerHistorial] = useState(false);
   const [form, setForm] = useState<Formulario | null>(null);
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -90,90 +91,91 @@ export default function BotellasFiadas() {
     <div>
       <PageHeader
         title="Cilindros prestados"
-        subtitle="Los cilindros que se le prestan a los clientes y que luego deben devolver"
+        subtitle="Quien tiene cilindros nuestros y los tiene que devolver"
         actions={
-          <>
-            <Button variant="secondary" onClick={() => abrir(nuevo("DEVOLUCION"))}>
-              Registrar devolucion
-            </Button>
-            <Button onClick={() => abrir(nuevo("FIADO"))}>+ Prestar cilindros</Button>
-          </>
+          <Button className="py-2.5 text-base" onClick={() => abrir(nuevo("FIADO"))}>
+            + Prestar cilindros
+          </Button>
         }
       />
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card className="p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Cilindros por devolver</p>
-          <p className="mt-1 text-2xl font-semibold text-amber-600">{totalPendientes}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Clientes con cilindros prestados</p>
-          <p className="mt-1 text-2xl font-semibold">{clientesQueDeben}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Devueltos en total</p>
-          <p className="mt-1 text-2xl font-semibold text-emerald-600">{saldos.reduce((s, x) => s + x.devueltas, 0)}</p>
-        </Card>
-      </div>
+      <Card className="mb-5 flex items-center gap-5 p-5">
+        <span className="text-5xl font-bold text-amber-600">{totalPendientes}</span>
+        <span>
+          <span className="block text-lg font-semibold text-slate-800">{totalPendientes === 1 ? "cilindro por devolver" : "cilindros por devolver"}</span>
+          <span className="block text-sm text-slate-500">
+            {clientesQueDeben === 0 ? "Nadie debe cilindros" : clientesQueDeben === 1 ? "Lo tiene 1 cliente" : `Los tienen ${clientesQueDeben} clientes`}
+          </span>
+        </span>
+      </Card>
 
-      <div className="mb-3 flex flex-wrap items-center gap-3">
+      {saldos.some((x) => x.pendientes > 0) && (
         <input
-          className="w-72 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Buscar cliente, telefono o cilindro..."
+          className="mb-3 w-full max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          placeholder="Buscar por nombre o telefono..."
           value={buscar}
           onChange={(e) => setBuscar(e.target.value)}
         />
-        <label className="flex items-center gap-2 text-sm text-slate-600">
-          <input type="checkbox" checked={verTodos} onChange={(e) => setVerTodos(e.target.checked)} /> Ver tambien los que ya devolvieron todo
-        </label>
+      )}
+
+      <div className="space-y-2">
+        {visibles.length === 0 && (
+          <Card className="p-8 text-center text-slate-400">{saldos.length ? "Todos devolvieron sus cilindros ✓" : "Todavia no se ha prestado ningun cilindro"}</Card>
+        )}
+        {visibles.map((s) => (
+          <Card key={`${s.cliente_id}-${s.producto_id}`} className="flex flex-wrap items-center gap-4 p-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xl font-bold text-amber-700">{s.pendientes}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-semibold text-slate-800">{s.cliente_nombre}</span>
+              <span className="block text-sm text-slate-500">
+                {s.pendientes === 1 ? "Tiene 1" : `Tiene ${s.pendientes}`} {s.producto_nombre} · desde el {formatDate(s.ultima_fecha)}
+                {s.cliente_telefono ? ` · Tel. ${s.cliente_telefono}` : ""}
+              </span>
+            </span>
+            {s.pendientes > 0 && (
+              <Button className="!bg-emerald-600 py-2.5 text-base hover:!bg-emerald-700" onClick={() => abrir(nuevo("DEVOLUCION", s.cliente_id, s.producto_id, String(s.pendientes)))}>
+                ✓ Ya lo devolvió
+              </Button>
+            )}
+            <button className="text-sm font-medium text-brand-600 hover:underline" onClick={() => abrir(nuevo("FIADO", s.cliente_id, s.producto_id))}>
+              Prestar más
+            </button>
+          </Card>
+        ))}
       </div>
 
-      <Table columns={["Cliente", "Cilindro", "Prestados", "Devueltos", "Por devolver", "Ultimo movimiento", ""]}>
-        {visibles.length === 0 && <EmptyRow colSpan={7} label={saldos.length ? "No hay cilindros prestados por devolver" : "Todavia no se ha prestado ningun cilindro"} />}
-        {visibles.map((s) => (
-          <tr key={`${s.cliente_id}-${s.producto_id}`}>
-            <td className="px-4 py-2">
-              <span className="font-medium text-slate-800">{s.cliente_nombre}</span>
-              {s.cliente_telefono && <span className="block text-xs text-slate-400">{s.cliente_telefono}</span>}
-            </td>
-            <td className="px-4 py-2">{s.producto_nombre}</td>
-            <td className="px-4 py-2 text-center">{s.fiadas}</td>
-            <td className="px-4 py-2 text-center">{s.devueltas}</td>
-            <td className="px-4 py-2 text-center">{s.pendientes > 0 ? <Badge tone="amber">{s.pendientes}</Badge> : <Badge tone="green">Al dia</Badge>}</td>
-            <td className="px-4 py-2 text-slate-500">{formatDate(s.ultima_fecha)}</td>
-            <td className="whitespace-nowrap px-4 py-2 text-right">
-              {s.pendientes > 0 && (
-                <Button size="sm" onClick={() => abrir(nuevo("DEVOLUCION", s.cliente_id, s.producto_id, String(s.pendientes)))}>
-                  Devolvio
-                </Button>
-              )}
-              <button className="ml-2 text-xs font-medium text-brand-600 hover:underline" onClick={() => abrir(nuevo("FIADO", s.cliente_id, s.producto_id))}>
-                Prestar mas
-              </button>
-            </td>
-          </tr>
-        ))}
-      </Table>
+      <div className="mt-6 flex flex-wrap items-center gap-4">
+        <button className="text-sm font-medium text-slate-500 hover:text-slate-700" onClick={() => setVerHistorial(!verHistorial)}>
+          {verHistorial ? "▲ Esconder historial" : "▼ Ver historial"}
+        </button>
+        {verHistorial && (
+          <label className="flex items-center gap-2 text-sm text-slate-500">
+            <input type="checkbox" checked={verTodos} onChange={(e) => setVerTodos(e.target.checked)} /> Ver tambien los que ya devolvieron todo
+          </label>
+        )}
+      </div>
+      {verHistorial && (
+        <div className="mt-3">
+          <Table columns={["Fecha", "Cliente", "Cilindro", "Movimiento", "Cantidad", "Nota", "Registrado por"]}>
+            {movimientos.length === 0 && <EmptyRow colSpan={7} label="Sin movimientos" />}
+            {movimientos
+              .filter((m) => !q || `${m.cliente_nombre} ${m.producto_nombre}`.toLowerCase().includes(q))
+              .map((m) => (
+                <tr key={m.id}>
+                  <td className="px-4 py-2 text-slate-500">{formatDate(m.fecha)}</td>
+                  <td className="px-4 py-2">{m.cliente_nombre}</td>
+                  <td className="px-4 py-2">{m.producto_nombre}</td>
+                  <td className="px-4 py-2">{m.tipo === "FIADO" ? <Badge tone="amber">Prestado</Badge> : <Badge tone="green">Devuelto</Badge>}</td>
+                  <td className="px-4 py-2 text-center">{m.cantidad}</td>
+                  <td className="px-4 py-2 text-slate-500">{m.nota ?? ""}</td>
+                  <td className="px-4 py-2 text-slate-500">{m.creado_por ?? ""}</td>
+                </tr>
+              ))}
+          </Table>
+        </div>
+      )}
 
-      <h2 className="mb-2 mt-6 text-sm font-semibold text-slate-700">Historial</h2>
-      <Table columns={["Fecha", "Cliente", "Cilindro", "Movimiento", "Cantidad", "Nota", "Registrado por"]}>
-        {movimientos.length === 0 && <EmptyRow colSpan={7} label="Sin movimientos" />}
-        {movimientos
-          .filter((m) => !q || `${m.cliente_nombre} ${m.producto_nombre}`.toLowerCase().includes(q))
-          .map((m) => (
-            <tr key={m.id}>
-              <td className="px-4 py-2 text-slate-500">{formatDate(m.fecha)}</td>
-              <td className="px-4 py-2">{m.cliente_nombre}</td>
-              <td className="px-4 py-2">{m.producto_nombre}</td>
-              <td className="px-4 py-2">{m.tipo === "FIADO" ? <Badge tone="amber">Prestado</Badge> : <Badge tone="green">Devuelto</Badge>}</td>
-              <td className="px-4 py-2 text-center">{m.cantidad}</td>
-              <td className="px-4 py-2 text-slate-500">{m.nota ?? ""}</td>
-              <td className="px-4 py-2 text-slate-500">{m.creado_por ?? ""}</td>
-            </tr>
-          ))}
-      </Table>
-
-      <Modal open={!!form} onClose={() => setForm(null)} title={form?.tipo === "FIADO" ? "Prestar cilindros" : "Devolucion de cilindros prestados"}>
+      <Modal open={!!form} onClose={() => setForm(null)} title={form?.tipo === "FIADO" ? "Prestar cilindros" : "Devolvio cilindros"}>
         {form && (
           <form onSubmit={guardar} className="space-y-3">
             {form.tipo === "FIADO" ? (

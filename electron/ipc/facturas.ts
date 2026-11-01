@@ -84,6 +84,10 @@ export function registerFacturasIpc(db: DB) {
     const tipoNcf = tipoNcfRecibido(input.tipo_ncf, input.codigos_ncf) as TipoNcfVenta;
     if (!TIPOS_NCF_VENTA.includes(tipoNcf)) throw new Error(`Tipo de comprobante no valido para una factura: ${input.tipo_ncf}. Use ${TIPOS_NCF_VENTA.map((t) => NCF_LABELS[t]).join(", ")}.`);
     const cajaSesionId = validarSesionAbierta(db, input.caja_sesion_id);
+    if (input.lineas.some((l) => l.prestado)) {
+      const cli = db.prepare(`SELECT codigo FROM clientes WHERE id = ?`).get(input.cliente_id) as { codigo: string } | undefined;
+      if (!cli || cli.codigo === "CLI-0000") throw new Error("Para prestar un cilindro escribe el nombre de quien se lo lleva");
+    }
 
     const productos = new Map<number, Producto>();
     for (const l of input.lineas) {
@@ -143,8 +147,8 @@ export function registerFacturasIpc(db: DB) {
       const facturaId = Number(infoFactura.lastInsertRowid);
 
       const insertLinea = db.prepare(
-        `INSERT INTO factura_lineas (factura_id, producto_id, modalidad, cantidad, precio_unitario, descuento, itbis, subtotal)
-         VALUES (@factura_id, @producto_id, @modalidad, @cantidad, @precio_unitario, @descuento, @itbis, @subtotal)`
+        `INSERT INTO factura_lineas (factura_id, producto_id, modalidad, cantidad, precio_unitario, descuento, itbis, subtotal, prestado)
+         VALUES (@factura_id, @producto_id, @modalidad, @cantidad, @precio_unitario, @descuento, @itbis, @subtotal, @prestado)`
       );
       const updateExistencia = db.prepare(`UPDATE productos SET existencia = existencia - ? WHERE id = ?`);
       const upsertEnvase = db.prepare(
@@ -169,8 +173,16 @@ export function registerFacturasIpc(db: DB) {
           descuento: l.descuento,
           itbis: l.itbis,
           subtotal: l.subtotal,
+          prestado: l.prestado && l.producto.maneja_envase ? 1 : 0,
         });
         updateExistencia.run(l.cantidad, l.producto_id);
+
+        // Cilindro prestado desde la venta: queda anotado en Cilindros prestados, ligado a esta factura.
+        if (l.prestado && l.producto.maneja_envase) {
+          db.prepare(
+            `INSERT INTO botellas_fiadas (cliente_id, producto_id, tipo, cantidad, fecha, nota, creado_por, factura_id) VALUES (?, ?, 'FIADO', ?, ?, ?, ?, ?)`
+          ).run(input.cliente_id, l.producto_id, l.cantidad, input.fecha, `Venta ${ncf ?? `#${maxNumero + 1}`}`, input.creado_por?.trim() || null, facturaId);
+        }
 
         if (l.modalidad === "LLENO" && l.producto.maneja_envase) {
           upsertEnvase.run({ cliente_id: input.cliente_id, producto_id: l.producto_id, cantidad: l.cantidad, fianza: l.fianzaLinea });
@@ -232,6 +244,8 @@ export function registerFacturasIpc(db: DB) {
     const sesionAnulacion = validarSesionAbierta(db, cajaSesionId);
 
     const run = db.transaction(() => {
+      // los cilindros que se prestaron con esta venta dejan de contarse como prestados
+      db.prepare(`DELETE FROM botellas_fiadas WHERE factura_id = ?`).run(id);
       const lineas = db.prepare(`SELECT * FROM factura_lineas WHERE factura_id = ?`).all(id) as any[];
       for (const l of lineas) {
         db.prepare(`UPDATE productos SET existencia = existencia + ? WHERE id = ?`).run(l.cantidad, l.producto_id);

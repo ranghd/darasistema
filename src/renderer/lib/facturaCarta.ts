@@ -119,6 +119,7 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
 // Envase de un producto en su linea: si el cliente cambio su cilindro o se lo llevo con fianza.
 function envaseDe(l: FacturaDetalle["lineas"][number]): string {
   if (!l.maneja_envase) return "";
+  if (l.prestado) return ` <span class="nota">(cilindro prestado: lo tiene que devolver)</span>`;
   if (l.modalidad === "LLENO") return ` <span class="nota">(se lleva el cilindro${l.fianza_envase ? ` · fianza ${formatMoney(l.fianza_envase * l.cantidad)}` : ""})</span>`;
   return ` <span class="nota">(cambio: entregó su cilindro vacío)</span>`;
 }
@@ -129,12 +130,14 @@ function cuadroEnvases(f: FacturaDetalle, prestados: SaldoBotellaFiada[]): strin
   let salida = "";
   if (cilindros.length) {
     const sumar = (ls: typeof cilindros) => ls.reduce((s, l) => s + l.cantidad, 0);
-    const vacios = sumar(cilindros.filter((l) => l.modalidad !== "LLENO"));
+    const vacios = sumar(cilindros.filter((l) => l.modalidad !== "LLENO" && !l.prestado));
     const nuevos = sumar(cilindros.filter((l) => l.modalidad === "LLENO"));
+    const prestadosAhora = sumar(cilindros.filter((l) => l.prestado));
     salida += `<div class="caja"><b>Envases</b>
       <div><span>Cilindros vacíos que entregó el cliente</span><span>${vacios}</span></div>
-      <div><span>Cilindros llenos que se lleva</span><span>${vacios + nuevos}</span></div>
+      <div><span>Cilindros llenos que se lleva</span><span>${vacios + nuevos + prestadosAhora}</span></div>
       ${nuevos ? `<div><span>Cilindros nuevos (con fianza)</span><span>${nuevos}</span></div>` : ""}
+      ${prestadosAhora ? `<div><span>Cilindros prestados en esta venta</span><span>${prestadosAhora}</span></div>` : ""}
     </div>`;
   }
   if (prestados.length) {
