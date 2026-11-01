@@ -31,6 +31,9 @@ const METODOS: { valor: Metodo; nombre: string; tecla: string }[] = [
   { valor: "TRANSFERENCIA", nombre: "Transferencia", tecla: "F8 · Ctrl3" },
 ];
 
+// Campos del cliente en la caja de Gas Damian (nombre, RNC, razon social).
+const CAMPO_CLIENTE = "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100";
+
 // Categoria de un producto en las pestanas (colmado y Gas Damian). Si no tiene, se usa su tipo.
 const TIPO_A_GRUPO: Record<string, string> = { GAS: "Gas propano", OXIGENO: "Oxigeno", AGUA: "Agua" };
 const grupoDe = (p: Producto) => p.grupo || (soloVentas ? TIPO_A_GRUPO[p.categoria] ?? "Otros" : "Otros");
@@ -64,6 +67,7 @@ export default function Caja() {
   const [nombreCliente, setNombreCliente] = useBorrador<string>("venta.nombre", "");
   // Y si se le escribe un RNC, la factura sale con valor fiscal (B01) y el cliente se registra solo.
   const [rncCliente, setRncCliente] = useBorrador<string>("venta.rnc", "");
+  const [fiscalConsumidor, setFiscalConsumidor] = useBorrador<boolean>("venta.fiscal", false);
   const habiaVenta = useHabiaBorrador("venta.carrito", (v) => Array.isArray(v) && v.length > 0);
   const [avisoRecuperada, setAvisoRecuperada] = useState(habiaVenta);
   const [categoria, setCategoria] = useState("TODOS");
@@ -211,6 +215,7 @@ export default function Caja() {
     if (consumidorFinal) setClienteId(consumidorFinal.id);
     setNombreCliente("");
     setRncCliente("");
+    setFiscalConsumidor(false);
     enfocar();
   }
 
@@ -220,7 +225,7 @@ export default function Caja() {
     if (!clienteId) return setError("Elige un cliente (F2)");
     if (carrito.length === 0) return setError("Agrega al menos un producto");
     if (usaCaja && !sesion) return setError("La caja esta cerrada. Presiona F9 (o Ctrl+O) para abrirla.");
-    if (soloVentas && esConsumidorFinal && rncEscrito) {
+    if (soloVentas && esConsumidorFinal && fiscalConsumidor) {
       if (rncEscrito.length !== 9 && rncEscrito.length !== 11) return setError("El RNC debe tener 9 digitos (empresa) o 11 (cedula)");
       if (!nombreCliente.trim()) return setError("Escribe el nombre o la razon social para la factura con valor fiscal");
     }
@@ -238,7 +243,7 @@ export default function Caja() {
     setCobrando(true);
     try {
       let idCliente = clienteId as number;
-      if (soloVentas && esConsumidorFinal && rncEscrito) {
+      if (soloVentas && esConsumidorFinal && fiscalConsumidor) {
         // con RNC: se usa el cliente que ya tiene ese RNC o se registra uno nuevo
         const existente = clientes.find((c) => (c.rnc_cedula ?? "").replace(/\D/g, "") === rncEscrito);
         const elegido =
@@ -256,7 +261,7 @@ export default function Caja() {
         codigos_ncf: VERSION_CODIGOS_NCF,
         creado_por: usuario?.nombre,
         caja_sesion_id: sesion?.id ?? null,
-        nombre_cliente: soloVentas && esConsumidorFinal && !rncEscrito ? nombreCliente.trim() || null : null,
+        nombre_cliente: soloVentas && esConsumidorFinal && !fiscalConsumidor ? nombreCliente.trim() || null : null,
         lineas: carrito.map((l) => ({ producto_id: l.producto_id, modalidad: l.modalidad, cantidad: l.cantidad, precio_unitario: productos.find((p) => p.id === l.producto_id)!.precio_contenido, descuento: 0 })),
       })) as any;
       setPagando(false);
@@ -275,6 +280,7 @@ export default function Caja() {
       setLineaSel(-1);
       setNombreCliente("");
       setRncCliente("");
+      setFiscalConsumidor(false);
       api.productos.listar().then(setProductos); // existencias al dia
     } catch (err) {
       setPagando(false);
@@ -419,8 +425,8 @@ export default function Caja() {
   const cliente = clientes.find((c) => c.id === clienteId);
   const esConsumidorFinal = cliente?.nombre === "Consumidor Final";
   const rncEscrito = rncCliente.replace(/\D/g, "");
-  // Gas Damian: con valor fiscal (B01) si a Consumidor Final se le escribio un RNC o si el cliente elegido tiene RNC
-  const valorFiscal = soloVentas && (esConsumidorFinal ? rncEscrito.length > 0 : !!(cliente?.rnc_cedula ?? "").replace(/\D/g, ""));
+  // Gas Damian: con valor fiscal (B01) si a Consumidor Final se le marco "Valor fiscal" o si el cliente elegido tiene RNC
+  const valorFiscal = soloVentas && (esConsumidorFinal ? fiscalConsumidor : !!(cliente?.rnc_cedula ?? "").replace(/\D/g, ""));
   const seleccionVisible = lineaSel >= 0 ? lineaSel : carrito.length - 1;
   const billetesRapidos = [...new Set([Math.ceil(calculo.total / 100) * 100, Math.ceil(calculo.total / 500) * 500, Math.ceil(calculo.total / 1000) * 1000, 2000])]
     .filter((v) => v > calculo.total)
@@ -624,31 +630,72 @@ export default function Caja() {
               </span>
             </button>
             {soloVentas && (
-              <div className="space-y-2 border-b border-slate-200 px-4 py-2.5">
-                {esConsumidorFinal && (
+              <div className="border-b border-slate-200 px-4 py-3">
+                <span className="mb-1.5 block text-xs text-slate-400">Comprobante</span>
+                {esConsumidorFinal ? (
                   <>
-                    <input
-                      value={nombreCliente}
-                      onChange={(e) => setNombreCliente(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), enfocar())}
-                      placeholder={rncEscrito ? "Nombre o razon social (obligatorio)" : "Nombre del cliente (opcional), ej. Jose"}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
-                      data-nav-ignorar
-                    />
-                    <input
-                      value={rncCliente}
-                      onChange={(e) => setRncCliente(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), enfocar())}
-                      placeholder="RNC o cedula (para factura con valor fiscal)"
-                      className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
-                      data-nav-ignorar
-                    />
+                    <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 text-xs font-medium">
+                      {[
+                        { fiscal: false, titulo: "Consumo", codigo: "B02" },
+                        { fiscal: true, titulo: "Valor fiscal", codigo: "B01" },
+                      ].map((o) => (
+                        <button
+                          key={o.codigo}
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => setFiscalConsumidor(o.fiscal)}
+                          className={`rounded-md px-2 py-1.5 transition-colors ${fiscalConsumidor === o.fiscal ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                        >
+                          {o.titulo} <span className="font-mono text-[10px] text-slate-400">{o.codigo}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {fiscalConsumidor ? (
+                      <div className="mt-2.5 grid grid-cols-[5fr_7fr] gap-2">
+                        <label className="block">
+                          <span className="mb-1 block text-[11px] font-medium text-slate-500">RNC / Cedula</span>
+                          <input
+                            value={rncCliente}
+                            onChange={(e) => setRncCliente(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), enfocar())}
+                            placeholder="131234567"
+                            inputMode="numeric"
+                            className={CAMPO_CLIENTE}
+                            data-nav-ignorar
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-[11px] font-medium text-slate-500">Razon social</span>
+                          <input
+                            value={nombreCliente}
+                            onChange={(e) => setNombreCliente(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), enfocar())}
+                            placeholder="Nombre de la empresa"
+                            className={CAMPO_CLIENTE}
+                            data-nav-ignorar
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <label className="mt-2.5 block">
+                        <span className="mb-1 block text-[11px] font-medium text-slate-500">Nombre en la factura (opcional)</span>
+                        <input
+                          value={nombreCliente}
+                          onChange={(e) => setNombreCliente(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), enfocar())}
+                          placeholder="Ej. Jose"
+                          className={CAMPO_CLIENTE}
+                          data-nav-ignorar
+                        />
+                      </label>
+                    )}
                   </>
+                ) : (
+                  <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${valorFiscal ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                    {valorFiscal ? "Valor fiscal" : "Consumo"} <span className="font-mono text-[10px] opacity-70">{valorFiscal ? "B01" : "B02"}</span>
+                    {valorFiscal && cliente?.rnc_cedula && <span className="font-normal opacity-70">· RNC {cliente.rnc_cedula}</span>}
+                  </span>
                 )}
-                <p className="text-xs text-slate-500">
-                  Comprobante:{" "}
-                  {valorFiscal ? <b className="text-emerald-700">B01 · Valor fiscal</b> : <b className="text-slate-700">B02 · Consumo</b>}
-                </p>
               </div>
             )}
 
