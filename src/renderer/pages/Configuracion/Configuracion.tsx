@@ -3,7 +3,8 @@ import { api } from "../../lib/api";
 import type { CompanyConfig, NcfSecuencia, RolUsuario, TipoNcf, Usuario } from "../../lib/types";
 import { formatDate } from "../../lib/format";
 import { NCF_LABELS, TODOS_LOS_TIPOS_NCF, VERSION_CODIGOS_NCF } from "../../lib/ncf";
-import { esVariantCaja } from "../../lib/variant";
+import { esVariantCaja, soloVentas } from "../../lib/variant";
+import { PIE_FACTURA } from "../../lib/facturaCarta";
 import { useAuth } from "../../lib/auth";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 import ImpresoraCard from "./ImpresoraCard";
@@ -173,6 +174,18 @@ export default function Configuracion() {
                 value={config.itbis_rate * 100}
                 onChange={(e) => setConfig({ ...config, itbis_rate: Number(e.target.value) / 100 })}
               />
+              {soloVentas && (
+                // Gas Damian: lo que sale al final de la factura en hoja carta
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Mensaje al pie de la factura</span>
+                  <textarea
+                    rows={2}
+                    value={config.pie_factura ?? PIE_FACTURA}
+                    onChange={(e) => setConfig({ ...config, pie_factura: e.target.value })}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  />
+                </label>
+              )}
               <div className="flex items-center gap-2 pt-1">
                 <Button type="submit" disabled={guardando}>
                   {guardando ? "Guardando..." : "Guardar cambios"}

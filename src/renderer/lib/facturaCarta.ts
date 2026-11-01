@@ -8,6 +8,9 @@ import type { Cliente, CompanyConfig, FacturaDetalle, TipoNcf } from "./types";
 import type { AvisoImpresion } from "./ticket";
 import logo from "../assets/gas-damian.png?inline";
 
+// Lo que sale al pie si en Configuracion no se escribio otro mensaje.
+export const PIE_FACTURA = "Gracias por su compra · El mejor gas de Santo Domingo · www.gasdamian.com";
+
 const METODOS: Record<string, string> = { EFECTIVO: "Efectivo", TRANSFERENCIA: "Transferencia", TARJETA: "Tarjeta", CHEQUE: "Cheque" };
 
 export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | null, cliente: Cliente | null): string {
@@ -100,7 +103,7 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
         <div class="campo">Cedula:</div>
       </div>
     </div>
-    <div class="pie">Gracias por su compra · El mejor gas de Santo Domingo · www.gasdamian.com</div>
+    <div class="pie">${html(empresa?.pie_factura || PIE_FACTURA)}</div>
   </body></html>`;
 }
 

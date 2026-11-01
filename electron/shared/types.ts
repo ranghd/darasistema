@@ -364,6 +364,8 @@ export interface CompanyConfig {
   itbis_rate: number;
   /** Tipo de negocio: "gas" (gas, oxigeno y agua) o "colmado". */
   rubro?: Rubro;
+  /** Mensaje al pie de la factura en hoja carta. */
+  pie_factura?: string | null;
 }
 
 export type Rubro = "gas" | "colmado";

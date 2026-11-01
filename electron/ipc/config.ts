@@ -10,13 +10,17 @@ export function registerConfigIpc(db: DB) {
 
   ipcMain.handle("config:actualizar", (_e, data: Partial<CompanyConfig>) => {
     db.prepare(
-      `UPDATE company_config SET nombre_empresa=@nombre_empresa, rnc=@rnc, direccion=@direccion, telefono=@telefono, itbis_rate=@itbis_rate WHERE id = 1`
+      `UPDATE company_config SET nombre_empresa=@nombre_empresa, rnc=@rnc, direccion=@direccion, telefono=@telefono, itbis_rate=@itbis_rate,
+         pie_factura = CASE WHEN @cambia_pie THEN @pie_factura ELSE pie_factura END WHERE id = 1`
     ).run({
       nombre_empresa: data.nombre_empresa,
       rnc: data.rnc ?? null,
       direccion: data.direccion ?? null,
       telefono: data.telefono ?? null,
       itbis_rate: data.itbis_rate ?? 0.18,
+      // las pantallas que no mandan el pie (las otras ediciones) no lo borran
+      cambia_pie: data.pie_factura !== undefined ? 1 : 0,
+      pie_factura: data.pie_factura?.trim() || null,
     });
     return db.prepare(`SELECT * FROM company_config WHERE id = 1`).get() as CompanyConfig;
   });

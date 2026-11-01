@@ -156,6 +156,8 @@ export function migrar(db: DB) {
     `ALTER TABLE gastos ADD COLUMN tipo_dgii TEXT`,
     // Venta a Consumidor Final con un nombre escrito en la caja (Gas Damian), sin crear el cliente.
     `ALTER TABLE facturas ADD COLUMN nombre_cliente TEXT`,
+    // Mensaje al pie de la factura en hoja carta (se escribe en Configuracion).
+    `ALTER TABLE company_config ADD COLUMN pie_factura TEXT`,
   ];
   for (const sql of columnas) {
     try {
