@@ -101,6 +101,9 @@ export interface FacturaLinea extends FacturaLineaInput {
   itbis: number;
   subtotal: number;
   producto_nombre?: string;
+  /** Del producto: si es un cilindro (envase retornable) y su fianza. */
+  maneja_envase?: number;
+  fianza_envase?: number;
 }
 
 export interface Factura {

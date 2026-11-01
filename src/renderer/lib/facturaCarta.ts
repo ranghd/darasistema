@@ -1,10 +1,11 @@
 // Factura en hoja carta (Gas Damian): ITBIS de cada producto y, al final,
 // "Entregado por" y "Recibido por" con espacio para la firma y la cedula de quien recibe.
+// Tambien los envases: el de cada cilindro, cuantos entrego y se llevo el cliente, y los cilindros prestados que debe.
 import { api, mensajeDeError } from "./api";
 import { html } from "./exportar";
 import { formatDate, formatMoney } from "./format";
 import { NCF_LABELS } from "./ncf";
-import type { Cliente, CompanyConfig, FacturaDetalle, TipoNcf } from "./types";
+import type { Cliente, CompanyConfig, FacturaDetalle, SaldoBotellaFiada, TipoNcf } from "./types";
 import type { AvisoImpresion } from "./ticket";
 import logo from "../assets/gas-damian.png?inline";
 
@@ -13,7 +14,7 @@ export const PIE_FACTURA = "Gracias por su compra · El mejor gas de Santo Domin
 
 const METODOS: Record<string, string> = { EFECTIVO: "Efectivo", TRANSFERENCIA: "Transferencia", TARJETA: "Tarjeta", CHEQUE: "Cheque" };
 
-export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | null, cliente: Cliente | null): string {
+export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | null, cliente: Cliente | null, prestados: SaldoBotellaFiada[] = []): string {
   const tipo = (f.ncf?.slice(0, 3) ?? "") as TipoNcf;
   const titulo = NCF_LABELS[tipo]?.split(" - ")[1] ?? "Factura";
   const descuento = f.lineas.reduce((s, l) => s + (l.descuento ?? 0), 0);
@@ -22,7 +23,7 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
       const bruto = l.cantidad * l.precio_unitario - (l.descuento ?? 0);
       return `<tr>
         <td class="n">${l.cantidad}</td>
-        <td>${html(l.producto_nombre ?? "")}${l.modalidad === "LLENO" ? ` <span class="nota">(con envase)</span>` : ""}</td>
+        <td>${html(l.producto_nombre ?? "")}${envaseDe(l)}</td>
         <td class="n">${formatMoney(l.precio_unitario)}</td>
         <td class="n">${l.descuento ? formatMoney(l.descuento) : "-"}</td>
         <td class="n">${formatMoney(l.itbis ?? 0)}</td>
@@ -51,7 +52,12 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
     th.n { text-align: right; }
     .b { font-weight: 700; }
     .nota { color: #555; font-size: 11px; }
-    .totales { margin-left: auto; width: 290px; margin-top: 12px; }
+    .bajo { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-top: 12px; }
+    .envases { flex: 1; max-width: 380px; font-size: 11px; }
+    .envases .caja { border: 1px solid #ccc; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
+    .envases .caja b { display: block; font-size: 11px; text-transform: uppercase; color: #333; margin-bottom: 4px; }
+    .envases .caja div { display: flex; justify-content: space-between; padding: 1px 0; }
+    .totales { margin-left: auto; width: 290px; }
     .totales div { display: flex; justify-content: space-between; padding: 3px 0; }
     .totales .total { border-top: 2px solid #111; margin-top: 4px; padding-top: 6px; font-size: 16px; font-weight: 700; }
     .firmas { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; margin-top: 70px; page-break-inside: avoid; }
@@ -85,12 +91,15 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
       <thead><tr><th class="n">Cant.</th><th>Descripcion</th><th class="n">Precio</th><th class="n">Desc.</th><th class="n">ITBIS</th><th class="n">Total</th></tr></thead>
       <tbody>${filas}</tbody>
     </table>
+    <div class="bajo">
+    <div class="envases">${cuadroEnvases(f, prestados)}</div>
     <div class="totales">
       <div><span>Subtotal</span><span>${formatMoney(f.subtotal + descuento)}</span></div>
       ${descuento ? `<div><span>Descuento</span><span>-${formatMoney(descuento)}</span></div>` : ""}
       <div><span>ITBIS</span><span>${formatMoney(f.itbis)}</span></div>
       ${f.fianza_total ? `<div><span>Deposito de envases</span><span>${formatMoney(f.fianza_total)}</span></div>` : ""}
       <div class="total"><span>TOTAL</span><span>${formatMoney(f.total)}</span></div>
+    </div>
     </div>
     ${f.estado === "ANULADA" ? `<div class="anulada">*** FACTURA ANULADA ***</div>` : ""}
     <div class="firmas">
@@ -107,17 +116,49 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
   </body></html>`;
 }
 
+// Envase de un producto en su linea: si el cliente cambio su cilindro o se lo llevo con fianza.
+function envaseDe(l: FacturaDetalle["lineas"][number]): string {
+  if (!l.maneja_envase) return "";
+  if (l.modalidad === "LLENO") return ` <span class="nota">(se lleva el cilindro${l.fianza_envase ? ` · fianza ${formatMoney(l.fianza_envase * l.cantidad)}` : ""})</span>`;
+  return ` <span class="nota">(cambio: entregó su cilindro vacío)</span>`;
+}
+
+// Resumen de cilindros de esta factura y los prestados que el cliente todavia debe devolver.
+function cuadroEnvases(f: FacturaDetalle, prestados: SaldoBotellaFiada[]): string {
+  const cilindros = f.lineas.filter((l) => l.maneja_envase);
+  let salida = "";
+  if (cilindros.length) {
+    const sumar = (ls: typeof cilindros) => ls.reduce((s, l) => s + l.cantidad, 0);
+    const vacios = sumar(cilindros.filter((l) => l.modalidad !== "LLENO"));
+    const nuevos = sumar(cilindros.filter((l) => l.modalidad === "LLENO"));
+    salida += `<div class="caja"><b>Envases</b>
+      <div><span>Cilindros vacíos que entregó el cliente</span><span>${vacios}</span></div>
+      <div><span>Cilindros llenos que se lleva</span><span>${vacios + nuevos}</span></div>
+      ${nuevos ? `<div><span>Cilindros nuevos (con fianza)</span><span>${nuevos}</span></div>` : ""}
+    </div>`;
+  }
+  if (prestados.length) {
+    salida += `<div class="caja"><b>Cilindros prestados por devolver</b>
+      ${prestados.map((s) => `<div><span>${html(s.producto_nombre)} (desde ${formatDate(s.ultima_fecha)})</span><span>${s.pendientes}</span></div>`).join("")}
+    </div>`;
+  }
+  return salida;
+}
+
 // Abre el dialogo de imprimir de Windows con la factura en hoja carta.
 export async function imprimirFacturaCarta(facturaId: number): Promise<AvisoImpresion> {
   try {
     const [f, empresa] = await Promise.all([api.facturas.obtener(facturaId) as Promise<FacturaDetalle>, api.config.obtener() as Promise<CompanyConfig>]);
     const cliente = ((await api.clientes.obtener(f.cliente_id)) as Cliente | undefined) ?? null;
+    // los cilindros prestados que todavia debe (a Consumidor Final no se le presta)
+    const prestados =
+      cliente && cliente.codigo !== "CLI-0000" ? (await api.fiados.saldos().catch(() => [] as SaldoBotellaFiada[])).filter((s) => s.cliente_id === cliente.id && s.pendientes > 0) : [];
     const marco = document.createElement("iframe");
     marco.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
     document.body.appendChild(marco);
     const doc = marco.contentDocument!;
     doc.open();
-    doc.write(htmlFacturaCarta(f, empresa, cliente));
+    doc.write(htmlFacturaCarta(f, empresa, cliente, prestados));
     doc.close();
     await new Promise((r) => setTimeout(r, 250));
     marco.contentWindow!.focus();

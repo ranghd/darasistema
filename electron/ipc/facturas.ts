@@ -72,7 +72,7 @@ export function registerFacturasIpc(db: DB) {
     if (!factura) return undefined;
     const lineas = db
       .prepare(
-        `SELECT fl.*, p.nombre as producto_nombre FROM factura_lineas fl
+        `SELECT fl.*, p.nombre as producto_nombre, p.maneja_envase, p.fianza_envase FROM factura_lineas fl
          JOIN productos p ON p.id = fl.producto_id WHERE fl.factura_id = ?`
       )
       .all(id);
