@@ -150,7 +150,8 @@ export default function ListaProductos() {
   const precioFinal = Math.round(form.precio_contenido * (1 + form.itbis_rate) * 100) / 100;
   function cambiarPrecioFinal(texto: string) {
     setFinalTexto(texto);
-    cambiarPrecio(Math.round((Number(texto) / (1 + form.itbis_rate)) * 100) / 100);
+    // cuatro decimales en el precio sin ITBIS para que el final quede justo en lo escrito (1300 y no 1299.99)
+    cambiarPrecio(Math.round((Number(texto) / (1 + form.itbis_rate)) * 10000) / 10000);
   }
 
   function cambiarCategoria(categoria: Producto["categoria"]) {

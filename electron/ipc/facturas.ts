@@ -100,8 +100,11 @@ export function registerFacturasIpc(db: DB) {
     let fianzaTotal = 0;
     const lineasCalc = input.lineas.map((l) => {
       const producto = productos.get(l.producto_id)!;
-      const bruto = l.cantidad * l.precio_unitario - l.descuento;
-      const itbisLinea = Math.round(bruto * (producto.itbis_rate ?? 0.18) * 100) / 100;
+      const exacto = l.cantidad * l.precio_unitario - l.descuento;
+      const bruto = Math.round(exacto * 100) / 100;
+      // El ITBIS sale de redondear el precio final: asi un precio final redondo (ej. RD$1,300) da justo ese total
+      // aunque el precio sin ITBIS tenga mas de dos decimales. Con precios de dos decimales da lo mismo que antes.
+      const itbisLinea = Math.round((Math.round(exacto * (1 + (producto.itbis_rate ?? 0.18)) * 100) / 100 - bruto) * 100) / 100;
       const fianzaLinea = l.modalidad === "LLENO" && producto.maneja_envase ? producto.fianza_envase * l.cantidad : 0;
       subtotal += bruto;
       itbisTotal += itbisLinea;

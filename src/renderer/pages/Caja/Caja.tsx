@@ -380,6 +380,20 @@ export default function Caja() {
   function elegirCliente(c: Cliente | undefined) {
     if (!c) return;
     setClienteId(c.id);
+    if (c.nombre !== "Consumidor Final") setNombreCliente("");
+    setEligiendoCliente(false);
+    enfocar();
+  }
+
+  // Gas Damian: lo que se escribe al elegir cliente sirve como nombre de un Consumidor Final (ej. Jose),
+  // sin crear el cliente. Es la ultima opcion de la lista.
+  const nombreLibre = soloVentas ? textoCliente.trim() : "";
+  const opcionesCliente = clientesFiltrados.length + (nombreLibre ? 1 : 0);
+  function venderANombre() {
+    const consumidorFinal = clientes.find((x) => x.nombre === "Consumidor Final");
+    if (!consumidorFinal) return;
+    setClienteId(consumidorFinal.id);
+    setNombreCliente(nombreLibre);
     setEligiendoCliente(false);
     enfocar();
   }
@@ -556,8 +570,8 @@ export default function Caja() {
                     {!esColmado && <span className="font-mono normal-case text-slate-400">{p.codigo}</span>}
                   </span>
                   <span className="mt-1 text-sm font-semibold text-slate-800">{p.nombre}</span>
-                  {/* en el colmado se ve el precio final, el que paga el cliente (con ITBIS) */}
-                  <span className="mt-1.5 text-base font-bold text-slate-900">{formatMoney(esColmado ? p.precio_contenido * (1 + (p.itbis_rate ?? 0)) : p.precio_contenido)}</span>
+                  {/* en el colmado y en Gas Damian se ve el precio final, el que paga el cliente (con ITBIS) */}
+                  <span className="mt-1.5 text-base font-bold text-slate-900">{formatMoney(esColmado || soloVentas ? p.precio_contenido * (1 + (p.itbis_rate ?? 0)) : p.precio_contenido)}</span>
                   <span className="mt-1 text-xs text-slate-400">Existencia: {p.existencia}</span>
                 </button>
               ))}
@@ -716,9 +730,9 @@ export default function Caja() {
             setClienteSel(0);
           }}
           onKeyDown={(e) => {
-            if (e.key === "ArrowDown") (e.preventDefault(), setClienteSel((s) => Math.min(s + 1, clientesFiltrados.length - 1)));
+            if (e.key === "ArrowDown") (e.preventDefault(), setClienteSel((s) => Math.min(s + 1, opcionesCliente - 1)));
             else if (e.key === "ArrowUp") (e.preventDefault(), setClienteSel((s) => Math.max(s - 1, 0)));
-            else if (e.key === "Enter") (e.preventDefault(), elegirCliente(clientesFiltrados[clienteSel]));
+            else if (e.key === "Enter") (e.preventDefault(), clienteSel < clientesFiltrados.length ? elegirCliente(clientesFiltrados[clienteSel]) : nombreLibre && venderANombre());
           }}
         />
         <div className="mt-3 max-h-80 overflow-y-auto">
@@ -734,7 +748,22 @@ export default function Caja() {
               <span className="text-xs text-slate-400">{[c.codigo, c.rnc_cedula].filter(Boolean).join(" · ")}</span>
             </button>
           ))}
-          {clientesFiltrados.length === 0 && <p className="py-4 text-center text-sm text-slate-400">Ningun cliente coincide</p>}
+          {nombreLibre && (
+            <button
+              type="button"
+              onMouseEnter={() => setClienteSel(clientesFiltrados.length)}
+              onClick={venderANombre}
+              className={`mt-1 flex w-full justify-between rounded-lg border border-dashed px-3 py-2 text-left text-sm ${
+                clienteSel === clientesFiltrados.length ? "border-brand-300 bg-brand-50 text-brand-800" : "border-slate-300 text-slate-700"
+              }`}
+            >
+              <span>
+                Vender a <b>{nombreLibre}</b>
+              </span>
+              <span className="text-xs text-slate-400">Consumidor Final</span>
+            </button>
+          )}
+          {clientesFiltrados.length === 0 && !nombreLibre && <p className="py-4 text-center text-sm text-slate-400">Ningun cliente coincide</p>}
         </div>
         <p className="mt-2 text-xs text-slate-400">↑ ↓ elegir · Enter confirmar · Esc volver</p>
       </Modal>
