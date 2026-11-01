@@ -92,6 +92,7 @@ export default function ListaProductos() {
 
   function abrirNuevo() {
     setEditId(null);
+    setFinalTexto(null);
     setForm({
       ...emptyForm,
       cuenta_ingreso_id: cuentaIdPorCodigo(CUENTAS_INGRESO[emptyForm.categoria]),
@@ -105,6 +106,7 @@ export default function ListaProductos() {
 
   function abrirEditar(p: Producto) {
     setEditId(p.id);
+    setFinalTexto(null);
     setEditActivo(p.activo ? 1 : 0);
     setError("");
     setForm({
@@ -140,6 +142,15 @@ export default function ListaProductos() {
   function cambiarPrecio(precio: number) {
     setForm({ ...form, precio_contenido: precio });
     setMargenPct(calcularMargen(form.costo_contenido, precio));
+  }
+
+  // El precio final (con ITBIS) tambien se puede escribir: se calcula el precio sin ITBIS y la ganancia.
+  // Mientras se escribe se guarda el texto tal cual, para no borrar el punto ni los ceros.
+  const [finalTexto, setFinalTexto] = useState<string | null>(null);
+  const precioFinal = Math.round(form.precio_contenido * (1 + form.itbis_rate) * 100) / 100;
+  function cambiarPrecioFinal(texto: string) {
+    setFinalTexto(texto);
+    cambiarPrecio(Math.round((Number(texto) / (1 + form.itbis_rate)) * 100) / 100);
   }
 
   function cambiarCategoria(categoria: Producto["categoria"]) {
@@ -431,9 +442,16 @@ export default function ListaProductos() {
               onChange={(e) => cambiarPrecio(Number(e.target.value))}
             />
           </div>
-          <div className="rounded-lg bg-brand-50 px-3 py-2 text-sm">
-            <span className="text-slate-600">Precio final con ITBIS: </span>
-            <span className="font-semibold text-brand-700">{formatMoney(form.precio_contenido * (1 + form.itbis_rate))}</span>
+          <div className="rounded-lg bg-brand-50 px-3 py-2">
+            <Input
+              label="Precio final con ITBIS (lo que paga el cliente)"
+              type="number"
+              step="0.01"
+              min={0}
+              value={finalTexto ?? String(precioFinal)}
+              onChange={(e) => cambiarPrecioFinal(e.target.value)}
+              onBlur={() => setFinalTexto(null)}
+            />
           </div>
           {!esColmado && (
           <label className="flex items-center gap-2 text-sm text-slate-700">
