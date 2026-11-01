@@ -241,12 +241,18 @@ export default function Caja() {
     setCobrando(true);
     try {
       let idCliente = clienteId as number;
-      if (soloVentas && esConsumidorFinal && rncEscrito) {
-        // con RNC: se usa el cliente que ya tiene ese RNC o se registra uno nuevo
-        const existente = clientes.find((c) => (c.rnc_cedula ?? "").replace(/\D/g, "") === rncEscrito);
+      if (soloVentas && esConsumidorFinal && (rncEscrito || nombreCliente.trim())) {
+        // Con nombre o RNC la persona queda registrada como cliente (para verla en el Admin y darle
+        // credito fiscal despues): se usa el que ya tiene ese RNC o ese nombre, o se registra uno nuevo.
+        const nombre = nombreCliente.trim();
+        const existente = rncEscrito
+          ? clientes.find((c) => (c.rnc_cedula ?? "").replace(/\D/g, "") === rncEscrito)
+          : clientes.find((c) => c.codigo !== "CLI-0000" && c.activo !== 0 && sinAcentos(c.nombre.trim()) === sinAcentos(nombre));
         const elegido =
           existente ??
-          ((await api.clientes.crear({ nombre: nombreCliente.trim(), rnc_cedula: rncCliente.trim(), tipo: rncEscrito.length === 9 ? "JURIDICA" : "FISICA" })) as Cliente);
+          ((await api.clientes.crear(
+            rncEscrito ? { nombre, rnc_cedula: rncCliente.trim(), tipo: rncEscrito.length === 9 ? "JURIDICA" : "FISICA" } : { nombre, tipo: "FISICA" }
+          )) as Cliente);
         if (!existente) setClientes((cs) => [...cs, elegido]);
         idCliente = elegido.id;
       }
@@ -259,7 +265,6 @@ export default function Caja() {
         codigos_ncf: VERSION_CODIGOS_NCF,
         creado_por: usuario?.nombre,
         caja_sesion_id: sesion?.id ?? null,
-        nombre_cliente: soloVentas && esConsumidorFinal && !rncEscrito ? nombreCliente.trim() || null : null,
         lineas: carrito.map((l) => ({ producto_id: l.producto_id, modalidad: l.modalidad, cantidad: l.cantidad, precio_unitario: productos.find((p) => p.id === l.producto_id)!.precio_contenido, descuento: 0 })),
       })) as any;
       setPagando(false);
