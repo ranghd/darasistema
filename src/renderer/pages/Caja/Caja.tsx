@@ -16,6 +16,7 @@ import { esColmado, manejaEnvases, soloVentas, usaGrupos } from "../../lib/varia
 import { imprimirFacturaCarta } from "../../lib/facturaCarta";
 import TablaFactura from "./TablaFactura";
 import { leerBusqueda, sinAcentos } from "./buscar";
+import { leerPrecios } from "../../lib/precios";
 
 interface LineaCarrito {
   producto_id: number;
@@ -23,6 +24,8 @@ interface LineaCarrito {
   modalidad: ModalidadLinea;
   /** Gas Damian: el cliente se lleva el cilindro prestado. */
   prestado?: boolean;
+  /** Gas Damian: precio elegido entre los otros precios (sin ITBIS); sin el, el precio normal. */
+  precio?: number;
 }
 
 // Gas Damian: que pasa con el cilindro, en palabras de todos los dias.
@@ -145,7 +148,7 @@ export default function Caja() {
     let fianza = 0;
     const lineas = carrito.filter((l) => productos.some((p) => p.id === l.producto_id)).map((l) => {
       const producto = productos.find((p) => p.id === l.producto_id)!;
-      const bruto = l.cantidad * producto.precio_contenido;
+      const bruto = l.cantidad * (l.precio ?? producto.precio_contenido);
       const itbisLinea = bruto * (producto.itbis_rate ?? 0.18);
       const fianzaLinea = l.modalidad === "LLENO" && producto.maneja_envase ? producto.fianza_envase * l.cantidad : 0;
       subtotal += bruto;
@@ -220,6 +223,10 @@ export default function Caja() {
     setCarrito(carrito.map((x, j) => (j === i ? { ...x, prestado: false, modalidad: modalidad ?? (x.modalidad === "LLENO" ? "INTERCAMBIO" : "LLENO") } : x)));
   }
 
+  function elegirPrecio(i: number, precio: number | undefined) {
+    setCarrito(carrito.map((x, j) => (j === i ? { ...x, precio } : x)));
+  }
+
   function elegirModo(i: number, modo: ModoCilindro) {
     setCarrito(carrito.map((x, j) => (j === i ? { ...x, modalidad: modo === "NUEVO" ? "LLENO" : "INTERCAMBIO", prestado: modo === "PRESTADO" } : x)));
   }
@@ -288,7 +295,7 @@ export default function Caja() {
         codigos_ncf: VERSION_CODIGOS_NCF,
         creado_por: usuario?.nombre,
         caja_sesion_id: sesion?.id ?? null,
-        lineas: carrito.map((l) => ({ producto_id: l.producto_id, modalidad: l.modalidad, cantidad: l.cantidad, precio_unitario: productos.find((p) => p.id === l.producto_id)!.precio_contenido, descuento: 0, prestado: !!l.prestado })),
+        lineas: carrito.map((l) => ({ producto_id: l.producto_id, modalidad: l.modalidad, cantidad: l.cantidad, precio_unitario: l.precio ?? productos.find((p) => p.id === l.producto_id)!.precio_contenido, descuento: 0, prestado: !!l.prestado })),
       })) as any;
       setPagando(false);
       const cfg = await api.impresion.obtenerConfig().catch(() => null);
@@ -740,6 +747,25 @@ export default function Caja() {
                         </div>
                         <span className="text-sm font-semibold text-slate-900">{formatMoney(l.bruto + l.itbisLinea + l.fianzaLinea)}</span>
                       </div>
+                      {soloVentas && leerPrecios(l.producto).length > 0 && (
+                        // Gas Damian: cual de sus precios se cobra
+                        <div className="mt-2 flex flex-wrap gap-1 text-[11px] font-medium">
+                          {[{ nombre: "Normal", precio: undefined as number | undefined }, ...leerPrecios(l.producto)].map((op) => {
+                            const elegido = op.precio === undefined ? l.precio === undefined : l.precio === op.precio;
+                            const final = (op.precio ?? l.producto.precio_contenido) * (1 + (l.producto.itbis_rate ?? 0.18));
+                            return (
+                              <button
+                                key={op.nombre}
+                                tabIndex={-1}
+                                onClick={(e) => (e.stopPropagation(), elegirPrecio(i, op.precio))}
+                                className={`rounded-full px-2.5 py-1 ${elegido ? "bg-slate-800 text-white" : "bg-slate-200 text-slate-600 hover:bg-slate-300"}`}
+                              >
+                                {op.nombre} {formatMoney(final)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                       {l.producto.maneja_envase && soloVentas && (
                         // Gas Damian: que pasa con el cilindro, con tres botones claros
                         <div className="mt-2 grid grid-cols-3 gap-1 text-[11px] font-medium leading-tight">

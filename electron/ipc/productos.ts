@@ -23,6 +23,23 @@ function barrasLibre(db: DB, barras: string | undefined | null, id?: number): st
 
 const limpiarGrupo = (g: string | null | undefined) => String(g ?? "").trim().replace(/\s+/g, " ") || null;
 
+// Otros precios del producto: se guardan solo los que tienen nombre y precio.
+function limpiarPrecios(valor: unknown): string | null {
+  let lista: unknown = valor;
+  if (typeof valor === "string") {
+    try {
+      lista = JSON.parse(valor);
+    } catch {
+      return null;
+    }
+  }
+  if (!Array.isArray(lista)) return null;
+  const buenos = lista
+    .map((x: any) => ({ nombre: String(x?.nombre ?? "").trim(), precio: Math.round(Number(x?.precio) * 10000) / 10000 }))
+    .filter((x) => x.nombre && x.precio > 0);
+  return buenos.length ? JSON.stringify(buenos) : null;
+}
+
 function siguienteCodigo(db: DB, categoria: string): string {
   // En el colmado los codigos son numeros cortos: 1, 2, 3...
   const rubro = (db.prepare(`SELECT rubro FROM company_config LIMIT 1`).get() as { rubro?: string } | undefined)?.rubro;
@@ -86,8 +103,8 @@ export function registerProductosIpc(db: DB) {
     const codigo = codigoLibre(db, data.codigo) ?? siguienteCodigo(db, data.categoria ?? "OTRO");
     const info = db
       .prepare(
-        `INSERT INTO productos (codigo, nombre, categoria, unidad, precio_contenido, costo_contenido, maneja_envase, fianza_envase, itbis_rate, cuenta_ingreso_id, cuenta_costo_id, cuenta_inventario_id, existencia, activo, grupo, codigo_barras)
-         VALUES (@codigo, @nombre, @categoria, @unidad, @precio_contenido, @costo_contenido, @maneja_envase, @fianza_envase, @itbis_rate, @cuenta_ingreso_id, @cuenta_costo_id, @cuenta_inventario_id, @existencia, 1, @grupo, @codigo_barras)`
+        `INSERT INTO productos (codigo, nombre, categoria, unidad, precio_contenido, costo_contenido, maneja_envase, fianza_envase, itbis_rate, cuenta_ingreso_id, cuenta_costo_id, cuenta_inventario_id, existencia, activo, grupo, codigo_barras, precios_extra)
+         VALUES (@codigo, @nombre, @categoria, @unidad, @precio_contenido, @costo_contenido, @maneja_envase, @fianza_envase, @itbis_rate, @cuenta_ingreso_id, @cuenta_costo_id, @cuenta_inventario_id, @existencia, 1, @grupo, @codigo_barras, @precios_extra)`
       )
       .run({
         codigo,
@@ -105,6 +122,7 @@ export function registerProductosIpc(db: DB) {
         cuenta_costo_id: data.cuenta_costo_id ?? null,
         cuenta_inventario_id: data.cuenta_inventario_id ?? null,
         existencia: data.existencia ?? 0,
+        precios_extra: limpiarPrecios(data.precios_extra),
       });
     const creado = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(info.lastInsertRowid) as Producto;
     registrarAjusteInventario(db, creado.cuenta_inventario_id, creado.existencia * creado.costo_contenido, `Existencia inicial: ${creado.nombre}`);
@@ -137,7 +155,8 @@ export function registerProductosIpc(db: DB) {
       `UPDATE productos SET codigo=@codigo, codigo_barras=@codigo_barras, grupo=@grupo, nombre=@nombre, categoria=@categoria, unidad=@unidad, precio_contenido=@precio_contenido,
         costo_contenido=@costo_contenido, maneja_envase=@maneja_envase, fianza_envase=@fianza_envase, itbis_rate=@itbis_rate,
         cuenta_ingreso_id=@cuenta_ingreso_id, cuenta_costo_id=@cuenta_costo_id, cuenta_inventario_id=@cuenta_inventario_id,
-        existencia=@existencia, activo=@activo WHERE id=@id`
+        existencia=@existencia, activo=@activo,
+        precios_extra = CASE WHEN @cambia_precios THEN @precios_extra ELSE precios_extra END WHERE id=@id`
     ).run({
       id,
       codigo: codigoLibre(db, data.codigo, id) ?? anterior.codigo,
@@ -156,6 +175,9 @@ export function registerProductosIpc(db: DB) {
       cuenta_inventario_id: data.cuenta_inventario_id ?? null,
       existencia: data.existencia ?? 0,
       activo: data.activo ?? 1,
+      // las pantallas que no mandan los otros precios (las otras ediciones) no los borran
+      cambia_precios: data.precios_extra !== undefined ? 1 : 0,
+      precios_extra: limpiarPrecios(data.precios_extra),
     });
     const actualizado = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(id) as Producto;
     // Cambiar la existencia a mano (conteo fisico) tambien mueve la contabilidad.

@@ -88,6 +88,8 @@ export interface Producto {
   grupo?: string | null;
   /** Codigo de barras (lo lee la pistola); el codigo del producto es el corto. */
   codigo_barras?: string | null;
+  /** Otros precios (Gas Damian): JSON [{nombre, precio}] con el precio sin ITBIS. */
+  precios_extra?: string | null;
 }
 
 // Los codigos NCF salen de una sola lista (Norma General 06-2018 de la DGII).

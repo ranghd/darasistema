@@ -6,6 +6,7 @@ import { Badge, Button, EmptyRow, Input, Modal, PageHeader, Select, Table } from
 import { useAuth } from "../../lib/auth";
 import { CATEGORIAS_GAS_DAMIAN, esColmado, esVariantCaja, GRUPOS_COLMADO, soloVentas } from "../../lib/variant";
 import { mensajeDeError } from "../../lib/api";
+import { leerPrecios } from "../../lib/precios";
 import { ProveedoresDeProductoModal } from "../Proveedores/componentes";
 
 const emptyForm = {
@@ -93,6 +94,7 @@ export default function ListaProductos() {
   function abrirNuevo() {
     setEditId(null);
     setFinalTexto(null);
+    setPreciosExtra([]);
     setForm({
       ...emptyForm,
       cuenta_ingreso_id: cuentaIdPorCodigo(CUENTAS_INGRESO[emptyForm.categoria]),
@@ -107,6 +109,7 @@ export default function ListaProductos() {
   function abrirEditar(p: Producto) {
     setEditId(p.id);
     setFinalTexto(null);
+    setPreciosExtra(leerPrecios(p).map((x) => ({ nombre: x.nombre, final: String(Math.round(x.precio * (1 + (p.itbis_rate ?? 0.18)) * 100) / 100) })));
     setEditActivo(p.activo ? 1 : 0);
     setError("");
     setForm({
@@ -147,6 +150,9 @@ export default function ListaProductos() {
   // El precio final (con ITBIS) tambien se puede escribir: se calcula el precio sin ITBIS y la ganancia.
   // Mientras se escribe se guarda el texto tal cual, para no borrar el punto ni los ceros.
   const [finalTexto, setFinalTexto] = useState<string | null>(null);
+  // Gas Damian: otros precios (nombre y precio final con ITBIS, como se escribe en la caja)
+  const [preciosExtra, setPreciosExtra] = useState<{ nombre: string; final: string }[]>([]);
+  const cambiarPrecioExtra = (i: number, cambio: Partial<{ nombre: string; final: string }>) => setPreciosExtra(preciosExtra.map((x, j) => (j === i ? { ...x, ...cambio } : x)));
   const precioFinal = Math.round(form.precio_contenido * (1 + form.itbis_rate) * 100) / 100;
   function cambiarPrecioFinal(texto: string) {
     setFinalTexto(texto);
@@ -169,8 +175,16 @@ export default function ListaProductos() {
     setGuardando(true);
     setError("");
     try {
-      if (editId) await api.productos.actualizar(editId, { ...form, activo: editActivo });
-      else await api.productos.crear(form);
+      // los otros precios se guardan sin ITBIS (cuatro decimales para que el final quede justo)
+      const extra = soloVentas
+        ? JSON.stringify(
+            preciosExtra
+              .filter((x) => x.nombre.trim() && Number(x.final) > 0)
+              .map((x) => ({ nombre: x.nombre.trim(), precio: Math.round((Number(x.final) / (1 + form.itbis_rate)) * 10000) / 10000 }))
+          )
+        : undefined;
+      if (editId) await api.productos.actualizar(editId, { ...form, activo: editActivo, precios_extra: extra });
+      else await api.productos.crear({ ...form, precios_extra: extra });
       setOpen(false);
       await cargar();
     } catch (err) {
@@ -307,7 +321,10 @@ export default function ListaProductos() {
             <td className="px-4 py-2.5">
               <Badge tone="blue">{soloVentas ? p.grupo || p.categoria : p.categoria}</Badge>
             </td>
-            <td className="px-4 py-2.5">{formatMoney(p.precio_contenido)}</td>
+            <td className="px-4 py-2.5">
+              {formatMoney(p.precio_contenido)}
+              {leerPrecios(p).length > 0 && <span className="block text-xs text-slate-400">y {leerPrecios(p).length} precio{leerPrecios(p).length === 1 ? "" : "s"} mas</span>}
+            </td>
             <td className="px-4 py-2.5 text-slate-500">{formatMoney(p.costo_contenido)}</td>
             <td className="px-4 py-2.5">{p.maneja_envase ? <Badge tone="amber">Fianza {formatMoney(p.fianza_envase)}</Badge> : <span className="text-slate-400">No aplica</span>}</td>
             <td className="px-4 py-2.5">
@@ -454,6 +471,39 @@ export default function ListaProductos() {
               onBlur={() => setFinalTexto(null)}
             />
           </div>
+          {soloVentas && (
+            // Gas Damian: otros precios del mismo producto; en la caja se elige cual cobrar
+            <div className="rounded-lg border border-slate-200 p-3">
+              <p className="text-sm font-medium text-slate-700">
+                Otros precios <span className="font-normal text-slate-400">(opcional, ej. Por mayor)</span>
+              </p>
+              {preciosExtra.map((x, i) => (
+                <div key={i} className="mt-2 grid grid-cols-[1fr_9rem_auto] items-center gap-2">
+                  <input
+                    value={x.nombre}
+                    onChange={(e) => cambiarPrecioExtra(i, { nombre: e.target.value })}
+                    placeholder="Nombre, ej. Por mayor"
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={x.final}
+                    onChange={(e) => cambiarPrecioExtra(i, { final: e.target.value })}
+                    placeholder="Precio con ITBIS"
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  <button type="button" className="px-2 text-slate-400 hover:text-red-600" onClick={() => setPreciosExtra(preciosExtra.filter((_, j) => j !== i))} aria-label="Quitar precio">
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button type="button" className="mt-2 text-sm font-medium text-brand-600 hover:underline" onClick={() => setPreciosExtra([...preciosExtra, { nombre: "", final: "" }])}>
+                + Agregar otro precio
+              </button>
+            </div>
+          )}
           {!esColmado && (
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" checked={form.maneja_envase} onChange={(e) => setForm({ ...form, maneja_envase: e.target.checked })} />

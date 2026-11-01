@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, mensajeDeError } from "../../lib/api";
 import { sinAcentos } from "../Caja/buscar";
+import { adminVentas } from "../../lib/variant";
 import { useAuth } from "../../lib/auth";
 import { formatDate, todayIso } from "../../lib/format";
 import type { Cliente, MovimientoBotellaFiada, Producto, SaldoBotellaFiada } from "../../lib/types";
@@ -99,6 +100,8 @@ export default function BotellasFiadas() {
         }
       />
 
+      {/* el reporte (cuantos hay por devolver y el historial) solo en el Admin; la caja solo presta y recibe */}
+      {adminVentas && (
       <Card className="mb-5 flex items-center gap-5 p-5">
         <span className="text-5xl font-bold text-amber-600">{totalPendientes}</span>
         <span>
@@ -108,6 +111,7 @@ export default function BotellasFiadas() {
           </span>
         </span>
       </Card>
+      )}
 
       {saldos.some((x) => x.pendientes > 0) && (
         <input
@@ -144,6 +148,7 @@ export default function BotellasFiadas() {
         ))}
       </div>
 
+      {adminVentas && (
       <div className="mt-6 flex flex-wrap items-center gap-4">
         <button className="text-sm font-medium text-slate-500 hover:text-slate-700" onClick={() => setVerHistorial(!verHistorial)}>
           {verHistorial ? "▲ Esconder historial" : "▼ Ver historial"}
@@ -153,9 +158,8 @@ export default function BotellasFiadas() {
             <input type="checkbox" checked={verTodos} onChange={(e) => setVerTodos(e.target.checked)} /> Ver tambien los que ya devolvieron todo
           </label>
         )}
-      </div>
       {verHistorial && (
-        <div className="mt-3">
+        <div className="w-full basis-full">
           <Table columns={["Fecha", "Cliente", "Cilindro", "Movimiento", "Cantidad", "Nota", "Registrado por"]}>
             {movimientos.length === 0 && <EmptyRow colSpan={7} label="Sin movimientos" />}
             {movimientos
@@ -173,6 +177,8 @@ export default function BotellasFiadas() {
               ))}
           </Table>
         </div>
+      )}
+      </div>
       )}
 
       <Modal open={!!form} onClose={() => setForm(null)} title={form?.tipo === "FIADO" ? "Prestar cilindros" : "Devolvio cilindros"}>
