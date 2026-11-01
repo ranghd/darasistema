@@ -12,7 +12,7 @@ import type { Cliente, ModalidadLinea, Producto } from "../../lib/types";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Modal } from "../../components/ui";
-import { esColmado, manejaEnvases, soloVentas } from "../../lib/variant";
+import { esColmado, manejaEnvases, soloVentas, usaGrupos } from "../../lib/variant";
 import { imprimirFacturaCarta } from "../../lib/facturaCarta";
 import TablaFactura from "./TablaFactura";
 import { leerBusqueda, sinAcentos } from "./buscar";
@@ -30,6 +30,10 @@ const METODOS: { valor: Metodo; nombre: string; tecla: string }[] = [
   { valor: "TARJETA", nombre: "Tarjeta", tecla: "F7 · Ctrl2" },
   { valor: "TRANSFERENCIA", nombre: "Transferencia", tecla: "F8 · Ctrl3" },
 ];
+
+// Categoria de un producto en las pestanas (colmado y Gas Damian). Si no tiene, se usa su tipo.
+const TIPO_A_GRUPO: Record<string, string> = { GAS: "Gas propano", OXIGENO: "Oxigeno", AGUA: "Agua" };
+const grupoDe = (p: Producto) => p.grupo || (soloVentas ? TIPO_A_GRUPO[p.categoria] ?? "Otros" : "Otros");
 
 const CATEGORIAS = [
   { value: "TODOS", label: "Todos" },
@@ -59,9 +63,9 @@ export default function Caja() {
   const habiaVenta = useHabiaBorrador("venta.carrito", (v) => Array.isArray(v) && v.length > 0);
   const [avisoRecuperada, setAvisoRecuperada] = useState(habiaVenta);
   const [categoria, setCategoria] = useState("TODOS");
-  // En el colmado las pestanas son los grupos de los productos (Viveres, Bebidas...).
-  const pestanas = esColmado
-    ? [{ value: "TODOS", label: "Todos" }, ...Array.from(new Set(productos.map((p) => p.grupo || "Otros"))).sort().map((g) => ({ value: g, label: g }))]
+  // En el colmado y en Gas Damian las pestanas son las categorias de los productos (Viveres, Bebidas... / Oxigeno, Acetileno...).
+  const pestanas = usaGrupos
+    ? [{ value: "TODOS", label: "Todos" }, ...Array.from(new Set(productos.filter((p) => p.activo).map(grupoDe))).sort().map((g) => ({ value: g, label: g }))]
     : CATEGORIAS;
   const [busqueda, setBusqueda] = useState("");
   const [resaltado, setResaltado] = useState(0);
@@ -102,7 +106,7 @@ export default function Caja() {
     const t = sinAcentos(q.trim());
     const lista = productos.filter((p) => {
       if (!p.activo) return false;
-      if (categoria !== "TODOS" && (esColmado ? (p.grupo || "Otros") : p.categoria) !== categoria) return false;
+      if (categoria !== "TODOS" && (usaGrupos ? grupoDe(p) : p.categoria) !== categoria) return false;
       return !t || sinAcentos(p.nombre).includes(t) || sinAcentos(p.codigo).includes(t);
     });
     // Un codigo exacto (lector de codigos de barras) va primero.
@@ -542,7 +546,7 @@ export default function Caja() {
                   }`}
                 >
                   <span className="flex w-full justify-between text-xs font-medium uppercase tracking-wide text-brand-600">
-                    <span className="truncate">{esColmado ? p.grupo || "Otros" : p.categoria}</span>
+                    <span className="truncate">{usaGrupos ? grupoDe(p) : p.categoria}</span>
                     {/* en el colmado el codigo es el de barras (largo): no se muestra en la tarjeta */}
                     {!esColmado && <span className="font-mono normal-case text-slate-400">{p.codigo}</span>}
                   </span>

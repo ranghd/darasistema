@@ -5,7 +5,7 @@ import { formatDate, todayIso } from "../../lib/format";
 import type { Cliente, MovimientoBotellaFiada, Producto, SaldoBotellaFiada } from "../../lib/types";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 
-// Botellas prestadas: el negocio le presta la botella al cliente, que la tiene que devolver (no es una deuda ni un credito).
+// Cilindros prestados: el negocio le presta el cilindro al cliente, que lo tiene que devolver (no es una deuda ni un credito).
 // Aqui se anota lo que se presta y, cuando la trae, lo que devolvio. Por dentro se sigue llamando "fiados".
 
 type Formulario = { tipo: "FIADO" | "DEVOLUCION"; cliente: number | ""; producto: number | ""; cantidad: string; fecha: string; nota: string };
@@ -51,7 +51,7 @@ export default function BotellasFiadas() {
     if (!form) return;
     setError("");
     if (!form.cliente) return setError("Elige el cliente");
-    if (!form.producto) return setError("Elige la botella");
+    if (!form.producto) return setError("Elige el cilindro");
     setGuardando(true);
     try {
       const datos = { cliente_id: Number(form.cliente), producto_id: Number(form.producto), cantidad: Number(form.cantidad), fecha: form.fecha, nota: form.nota, creado_por: usuario?.nombre };
@@ -74,29 +74,29 @@ export default function BotellasFiadas() {
   return (
     <div>
       <PageHeader
-        title="Botellas prestadas"
-        subtitle="Las botellas que se le prestan a los clientes y que luego deben devolver"
+        title="Cilindros prestados"
+        subtitle="Los cilindros que se le prestan a los clientes y que luego deben devolver"
         actions={
           <>
             <Button variant="secondary" onClick={() => abrir(nuevo("DEVOLUCION"))}>
               Registrar devolucion
             </Button>
-            <Button onClick={() => abrir(nuevo("FIADO"))}>+ Prestar botellas</Button>
+            <Button onClick={() => abrir(nuevo("FIADO"))}>+ Prestar cilindros</Button>
           </>
         }
       />
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card className="p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Botellas por devolver</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Cilindros por devolver</p>
           <p className="mt-1 text-2xl font-semibold text-amber-600">{totalPendientes}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Clientes con botellas prestadas</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Clientes con cilindros prestados</p>
           <p className="mt-1 text-2xl font-semibold">{clientesQueDeben}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Devueltas en total</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Devueltos en total</p>
           <p className="mt-1 text-2xl font-semibold text-emerald-600">{saldos.reduce((s, x) => s + x.devueltas, 0)}</p>
         </Card>
       </div>
@@ -104,7 +104,7 @@ export default function BotellasFiadas() {
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <input
           className="w-72 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Buscar cliente, telefono o botella..."
+          placeholder="Buscar cliente, telefono o cilindro..."
           value={buscar}
           onChange={(e) => setBuscar(e.target.value)}
         />
@@ -113,8 +113,8 @@ export default function BotellasFiadas() {
         </label>
       </div>
 
-      <Table columns={["Cliente", "Botella", "Prestadas", "Devueltas", "Por devolver", "Ultimo movimiento", ""]}>
-        {visibles.length === 0 && <EmptyRow colSpan={7} label={saldos.length ? "No hay botellas prestadas por devolver" : "Todavia no se ha prestado ninguna botella"} />}
+      <Table columns={["Cliente", "Cilindro", "Prestados", "Devueltos", "Por devolver", "Ultimo movimiento", ""]}>
+        {visibles.length === 0 && <EmptyRow colSpan={7} label={saldos.length ? "No hay cilindros prestados por devolver" : "Todavia no se ha prestado ningun cilindro"} />}
         {visibles.map((s) => (
           <tr key={`${s.cliente_id}-${s.producto_id}`}>
             <td className="px-4 py-2">
@@ -141,7 +141,7 @@ export default function BotellasFiadas() {
       </Table>
 
       <h2 className="mb-2 mt-6 text-sm font-semibold text-slate-700">Historial</h2>
-      <Table columns={["Fecha", "Cliente", "Botella", "Movimiento", "Cantidad", "Nota", "Registrado por"]}>
+      <Table columns={["Fecha", "Cliente", "Cilindro", "Movimiento", "Cantidad", "Nota", "Registrado por"]}>
         {movimientos.length === 0 && <EmptyRow colSpan={7} label="Sin movimientos" />}
         {movimientos
           .filter((m) => !q || `${m.cliente_nombre} ${m.producto_nombre}`.toLowerCase().includes(q))
@@ -150,7 +150,7 @@ export default function BotellasFiadas() {
               <td className="px-4 py-2 text-slate-500">{formatDate(m.fecha)}</td>
               <td className="px-4 py-2">{m.cliente_nombre}</td>
               <td className="px-4 py-2">{m.producto_nombre}</td>
-              <td className="px-4 py-2">{m.tipo === "FIADO" ? <Badge tone="amber">Prestada</Badge> : <Badge tone="green">Devuelta</Badge>}</td>
+              <td className="px-4 py-2">{m.tipo === "FIADO" ? <Badge tone="amber">Prestado</Badge> : <Badge tone="green">Devuelto</Badge>}</td>
               <td className="px-4 py-2 text-center">{m.cantidad}</td>
               <td className="px-4 py-2 text-slate-500">{m.nota ?? ""}</td>
               <td className="px-4 py-2 text-slate-500">{m.creado_por ?? ""}</td>
@@ -158,7 +158,7 @@ export default function BotellasFiadas() {
           ))}
       </Table>
 
-      <Modal open={!!form} onClose={() => setForm(null)} title={form?.tipo === "FIADO" ? "Prestar botellas" : "Devolucion de botellas prestadas"}>
+      <Modal open={!!form} onClose={() => setForm(null)} title={form?.tipo === "FIADO" ? "Prestar cilindros" : "Devolucion de cilindros prestados"}>
         {form && (
           <form onSubmit={guardar} className="space-y-3">
             <Select label="Cliente" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value ? Number(e.target.value) : "" })} autoFocus>
@@ -170,8 +170,8 @@ export default function BotellasFiadas() {
                 </option>
               ))}
             </Select>
-            <Select label="Botella" value={form.producto} onChange={(e) => setForm({ ...form, producto: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">Elegir botella...</option>
+            <Select label="Cilindro" value={form.producto} onChange={(e) => setForm({ ...form, producto: e.target.value ? Number(e.target.value) : "" })}>
+              <option value="">Elegir cilindro...</option>
               {productos.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nombre}
@@ -180,7 +180,7 @@ export default function BotellasFiadas() {
             </Select>
             {form.cliente && form.producto ? (
               <p className={`rounded-lg px-3 py-2 text-sm ${debe > 0 ? "bg-amber-50 text-amber-800" : "bg-slate-50 text-slate-600"}`}>
-                {debe > 0 ? `Este cliente tiene ${debe} de esta botella prestada${debe === 1 ? "" : "s"}.` : "Este cliente no tiene ninguna de esta botella prestada."}
+                {debe > 0 ? `Este cliente tiene ${debe} de este cilindro prestado${debe === 1 ? "" : "s"}.` : "Este cliente no tiene ninguno de este cilindro prestado."}
               </p>
             ) : null}
             <div className="grid grid-cols-2 gap-3">

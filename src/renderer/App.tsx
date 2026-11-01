@@ -85,7 +85,7 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
 
   const hijos = usuario
     ? [
-        // Gas Damian (la caja y el Admin) es Cajapunto1 o Darasistema con las botellas prestadas; la caja sin Panel Principal
+        // Gas Damian (la caja y el Admin) es Cajapunto1 o Darasistema con las cilindros prestados; la caja sin Panel Principal
         ...RUTAS_COMUNES.filter((r) => !(soloVentas && !adminVentas && r.path === "/")),
         ...(soloVentas ? [{ path: "/botellas-fiadas", element: <BotellasFiadas /> }] : []),
         ...(restringido ? rutaConexionCaja : RUTAS_ADMIN_EXTRA),

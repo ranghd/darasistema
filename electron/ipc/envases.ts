@@ -22,7 +22,7 @@ const pendientesDe = (db: DB, clienteId: number, productoId: number) =>
 
 function validarBotella(db: DB, input: BotellaFiadaInput) {
   if (!db.prepare(`SELECT id FROM clientes WHERE id = ?`).get(input.cliente_id)) throw new Error("Elige el cliente");
-  if (!db.prepare(`SELECT id FROM productos WHERE id = ?`).get(input.producto_id)) throw new Error("Elige la botella");
+  if (!db.prepare(`SELECT id FROM productos WHERE id = ?`).get(input.producto_id)) throw new Error("Elige el cilindro");
   const cantidad = Number(input.cantidad);
   if (!(cantidad > 0)) throw new Error("La cantidad debe ser mayor que cero");
   return cantidad;
@@ -43,7 +43,7 @@ function guardarBotella(db: DB, tipo: "FIADO" | "DEVOLUCION", input: BotellaFiad
 }
 
 export function registerEnvasesIpc(db: DB) {
-  // ---------- Botellas prestadas (por dentro: fiados) ----------
+  // ---------- Cilindros prestados (por dentro: fiados) ----------
 
   ipcMain.handle("fiados:saldos", (): SaldoBotellaFiada[] => {
     return db
@@ -80,7 +80,7 @@ export function registerEnvasesIpc(db: DB) {
   ipcMain.handle("fiados:devolver", (_e, input: BotellaFiadaInput) => {
     const cantidad = validarBotella(db, input);
     const debe = pendientesDe(db, input.cliente_id, input.producto_id);
-    if (cantidad > debe + 0.0001) throw new Error(debe > 0 ? `El cliente solo tiene ${debe} de esa botella prestada${debe === 1 ? "" : "s"}` : "El cliente no tiene ninguna de esa botella prestada");
+    if (cantidad > debe + 0.0001) throw new Error(debe > 0 ? `El cliente solo tiene ${debe} de ese cilindro prestado${debe === 1 ? "" : "s"}` : "El cliente no tiene ninguno de ese cilindro prestado");
     guardarBotella(db, "DEVOLUCION", input, cantidad);
     return pendientesDe(db, input.cliente_id, input.producto_id);
   });

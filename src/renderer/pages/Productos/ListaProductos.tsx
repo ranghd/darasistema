@@ -4,7 +4,7 @@ import type { Cuenta, Producto } from "../../lib/types";
 import { formatMoney } from "../../lib/format";
 import { Badge, Button, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
-import { esColmado, esVariantCaja, GRUPOS_COLMADO } from "../../lib/variant";
+import { CATEGORIAS_GAS_DAMIAN, esColmado, esVariantCaja, GRUPOS_COLMADO, soloVentas } from "../../lib/variant";
 import { mensajeDeError } from "../../lib/api";
 import { ProveedoresDeProductoModal } from "../Proveedores/componentes";
 
@@ -65,7 +65,7 @@ export default function ListaProductos() {
   const [borrando, setBorrando] = useState(false);
   const [aviso, setAviso] = useState("");
   const [editActivo, setEditActivo] = useState(1);
-  const grupos = Array.from(new Set([...GRUPOS_COLMADO, ...productos.map((p) => p.grupo).filter(Boolean) as string[]])).sort();
+  const grupos = Array.from(new Set([...(soloVentas ? CATEGORIAS_GAS_DAMIAN : GRUPOS_COLMADO), ...productos.map((p) => p.grupo).filter(Boolean) as string[]])).sort();
   const q = buscar.trim().toLowerCase();
   // El que se pone solo si se deja vacio (colmado: 1, 2, 3...).
   const siguienteCodigo = Math.max(0, ...productos.map((p) => (/^\d+$/.test(p.codigo) ? Number(p.codigo) : 0))) + 1;
@@ -291,7 +291,7 @@ export default function ListaProductos() {
               {marcaInactivo(p)}
             </td>
             <td className="px-4 py-2.5">
-              <Badge tone="blue">{p.categoria}</Badge>
+              <Badge tone="blue">{soloVentas ? p.grupo || p.categoria : p.categoria}</Badge>
             </td>
             <td className="px-4 py-2.5">{formatMoney(p.precio_contenido)}</td>
             <td className="px-4 py-2.5 text-slate-500">{formatMoney(p.costo_contenido)}</td>
@@ -368,8 +368,27 @@ export default function ListaProductos() {
               </Select>
             </div>
           ) : (
+          <>
+          {soloVentas && (
+            // Gas Damian: la categoria es la pestana de la caja; se elige de la lista o se escribe una nueva
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-slate-700">Categoria (pestana en la caja)</span>
+              <input
+                list="categorias-gas-damian"
+                value={form.grupo}
+                onChange={(e) => setForm({ ...form, grupo: e.target.value })}
+                placeholder="Oxigeno, Acetileno, Manometros... o escribe una nueva"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+              <datalist id="categorias-gas-damian">
+                {grupos.map((g) => (
+                  <option key={g} value={g} />
+                ))}
+              </datalist>
+            </label>
+          )}
           <div className="grid grid-cols-2 gap-3">
-            <Select label="Categoria" value={form.categoria} onChange={(e) => cambiarCategoria(e.target.value as any)}>
+            <Select label={soloVentas ? "Tipo (para la contabilidad)" : "Categoria"} value={form.categoria} onChange={(e) => cambiarCategoria(e.target.value as any)}>
               <option value="GAS">Gas</option>
               <option value="OXIGENO">Oxigeno</option>
               <option value="AGUA">Agua Purificada</option>
@@ -377,6 +396,7 @@ export default function ListaProductos() {
             </Select>
             <Input label="Unidad" value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })} />
           </div>
+          </>
           )}
           <div className="grid grid-cols-3 gap-3">
             <Input label="Costo (compra)" type="number" step="0.01" value={form.costo_contenido} onChange={(e) => cambiarCosto(Number(e.target.value))} />

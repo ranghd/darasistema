@@ -166,8 +166,8 @@ export default function Layout() {
     .filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN")
     .filter((g) => !(soloVentas && !adminVentas && g.section === "General")) // la caja de Gas Damian no lleva Panel Principal
     .map((g) => ({ ...g, items: g.items.filter((i) => manejaEnvases || i.to !== "/envases") }))
-    // Gas Damian: el menu de Cajapunto1 (o de Darasistema en el Admin) con las botellas prestadas
-    .map((g) => (soloVentas && g.section === "Clientes" ? { ...g, items: [...g.items, { to: "/botellas-fiadas", label: "Botellas prestadas" }] } : g));
+    // Gas Damian: el menu de Cajapunto1 (o de Darasistema en el Admin) con los cilindros prestados
+    .map((g) => (soloVentas && g.section === "Clientes" ? { ...g, items: [...g.items, { to: "/botellas-fiadas", label: "Cilindros prestados" }] } : g));
   const [paleta, setPaleta] = useState(false);
   const [ayuda, setAyuda] = useState(false);
 
