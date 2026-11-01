@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import type { CategoriaPropia, Producto } from "../shared/types";
-import { registrarAjusteInventario } from "../db/contabilidad";
+import { asegurarCuenta, crearAsiento, fechaHoyRD, registrarAjusteInventario } from "../db/contabilidad";
 
 // El codigo del producto no se puede repetir.
 function codigoLibre(db: DB, codigo: string | undefined | null, id?: number): string | null {
@@ -53,29 +53,94 @@ function siguienteCodigo(db: DB, categoria: string): string {
   return `${categoria.slice(0, 3).toUpperCase()}-${String(count + 1).padStart(3, "0")}`;
 }
 
+// Cada categoria (Gas Damian) es tambien su tipo contable: tiene sus cuentas de ventas, costo e inventario.
+// "Gas propano" y "Oxigeno" usan las cuentas de siempre (Gas y Oxigeno); las demas se crean con su nombre.
+function nombreContable(categoria: string): string {
+  const n = categoria.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (n === "gas" || n === "gas propano") return "Gas";
+  if (n === "oxigeno") return "Oxigeno";
+  return categoria.trim();
+}
+
+export function cuentasDeCategoria(db: DB, categoria: string) {
+  const n = nombreContable(categoria);
+  return {
+    ingreso: asegurarCuenta(db, { codigo: "4.1.04", nombre: `Ingresos por Venta de ${n}`, tipo: "INGRESOS", naturaleza: "ACREEDORA", padreCodigo: "4" }),
+    costo: asegurarCuenta(db, { codigo: "5.1.04", nombre: `Costo de Venta de ${n}`, tipo: "COSTOS", naturaleza: "DEUDORA", padreCodigo: "5" }),
+    inventario: asegurarCuenta(db, { codigo: "1.1.08", nombre: `Inventario de ${n}`, tipo: "ACTIVO", naturaleza: "DEUDORA", padreCodigo: "1.1" }),
+    // el campo categoria de la tabla solo admite estos cuatro valores
+    tipo: (n === "Gas" ? "GAS" : n === "Oxigeno" ? "OXIGENO" : "OTRO") as Producto["categoria"],
+  };
+}
+
+// Si un producto con existencia cambia de cuenta de inventario, su valor se pasa de una cuenta a la otra.
+function moverInventario(db: DB, nombre: string, desde: number | null | undefined, hacia: number | null | undefined, valor: number) {
+  const monto = Math.round(valor * 100) / 100;
+  if (!desde || !hacia || desde === hacia || monto < 0.01) return;
+  crearAsiento(db, {
+    fecha: fechaHoyRD(),
+    concepto: `${nombre}: cambio de categoria (inventario a su cuenta nueva)`,
+    origen: "AJUSTE",
+    lineas: [
+      { cuenta_id: hacia, debito: monto, credito: 0, descripcion: nombre },
+      { cuenta_id: desde, debito: 0, credito: monto, descripcion: nombre },
+    ],
+  });
+}
+
+// Pone cada producto en las cuentas de su categoria (los que ya tenian categoria antes de este cambio).
+function alinearProductos(db: DB) {
+  const productos = db.prepare(`SELECT * FROM productos WHERE grupo IS NOT NULL AND grupo != ''`).all() as Producto[];
+  for (const p of productos) {
+    const c = cuentasDeCategoria(db, p.grupo!);
+    if (p.cuenta_ingreso_id === c.ingreso && p.cuenta_costo_id === c.costo && p.cuenta_inventario_id === c.inventario) continue;
+    moverInventario(db, p.nombre, p.cuenta_inventario_id, c.inventario, p.existencia * p.costo_contenido);
+    db.prepare(`UPDATE productos SET cuenta_ingreso_id = ?, cuenta_costo_id = ?, cuenta_inventario_id = ?, categoria = ? WHERE id = ?`).run(c.ingreso, c.costo, c.inventario, c.tipo, p.id);
+  }
+}
+
+const nombreCuenta = (db: DB, id: number) => (db.prepare(`SELECT nombre FROM cuentas_contables WHERE id = ?`).get(id) as { nombre: string } | undefined)?.nombre ?? null;
+
 function nombreCategoria(nombre: string | null | undefined): string {
   const limpio = limpiarGrupo(nombre);
   if (!limpio) throw new Error("Escribe el nombre de la categoria");
   return limpio;
 }
 
+function conCuentasDeCategoria<T extends Partial<Producto>>(db: DB, data: T): T {
+  const grupo = limpiarGrupo(data.grupo);
+  if (!grupo) throw new Error("Elige la categoria del producto");
+  const c = cuentasDeCategoria(db, grupo);
+  if (!db.prepare(`SELECT 1 FROM categorias_producto WHERE nombre = ? COLLATE NOCASE`).get(grupo)) db.prepare(`INSERT INTO categorias_producto (nombre) VALUES (?)`).run(grupo);
+  return { ...data, grupo, categoria: c.tipo, cuenta_ingreso_id: c.ingreso, cuenta_costo_id: c.costo, cuenta_inventario_id: c.inventario };
+}
+
 export function registerProductosIpc(db: DB) {
   // ---------- Categorias propias (el producto guarda el nombre en "grupo") ----------
 
-  ipcMain.handle("categorias:listar", (): CategoriaPropia[] => {
-    return db
+  ipcMain.handle("categorias:listar", (): CategoriaPropia[] => db.transaction(() => {
+    // cada categoria tiene sus cuentas, y sus productos van a ellas
+    alinearProductos(db);
+    const lista = db
       .prepare(
         `SELECT c.nombre, (SELECT COUNT(*) FROM productos p WHERE p.grupo = c.nombre COLLATE NOCASE AND p.activo = 1) AS productos
          FROM (SELECT nombre FROM categorias_producto UNION SELECT grupo FROM productos WHERE grupo IS NOT NULL AND grupo != '') c
          ORDER BY c.nombre COLLATE NOCASE`
       )
       .all() as CategoriaPropia[];
-  });
+    return lista.map((c) => {
+      const cuentas = cuentasDeCategoria(db, c.nombre);
+      return { ...c, cuenta_ingreso: nombreCuenta(db, cuentas.ingreso), cuenta_costo: nombreCuenta(db, cuentas.costo), cuenta_inventario: nombreCuenta(db, cuentas.inventario) };
+    });
+  })());
 
   ipcMain.handle("categorias:crear", (_e, nombre: string) => {
     const limpio = nombreCategoria(nombre);
     if (db.prepare(`SELECT 1 FROM categorias_producto WHERE nombre = ? COLLATE NOCASE`).get(limpio)) throw new Error(`Ya existe la categoria ${limpio}`);
-    db.prepare(`INSERT INTO categorias_producto (nombre) VALUES (?)`).run(limpio);
+    db.transaction(() => {
+      db.prepare(`INSERT INTO categorias_producto (nombre) VALUES (?)`).run(limpio);
+      cuentasDeCategoria(db, limpio);
+    })();
     return true;
   });
 
@@ -84,7 +149,17 @@ export function registerProductosIpc(db: DB) {
     const limpio = nombreCategoria(nuevo);
     db.prepare(`DELETE FROM categorias_producto WHERE nombre = ? COLLATE NOCASE`).run(anterior);
     if (!db.prepare(`SELECT 1 FROM categorias_producto WHERE nombre = ? COLLATE NOCASE`).get(limpio)) db.prepare(`INSERT INTO categorias_producto (nombre) VALUES (?)`).run(limpio);
+    // las cuentas de la categoria tambien cambian de nombre (si la nueva no existia ya)
+    const viejo = nombreContable(anterior);
+    const nuevoContable = nombreContable(limpio);
+    if (viejo !== "Gas" && viejo !== "Oxigeno" && nuevoContable !== viejo) {
+      for (const prefijo of ["Ingresos por Venta de ", "Costo de Venta de ", "Inventario de "]) {
+        const libre = !db.prepare(`SELECT 1 FROM cuentas_contables WHERE lower(nombre) = lower(?)`).get(prefijo + nuevoContable);
+        if (libre) db.prepare(`UPDATE cuentas_contables SET nombre = ? WHERE lower(nombre) = lower(?)`).run(prefijo + nuevoContable, prefijo + viejo);
+      }
+    }
     db.prepare(`UPDATE productos SET grupo = ? WHERE grupo = ? COLLATE NOCASE`).run(limpio, anterior);
+    alinearProductos(db);
     return true;
   })());
 
@@ -99,7 +174,8 @@ export function registerProductosIpc(db: DB) {
     return db.prepare(`SELECT * FROM productos ORDER BY categoria, nombre`).all() as Producto[];
   });
 
-  ipcMain.handle("productos:crear", (_e, data: Partial<Producto>) => db.transaction(() => {
+  ipcMain.handle("productos:crear", (_e, data: Partial<Producto> & { cuentas_por_categoria?: boolean }) => db.transaction(() => {
+    if (data.cuentas_por_categoria) data = conCuentasDeCategoria(db, data);
     const codigo = codigoLibre(db, data.codigo) ?? siguienteCodigo(db, data.categoria ?? "OTRO");
     const info = db
       .prepare(
@@ -148,9 +224,13 @@ export function registerProductosIpc(db: DB) {
     return { borrado: true };
   })());
 
-  ipcMain.handle("productos:actualizar", (_e, id: number, data: Partial<Producto>) => db.transaction(() => {
+  ipcMain.handle("productos:actualizar", (_e, id: number, data: Partial<Producto> & { cuentas_por_categoria?: boolean }) => db.transaction(() => {
     const anterior = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(id) as Producto | undefined;
     if (!anterior) throw new Error("Producto no encontrado");
+    if (data.cuentas_por_categoria) {
+      data = conCuentasDeCategoria(db, data);
+      moverInventario(db, anterior.nombre, anterior.cuenta_inventario_id, data.cuenta_inventario_id, anterior.existencia * anterior.costo_contenido);
+    }
     db.prepare(
       `UPDATE productos SET codigo=@codigo, codigo_barras=@codigo_barras, grupo=@grupo, nombre=@nombre, categoria=@categoria, unidad=@unidad, precio_contenido=@precio_contenido,
         costo_contenido=@costo_contenido, maneja_envase=@maneja_envase, fianza_envase=@fianza_envase, itbis_rate=@itbis_rate,

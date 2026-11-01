@@ -58,16 +58,23 @@ export default function Categorias() {
     <div>
       <PageHeader
         title="Categorias"
-        subtitle="Las pestanas de la caja. Cada producto se pone en una categoria desde Productos."
+        subtitle="Las pestanas de la caja y, a la vez, el tipo contable: cada categoria tiene sus cuentas de ventas, costo e inventario."
         actions={<Button onClick={() => abrir({ tipo: "nueva" })}>+ Nueva categoria</Button>}
       />
 
-      <Table columns={["Categoria", "Productos", ""]}>
-        {categorias.length === 0 && <EmptyRow colSpan={3} label="Todavia no hay categorias" />}
+      <Table columns={["Categoria", "Productos", "Cuentas contables", ""]}>
+        {categorias.length === 0 && <EmptyRow colSpan={4} label="Todavia no hay categorias" />}
         {categorias.map((c) => (
           <tr key={c.nombre} className="hover:bg-slate-50">
             <td className="px-4 py-2.5 font-medium text-slate-800">{c.nombre}</td>
             <td className="px-4 py-2.5 text-slate-600">{c.productos === 1 ? "1 producto" : `${c.productos} productos`}</td>
+            <td className="px-4 py-2.5 text-xs text-slate-500">
+              {[c.cuenta_ingreso, c.cuenta_costo, c.cuenta_inventario].filter(Boolean).map((n) => (
+                <span key={n} className="block">
+                  {n}
+                </span>
+              ))}
+            </td>
             <td className="whitespace-nowrap px-4 py-2.5 text-right">
               <Button size="sm" variant="secondary" onClick={() => abrir({ tipo: "renombrar", nombre: c.nombre })}>
                 Cambiar nombre
@@ -105,7 +112,8 @@ export default function Categorias() {
           accion && (
             <form onSubmit={guardar} className="space-y-3">
               <Input label="Nombre de la categoria" required autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Manometros" />
-              {accion.tipo === "renombrar" && <p className="text-xs text-slate-500">Los productos de esta categoria se pasan solos al nombre nuevo.</p>}
+              {accion.tipo === "renombrar" && <p className="text-xs text-slate-500">Los productos y las cuentas de esta categoria se pasan solos al nombre nuevo.</p>}
+              {accion.tipo === "nueva" && <p className="text-xs text-slate-500">Se crean solas sus cuentas: Ingresos por Venta, Costo de Venta e Inventario de esta categoria.</p>}
               {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="secondary" onClick={() => setAccion(null)}>

@@ -183,8 +183,11 @@ export default function ListaProductos() {
               .map((x) => ({ nombre: x.nombre.trim(), precio: Math.round((Number(x.final) / (1 + form.itbis_rate)) * 10000) / 10000 }))
           )
         : undefined;
-      if (editId) await api.productos.actualizar(editId, { ...form, activo: editActivo, precios_extra: extra });
-      else await api.productos.crear({ ...form, precios_extra: extra });
+      if (soloVentas && !form.grupo.trim()) throw new Error("Elige la categoria del producto");
+      // Gas Damian: las cuentas contables salen de la categoria
+      const porCategoria = soloVentas ? { cuentas_por_categoria: true } : {};
+      if (editId) await api.productos.actualizar(editId, { ...form, activo: editActivo, precios_extra: extra, ...porCategoria });
+      else await api.productos.crear({ ...form, precios_extra: extra, ...porCategoria });
       setOpen(false);
       await cargar();
     } catch (err) {
@@ -403,7 +406,7 @@ export default function ListaProductos() {
           {soloVentas && (
             // Gas Damian: la categoria es la pestana de la caja; se elige de la lista o se escribe una nueva
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Categoria (pestana en la caja)</span>
+              <span className="mb-1 block font-medium text-slate-700">Categoria</span>
               <input
                 list="categorias-gas-damian"
                 value={form.grupo}
@@ -418,8 +421,12 @@ export default function ListaProductos() {
               </datalist>
             </label>
           )}
+          {soloVentas ? (
+            // Gas Damian: la categoria tambien decide las cuentas contables (ver el panel de Categorias)
+            <Input label="Unidad" value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })} />
+          ) : (
           <div className="grid grid-cols-2 gap-3">
-            <Select label={soloVentas ? "Tipo (para la contabilidad)" : "Categoria"} value={form.categoria} onChange={(e) => cambiarCategoria(e.target.value as any)}>
+            <Select label="Categoria" value={form.categoria} onChange={(e) => cambiarCategoria(e.target.value as any)}>
               <option value="GAS">Gas</option>
               <option value="OXIGENO">Oxigeno</option>
               <option value="AGUA">Agua Purificada</option>
@@ -427,6 +434,7 @@ export default function ListaProductos() {
             </Select>
             <Input label="Unidad" value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })} />
           </div>
+          )}
           </>
           )}
           <div className="grid grid-cols-3 gap-3">

@@ -872,4 +872,8 @@ export interface BotellaFiadaInput {
 export interface CategoriaPropia {
   nombre: string;
   productos: number;
+  /** Cuentas contables de la categoria (ventas, costo e inventario). */
+  cuenta_ingreso?: string | null;
+  cuenta_costo?: string | null;
+  cuenta_inventario?: string | null;
 }
