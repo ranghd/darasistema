@@ -62,6 +62,8 @@ export default function Caja() {
   const [clienteId, setClienteId] = useBorrador<number | "">("venta.cliente", "");
   // Gas Damian: a Consumidor Final se le puede escribir el nombre (ej. Jose) y sale en la factura.
   const [nombreCliente, setNombreCliente] = useBorrador<string>("venta.nombre", "");
+  // Y si se le escribe un RNC, la factura sale con valor fiscal (B01) y el cliente se registra solo.
+  const [rncCliente, setRncCliente] = useBorrador<string>("venta.rnc", "");
   const habiaVenta = useHabiaBorrador("venta.carrito", (v) => Array.isArray(v) && v.length > 0);
   const [avisoRecuperada, setAvisoRecuperada] = useState(habiaVenta);
   const [categoria, setCategoria] = useState("TODOS");
@@ -208,6 +210,7 @@ export default function Caja() {
     const consumidorFinal = clientes.find((x) => x.nombre === "Consumidor Final");
     if (consumidorFinal) setClienteId(consumidorFinal.id);
     setNombreCliente("");
+    setRncCliente("");
     enfocar();
   }
 
@@ -217,6 +220,10 @@ export default function Caja() {
     if (!clienteId) return setError("Elige un cliente (F2)");
     if (carrito.length === 0) return setError("Agrega al menos un producto");
     if (usaCaja && !sesion) return setError("La caja esta cerrada. Presiona F9 (o Ctrl+O) para abrirla.");
+    if (soloVentas && esConsumidorFinal && rncEscrito) {
+      if (rncEscrito.length !== 9 && rncEscrito.length !== 11) return setError("El RNC debe tener 9 digitos (empresa) o 11 (cedula)");
+      if (!nombreCliente.trim()) return setError("Escribe el nombre o la razon social para la factura con valor fiscal");
+    }
     setRecibido(calculo.total.toFixed(2));
     setPagando(true);
   }
@@ -230,16 +237,26 @@ export default function Caja() {
     if (metodoPago === "EFECTIVO" && devuelta < 0) return;
     setCobrando(true);
     try {
+      let idCliente = clienteId as number;
+      if (soloVentas && esConsumidorFinal && rncEscrito) {
+        // con RNC: se usa el cliente que ya tiene ese RNC o se registra uno nuevo
+        const existente = clientes.find((c) => (c.rnc_cedula ?? "").replace(/\D/g, "") === rncEscrito);
+        const elegido =
+          existente ??
+          ((await api.clientes.crear({ nombre: nombreCliente.trim(), rnc_cedula: rncCliente.trim(), tipo: rncEscrito.length === 9 ? "JURIDICA" : "FISICA" })) as Cliente);
+        if (!existente) setClientes((cs) => [...cs, elegido]);
+        idCliente = elegido.id;
+      }
       const factura = (await api.facturas.crear({
-        cliente_id: clienteId as number,
+        cliente_id: idCliente,
         fecha: todayIso(),
         condicion_pago: "CONTADO",
         metodo_pago: metodoPago,
-        tipo_ncf: "B02",
+        tipo_ncf: valorFiscal ? "B01" : "B02",
         codigos_ncf: VERSION_CODIGOS_NCF,
         creado_por: usuario?.nombre,
         caja_sesion_id: sesion?.id ?? null,
-        nombre_cliente: soloVentas && cliente?.nombre === "Consumidor Final" ? nombreCliente.trim() || null : null,
+        nombre_cliente: soloVentas && esConsumidorFinal && !rncEscrito ? nombreCliente.trim() || null : null,
         lineas: carrito.map((l) => ({ producto_id: l.producto_id, modalidad: l.modalidad, cantidad: l.cantidad, precio_unitario: productos.find((p) => p.id === l.producto_id)!.precio_contenido, descuento: 0 })),
       })) as any;
       setPagando(false);
@@ -257,6 +274,7 @@ export default function Caja() {
       setCarrito([]);
       setLineaSel(-1);
       setNombreCliente("");
+      setRncCliente("");
       api.productos.listar().then(setProductos); // existencias al dia
     } catch (err) {
       setPagando(false);
@@ -380,7 +398,7 @@ export default function Caja() {
   function elegirCliente(c: Cliente | undefined) {
     if (!c) return;
     setClienteId(c.id);
-    if (c.nombre !== "Consumidor Final") setNombreCliente("");
+    if (c.nombre !== "Consumidor Final") (setNombreCliente(""), setRncCliente(""));
     setEligiendoCliente(false);
     enfocar();
   }
@@ -399,6 +417,10 @@ export default function Caja() {
   }
 
   const cliente = clientes.find((c) => c.id === clienteId);
+  const esConsumidorFinal = cliente?.nombre === "Consumidor Final";
+  const rncEscrito = rncCliente.replace(/\D/g, "");
+  // Gas Damian: con valor fiscal (B01) si a Consumidor Final se le escribio un RNC o si el cliente elegido tiene RNC
+  const valorFiscal = soloVentas && (esConsumidorFinal ? rncEscrito.length > 0 : !!(cliente?.rnc_cedula ?? "").replace(/\D/g, ""));
   const seleccionVisible = lineaSel >= 0 ? lineaSel : carrito.length - 1;
   const billetesRapidos = [...new Set([Math.ceil(calculo.total / 100) * 100, Math.ceil(calculo.total / 500) * 500, Math.ceil(calculo.total / 1000) * 1000, 2000])]
     .filter((v) => v > calculo.total)
@@ -601,16 +623,32 @@ export default function Caja() {
                 Cambiar <Tecla>F2 · CtrlB</Tecla>
               </span>
             </button>
-            {soloVentas && cliente?.nombre === "Consumidor Final" && (
-              <div className="border-b border-slate-200 px-4 py-2.5">
-                <input
-                  value={nombreCliente}
-                  onChange={(e) => setNombreCliente(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), enfocar())}
-                  placeholder="Nombre del cliente (opcional), ej. Jose"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
-                  data-nav-ignorar
-                />
+            {soloVentas && (
+              <div className="space-y-2 border-b border-slate-200 px-4 py-2.5">
+                {esConsumidorFinal && (
+                  <>
+                    <input
+                      value={nombreCliente}
+                      onChange={(e) => setNombreCliente(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), enfocar())}
+                      placeholder={rncEscrito ? "Nombre o razon social (obligatorio)" : "Nombre del cliente (opcional), ej. Jose"}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+                      data-nav-ignorar
+                    />
+                    <input
+                      value={rncCliente}
+                      onChange={(e) => setRncCliente(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), enfocar())}
+                      placeholder="RNC o cedula (para factura con valor fiscal)"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+                      data-nav-ignorar
+                    />
+                  </>
+                )}
+                <p className="text-xs text-slate-500">
+                  Comprobante:{" "}
+                  {valorFiscal ? <b className="text-emerald-700">B01 · Valor fiscal</b> : <b className="text-slate-700">B02 · Consumo</b>}
+                </p>
               </div>
             )}
 
