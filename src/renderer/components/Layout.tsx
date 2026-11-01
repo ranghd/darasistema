@@ -100,12 +100,13 @@ const NAV_CAJA = [
   { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
 ];
 
-// Caja de Gas Damian: solo vender y los cilindros prestados.
+// Caja de Gas Damian: vender, cerrar la caja y los cilindros prestados.
 const NAV_CAJA_GAS_DAMIAN = [
   {
     section: "Ventas",
     items: [
       { to: "/caja", label: "Punto de venta" },
+      { to: "/cierre-caja", label: "Cierre de Caja" },
       { to: "/botellas-fiadas", label: "Cilindros prestados" },
     ],
   },
