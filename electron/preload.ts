@@ -32,6 +32,12 @@ const api = {
     actualizar: (id: number, data: any) => invoke("productos:actualizar", id, data),
     eliminar: (id: number) => invoke("productos:eliminar", id),
   },
+  categorias: {
+    listar: () => invoke("categorias:listar"),
+    crear: (nombre: string) => invoke("categorias:crear", nombre),
+    renombrar: (anterior: string, nuevo: string) => invoke("categorias:renombrar", anterior, nuevo),
+    borrar: (nombre: string) => invoke("categorias:borrar", nombre),
+  },
   facturas: {
     listar: () => invoke("facturas:listar"),
     obtener: (id: number) => invoke("facturas:obtener", id),

@@ -904,3 +904,9 @@ export interface BotellaFiadaInput {
   nota?: string | null;
   creado_por?: string | null;
 }
+
+/** Categoria propia de los productos (pestana de la caja) y cuantos productos activos tiene. */
+export interface CategoriaPropia {
+  nombre: string;
+  productos: number;
+}

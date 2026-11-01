@@ -15,6 +15,7 @@ import ListaClientes from "./pages/Clientes/ListaClientes";
 import DetalleCliente from "./pages/Clientes/DetalleCliente";
 import BotellasFiadas from "./pages/Clientes/BotellasFiadas";
 import ListaProductos from "./pages/Productos/ListaProductos";
+import Categorias from "./pages/Productos/Categorias";
 import ControlEnvases from "./pages/Productos/ControlEnvases";
 import ListaFacturas from "./pages/Facturacion/ListaFacturas";
 import NuevaFactura from "./pages/Facturacion/NuevaFactura";
@@ -89,6 +90,7 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
         // (la factura se sigue abriendo desde la venta para reimprimirla).
         ...(soloVentas && !adminVentas ? RUTAS_COMUNES.filter((r) => ["/caja", "/cierre-caja", "/facturas/:id"].includes(r.path)) : RUTAS_COMUNES),
         ...(soloVentas ? [{ path: "/botellas-fiadas", element: <BotellasFiadas /> }] : []),
+        ...(adminVentas && !restringido ? [{ path: "/categorias", element: <Categorias /> }] : []),
         ...(restringido ? rutaConexionCaja : RUTAS_ADMIN_EXTRA),
         { path: "*", element: <Navigate to={restringido || esColmado || (soloVentas && !adminVentas) ? "/caja" : "/"} replace /> },
       ]

@@ -1,6 +1,6 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
-import type { Producto } from "../shared/types";
+import type { CategoriaPropia, Producto } from "../shared/types";
 import { registrarAjusteInventario } from "../db/contabilidad";
 
 // El codigo del producto no se puede repetir.
@@ -36,7 +36,48 @@ function siguienteCodigo(db: DB, categoria: string): string {
   return `${categoria.slice(0, 3).toUpperCase()}-${String(count + 1).padStart(3, "0")}`;
 }
 
+function nombreCategoria(nombre: string | null | undefined): string {
+  const limpio = limpiarGrupo(nombre);
+  if (!limpio) throw new Error("Escribe el nombre de la categoria");
+  return limpio;
+}
+
 export function registerProductosIpc(db: DB) {
+  // ---------- Categorias propias (el producto guarda el nombre en "grupo") ----------
+
+  ipcMain.handle("categorias:listar", (): CategoriaPropia[] => {
+    return db
+      .prepare(
+        `SELECT c.nombre, (SELECT COUNT(*) FROM productos p WHERE p.grupo = c.nombre COLLATE NOCASE AND p.activo = 1) AS productos
+         FROM (SELECT nombre FROM categorias_producto UNION SELECT grupo FROM productos WHERE grupo IS NOT NULL AND grupo != '') c
+         ORDER BY c.nombre COLLATE NOCASE`
+      )
+      .all() as CategoriaPropia[];
+  });
+
+  ipcMain.handle("categorias:crear", (_e, nombre: string) => {
+    const limpio = nombreCategoria(nombre);
+    if (db.prepare(`SELECT 1 FROM categorias_producto WHERE nombre = ? COLLATE NOCASE`).get(limpio)) throw new Error(`Ya existe la categoria ${limpio}`);
+    db.prepare(`INSERT INTO categorias_producto (nombre) VALUES (?)`).run(limpio);
+    return true;
+  });
+
+  // Cambiar el nombre tambien mueve sus productos; si el nombre nuevo ya existe, las dos se juntan.
+  ipcMain.handle("categorias:renombrar", (_e, anterior: string, nuevo: string) => db.transaction(() => {
+    const limpio = nombreCategoria(nuevo);
+    db.prepare(`DELETE FROM categorias_producto WHERE nombre = ? COLLATE NOCASE`).run(anterior);
+    if (!db.prepare(`SELECT 1 FROM categorias_producto WHERE nombre = ? COLLATE NOCASE`).get(limpio)) db.prepare(`INSERT INTO categorias_producto (nombre) VALUES (?)`).run(limpio);
+    db.prepare(`UPDATE productos SET grupo = ? WHERE grupo = ? COLLATE NOCASE`).run(limpio, anterior);
+    return true;
+  })());
+
+  // Borrar una categoria no borra sus productos: quedan sin categoria.
+  ipcMain.handle("categorias:borrar", (_e, nombre: string) => db.transaction(() => {
+    db.prepare(`DELETE FROM categorias_producto WHERE nombre = ? COLLATE NOCASE`).run(nombre);
+    db.prepare(`UPDATE productos SET grupo = NULL WHERE grupo = ? COLLATE NOCASE`).run(nombre);
+    return true;
+  })());
+
   ipcMain.handle("productos:listar", () => {
     return db.prepare(`SELECT * FROM productos ORDER BY categoria, nombre`).all() as Producto[];
   });

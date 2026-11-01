@@ -65,7 +65,8 @@ export default function ListaProductos() {
   const [borrando, setBorrando] = useState(false);
   const [aviso, setAviso] = useState("");
   const [editActivo, setEditActivo] = useState(1);
-  const grupos = Array.from(new Set([...(soloVentas ? CATEGORIAS_GAS_DAMIAN : GRUPOS_COLMADO), ...productos.map((p) => p.grupo).filter(Boolean) as string[]])).sort();
+  const [categoriasGuardadas, setCategoriasGuardadas] = useState<string[]>([]);
+  const grupos = Array.from(new Set([...(soloVentas ? CATEGORIAS_GAS_DAMIAN : GRUPOS_COLMADO), ...categoriasGuardadas, ...productos.map((p) => p.grupo).filter(Boolean) as string[]])).sort();
   const q = buscar.trim().toLowerCase();
   // El que se pone solo si se deja vacio (colmado: 1, 2, 3...).
   const siguienteCodigo = Math.max(0, ...productos.map((p) => (/^\d+$/.test(p.codigo) ? Number(p.codigo) : 0))) + 1;
@@ -78,6 +79,7 @@ export default function ListaProductos() {
     const [p, c] = await Promise.all([api.productos.listar(), api.cuentas.listar()]);
     setProductos(p);
     setCuentas(c);
+    if (soloVentas) api.categorias.listar().then((cs) => setCategoriasGuardadas(cs.map((x) => x.nombre))).catch(() => {});
   }
 
   useEffect(() => {

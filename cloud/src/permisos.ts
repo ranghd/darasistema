@@ -48,6 +48,7 @@ export const CANALES_CAJERO = new Set([
   "fiados:movimientos",
   "fiados:fiar",
   "fiados:devolver",
+  "categorias:listar",
 ]);
 
 export type Rol = "ADMIN" | "CAJERO";

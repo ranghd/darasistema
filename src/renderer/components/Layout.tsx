@@ -178,7 +178,13 @@ export default function Layout() {
     .filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN")
     .map((g) => ({ ...g, items: g.items.filter((i) => manejaEnvases || i.to !== "/envases") }))
     // Gas Damian Admin: el menu de Darasistema con los cilindros prestados
-    .map((g) => (adminVentas && g.section === "Clientes" ? { ...g, items: [...g.items, { to: "/botellas-fiadas", label: "Cilindros prestados" }] } : g));
+    .map((g) => (adminVentas && g.section === "Clientes" ? { ...g, items: [...g.items, { to: "/botellas-fiadas", label: "Cilindros prestados" }] } : g))
+    // Gas Damian Admin: las categorias de la caja, debajo de Productos
+    .map((g) =>
+      adminVentas && !mostrarCaja && g.section === "Inventario"
+        ? { ...g, items: g.items.flatMap((i) => (i.to === "/productos" ? [i, { to: "/categorias", label: "Categorias" }] : [i])) }
+        : g
+    );
   const [paleta, setPaleta] = useState(false);
   const [ayuda, setAyuda] = useState(false);
 

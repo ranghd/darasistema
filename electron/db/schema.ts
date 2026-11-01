@@ -214,6 +214,13 @@ CREATE TABLE IF NOT EXISTS botellas_fiadas (
 );
 CREATE INDEX IF NOT EXISTS ix_botellas_fiadas_cliente ON botellas_fiadas(cliente_id, producto_id);
 
+-- Categorias propias de los productos (las pestanas de la caja). El producto guarda el nombre en "grupo".
+CREATE TABLE IF NOT EXISTS categorias_producto (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
 CREATE TABLE IF NOT EXISTS cobros (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   factura_id INTEGER NOT NULL REFERENCES facturas(id),
