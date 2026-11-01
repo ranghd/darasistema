@@ -154,6 +154,8 @@ export function migrar(db: DB) {
     // Tipo de bienes y servicios del 606 de la DGII.
     `ALTER TABLE tipos_gasto ADD COLUMN tipo_dgii TEXT`,
     `ALTER TABLE gastos ADD COLUMN tipo_dgii TEXT`,
+    // Venta a Consumidor Final con un nombre escrito en la caja (Gas Damian), sin crear el cliente.
+    `ALTER TABLE facturas ADD COLUMN nombre_cliente TEXT`,
   ];
   for (const sql of columnas) {
     try {

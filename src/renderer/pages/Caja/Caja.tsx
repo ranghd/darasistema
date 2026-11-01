@@ -60,6 +60,8 @@ export default function Caja() {
   // La venta a medias se guarda sola: si vas a otra seccion y vuelves, sigue ahi.
   const [carrito, setCarrito] = useBorrador<LineaCarrito[]>("venta.carrito", []);
   const [clienteId, setClienteId] = useBorrador<number | "">("venta.cliente", "");
+  // Gas Damian: a Consumidor Final se le puede escribir el nombre (ej. Jose) y sale en la factura.
+  const [nombreCliente, setNombreCliente] = useBorrador<string>("venta.nombre", "");
   const habiaVenta = useHabiaBorrador("venta.carrito", (v) => Array.isArray(v) && v.length > 0);
   const [avisoRecuperada, setAvisoRecuperada] = useState(habiaVenta);
   const [categoria, setCategoria] = useState("TODOS");
@@ -205,6 +207,7 @@ export default function Caja() {
     setMetodoPago("EFECTIVO");
     const consumidorFinal = clientes.find((x) => x.nombre === "Consumidor Final");
     if (consumidorFinal) setClienteId(consumidorFinal.id);
+    setNombreCliente("");
     enfocar();
   }
 
@@ -236,6 +239,7 @@ export default function Caja() {
         codigos_ncf: VERSION_CODIGOS_NCF,
         creado_por: usuario?.nombre,
         caja_sesion_id: sesion?.id ?? null,
+        nombre_cliente: soloVentas && cliente?.nombre === "Consumidor Final" ? nombreCliente.trim() || null : null,
         lineas: carrito.map((l) => ({ producto_id: l.producto_id, modalidad: l.modalidad, cantidad: l.cantidad, precio_unitario: productos.find((p) => p.id === l.producto_id)!.precio_contenido, descuento: 0 })),
       })) as any;
       setPagando(false);
@@ -252,6 +256,7 @@ export default function Caja() {
       });
       setCarrito([]);
       setLineaSel(-1);
+      setNombreCliente("");
       api.productos.listar().then(setProductos); // existencias al dia
     } catch (err) {
       setPagando(false);
@@ -582,6 +587,18 @@ export default function Caja() {
                 Cambiar <Tecla>F2 · CtrlB</Tecla>
               </span>
             </button>
+            {soloVentas && cliente?.nombre === "Consumidor Final" && (
+              <div className="border-b border-slate-200 px-4 py-2.5">
+                <input
+                  value={nombreCliente}
+                  onChange={(e) => setNombreCliente(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), enfocar())}
+                  placeholder="Nombre del cliente (opcional), ej. Jose"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+                  data-nav-ignorar
+                />
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto p-4">
               {calculo.lineas.length === 0 ? (

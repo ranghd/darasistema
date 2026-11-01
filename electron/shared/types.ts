@@ -144,6 +144,8 @@ export interface NuevaFacturaInput {
   creado_por?: string;
   /** Jornada de caja abierta en la que se cobra la venta. */
   caja_sesion_id?: number | null;
+  /** Nombre escrito en la caja para una venta a Consumidor Final (sale en la factura). */
+  nombre_cliente?: string | null;
 }
 
 export interface FiltrosHistorial {

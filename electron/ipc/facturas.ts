@@ -53,7 +53,7 @@ export function registerFacturasIpc(db: DB) {
   ipcMain.handle("facturas:listar", () => {
     return db
       .prepare(
-        `SELECT f.*, c.nombre as cliente_nombre,
+        `SELECT f.*, COALESCE(NULLIF(f.nombre_cliente, ''), c.nombre) as cliente_nombre,
                 COALESCE((SELECT SUM(monto) FROM cobros WHERE factura_id = f.id), 0) as cobrado
          FROM facturas f JOIN clientes c ON c.id = f.cliente_id
          ORDER BY f.numero DESC`
@@ -64,7 +64,7 @@ export function registerFacturasIpc(db: DB) {
   ipcMain.handle("facturas:obtener", (_e, id: number) => {
     const factura = db
       .prepare(
-        `SELECT f.*, c.nombre as cliente_nombre,
+        `SELECT f.*, COALESCE(NULLIF(f.nombre_cliente, ''), c.nombre) as cliente_nombre,
                 COALESCE((SELECT SUM(monto) FROM cobros WHERE factura_id = f.id), 0) as cobrado
          FROM facturas f JOIN clientes c ON c.id = f.cliente_id WHERE f.id = ?`
       )
@@ -118,8 +118,8 @@ export function registerFacturasIpc(db: DB) {
 
       const infoFactura = db
         .prepare(
-          `INSERT INTO facturas (numero, ncf, cliente_id, fecha, condicion_pago, metodo_pago, subtotal, itbis, fianza_total, total, estado, creado_por, caja_sesion_id)
-           VALUES (@numero, @ncf, @cliente_id, @fecha, @condicion_pago, @metodo_pago, @subtotal, @itbis, @fianza_total, @total, @estado, @creado_por, @caja_sesion_id)`
+          `INSERT INTO facturas (numero, ncf, cliente_id, fecha, condicion_pago, metodo_pago, subtotal, itbis, fianza_total, total, estado, creado_por, caja_sesion_id, nombre_cliente)
+           VALUES (@numero, @ncf, @cliente_id, @fecha, @condicion_pago, @metodo_pago, @subtotal, @itbis, @fianza_total, @total, @estado, @creado_por, @caja_sesion_id, @nombre_cliente)`
         )
         .run({
           numero: maxNumero + 1,
@@ -135,6 +135,7 @@ export function registerFacturasIpc(db: DB) {
           total,
           creado_por: input.creado_por?.trim() || null,
           caja_sesion_id: cajaSesionId,
+          nombre_cliente: input.nombre_cliente?.trim() || null,
         });
       const facturaId = Number(infoFactura.lastInsertRowid);
 
