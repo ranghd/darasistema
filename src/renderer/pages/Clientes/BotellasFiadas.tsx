@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, mensajeDeError } from "../../lib/api";
+import { sinAcentos } from "../Caja/buscar";
 import { useAuth } from "../../lib/auth";
 import { formatDate, todayIso } from "../../lib/format";
 import type { Cliente, MovimientoBotellaFiada, Producto, SaldoBotellaFiada } from "../../lib/types";
@@ -8,9 +9,10 @@ import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table 
 // Cilindros prestados: el negocio le presta el cilindro al cliente, que lo tiene que devolver (no es una deuda ni un credito).
 // Aqui se anota lo que se presta y, cuando la trae, lo que devolvio. Por dentro se sigue llamando "fiados".
 
-type Formulario = { tipo: "FIADO" | "DEVOLUCION"; cliente: number | ""; producto: number | ""; cantidad: string; fecha: string; nota: string };
+// Al prestar, el cliente se escribe por nombre: si no existe se registra solo (nombre y telefono) al guardar.
+type Formulario = { tipo: "FIADO" | "DEVOLUCION"; cliente: number | ""; nombre: string; telefono: string; producto: number | ""; cantidad: string; fecha: string; nota: string };
 
-const nuevo = (tipo: Formulario["tipo"], cliente: number | "" = "", producto: number | "" = "", cantidad = ""): Formulario => ({ tipo, cliente, producto, cantidad, fecha: todayIso(), nota: "" });
+const nuevo = (tipo: Formulario["tipo"], cliente: number | "" = "", producto: number | "" = "", cantidad = ""): Formulario => ({ tipo, cliente, nombre: "", telefono: "", producto, cantidad, fecha: todayIso(), nota: "" });
 
 export default function BotellasFiadas() {
   const { usuario } = useAuth();
@@ -50,11 +52,20 @@ export default function BotellasFiadas() {
     e.preventDefault();
     if (!form) return;
     setError("");
-    if (!form.cliente) return setError("Elige el cliente");
+    const consumidorFinal = clientes.find((c) => c.codigo === "CLI-0000");
+    if (form.tipo === "FIADO" ? !form.nombre.trim() : !form.cliente) return setError(form.tipo === "FIADO" ? "Escribe el nombre del cliente" : "Elige el cliente");
+    if (form.cliente && form.cliente === consumidorFinal?.id) return setError("A Consumidor Final no se le presta: escribe el nombre de la persona");
     if (!form.producto) return setError("Elige el cilindro");
     setGuardando(true);
     try {
-      const datos = { cliente_id: Number(form.cliente), producto_id: Number(form.producto), cantidad: Number(form.cantidad), fecha: form.fecha, nota: form.nota, creado_por: usuario?.nombre };
+      let clienteId = form.cliente;
+      if (form.tipo === "FIADO" && !clienteId) {
+        // persona nueva: se registra con su nombre (y telefono) para saber a quien reclamarle el cilindro
+        const nuevoCliente = (await api.clientes.crear({ nombre: form.nombre.trim(), telefono: form.telefono.trim(), tipo: "FISICA" })) as Cliente;
+        setClientes((cs) => [...cs, nuevoCliente]);
+        clienteId = nuevoCliente.id;
+      }
+      const datos = { cliente_id: Number(clienteId), producto_id: Number(form.producto), cantidad: Number(form.cantidad), fecha: form.fecha, nota: form.nota, creado_por: usuario?.nombre };
       if (form.tipo === "FIADO") await api.fiados.fiar(datos);
       else await api.fiados.devolver(datos);
       setForm(null);
@@ -68,8 +79,12 @@ export default function BotellasFiadas() {
 
   const abrir = (f: Formulario) => {
     setError("");
-    setForm(f);
+    setForm({ ...f, nombre: clientes.find((c) => c.id === f.cliente)?.nombre ?? "" });
   };
+
+  // el nombre escrito se busca entre los clientes (sin importar mayusculas ni acentos)
+  const igual = (a: string, b: string) => sinAcentos(a.trim()) === sinAcentos(b.trim());
+  const escribirNombre = (nombre: string) => form && setForm({ ...form, nombre, cliente: clientes.find((c) => igual(c.nombre, nombre))?.id ?? "" });
 
   return (
     <div>
@@ -161,15 +176,48 @@ export default function BotellasFiadas() {
       <Modal open={!!form} onClose={() => setForm(null)} title={form?.tipo === "FIADO" ? "Prestar cilindros" : "Devolucion de cilindros prestados"}>
         {form && (
           <form onSubmit={guardar} className="space-y-3">
-            <Select label="Cliente" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value ? Number(e.target.value) : "" })} autoFocus>
-              <option value="">Elegir cliente...</option>
-              {(form.tipo === "DEVOLUCION" ? clientes.filter((c) => saldos.some((s) => s.cliente_id === c.id && s.pendientes > 0)) : clientes).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                  {c.telefono ? ` · ${c.telefono}` : ""}
-                </option>
-              ))}
-            </Select>
+            {form.tipo === "FIADO" ? (
+              <>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Cliente</span>
+                  <input
+                    list="clientes-prestamo"
+                    value={form.nombre}
+                    onChange={(e) => escribirNombre(e.target.value)}
+                    placeholder="Escribe el nombre (ej. Jose Ramirez) o eligelo de la lista"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    autoFocus
+                  />
+                  <datalist id="clientes-prestamo">
+                    {clientes
+                      .filter((c) => c.codigo !== "CLI-0000")
+                      .map((c) => (
+                        <option key={c.id} value={c.nombre}>
+                          {c.telefono ?? ""}
+                        </option>
+                      ))}
+                  </datalist>
+                </label>
+                {form.nombre.trim() && !form.cliente && (
+                  <div className="rounded-lg bg-slate-50 px-3 py-2">
+                    <p className="mb-2 text-xs text-slate-500">Cliente nuevo: se registra con este nombre al guardar.</p>
+                    <Input label="Telefono (opcional)" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} placeholder="809-000-0000" />
+                  </div>
+                )}
+              </>
+            ) : (
+              <Select label="Cliente" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value ? Number(e.target.value) : "" })} autoFocus>
+                <option value="">Elegir cliente...</option>
+                {clientes
+                  .filter((c) => saldos.some((s) => s.cliente_id === c.id && s.pendientes > 0))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                      {c.telefono ? ` · ${c.telefono}` : ""}
+                    </option>
+                  ))}
+              </Select>
+            )}
             <Select label="Cilindro" value={form.producto} onChange={(e) => setForm({ ...form, producto: e.target.value ? Number(e.target.value) : "" })}>
               <option value="">Elegir cilindro...</option>
               {productos.map((p) => (
