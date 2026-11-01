@@ -85,8 +85,9 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
 
   const hijos = usuario
     ? [
-        // Gas Damian (la caja y el Admin) es Cajapunto1 o Darasistema con las cilindros prestados; la caja sin Panel Principal
-        ...RUTAS_COMUNES.filter((r) => !(soloVentas && !adminVentas && r.path === "/")),
+        // Gas Damian Admin es Darasistema con los cilindros prestados. La caja de Gas Damian solo vende y presta cilindros
+        // (la factura se sigue abriendo desde la venta para reimprimirla).
+        ...(soloVentas && !adminVentas ? RUTAS_COMUNES.filter((r) => ["/caja", "/cierre-caja", "/facturas/:id"].includes(r.path)) : RUTAS_COMUNES),
         ...(soloVentas ? [{ path: "/botellas-fiadas", element: <BotellasFiadas /> }] : []),
         ...(restringido ? rutaConexionCaja : RUTAS_ADMIN_EXTRA),
         { path: "*", element: <Navigate to={restringido || esColmado || (soloVentas && !adminVentas) ? "/caja" : "/"} replace /> },
