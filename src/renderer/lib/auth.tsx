@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api, EVENTO_SESION_EXPIRADA, mensajeDeError } from "./api";
 import type { SesionUsuario } from "./types";
+import { recuerdaSesion } from "./variant";
 
 interface AuthContextValue {
   usuario: SesionUsuario | null;
@@ -8,6 +9,8 @@ interface AuthContextValue {
   logout: () => void;
   /** Motivo por el que se cerro la sesion sin que el usuario lo pidiera (ej. vencio). */
   aviso: string | null;
+  /** La caja de Gas Damian esta buscando la sesion recordada (todavia no se sabe si entra sola). */
+  revisando: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -26,16 +29,36 @@ function sesionGuardada(): SesionUsuario | null {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [usuario, setUsuario] = useState<SesionUsuario | null>(sesionGuardada);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [revisando, setRevisando] = useState(() => recuerdaSesion && !sesionGuardada());
+
+  // Caja de Gas Damian: si ya se inicio sesion en este mes, entra sola.
+  useEffect(() => {
+    if (!revisando) return;
+    api.auth
+      .sesionRecordada()
+      .then((sesion: SesionUsuario | null) => {
+        if (!sesion) return;
+        setUsuario(sesion);
+        try {
+          sessionStorage.setItem(STORAGE_KEY, JSON.stringify(sesion));
+        } catch {
+          // la sesion vive solo en memoria
+        }
+      })
+      .catch(() => {})
+      .finally(() => setRevisando(false));
+  }, []);
 
   const login = useCallback(async (nombreUsuario: string, password: string, empresa?: string) => {
     let sesion: SesionUsuario;
     try {
-      sesion = await api.auth.login(nombreUsuario, password, empresa);
+      sesion = await api.auth.login(nombreUsuario, password, empresa, recuerdaSesion);
     } catch (err) {
       throw new Error(mensajeDeError(err, "No se pudo iniciar sesion"));
     }
     setAviso(null);
     setUsuario(sesion);
+    if (recuerdaSesion) api.auth.recordar(sesion).catch(() => {});
     try {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(sesion));
     } catch {
@@ -63,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener(EVENTO_SESION_EXPIRADA, alExpirar);
   }, [logout]);
 
-  return <AuthContext.Provider value={{ usuario, login, logout, aviso }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ usuario, login, logout, aviso, revisando }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {

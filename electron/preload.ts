@@ -134,8 +134,10 @@ const api = {
     actualizar: (data: any) => invoke("config:actualizar", data),
   },
   auth: {
-    login: (usuario: string, password: string, empresa?: string) => invoke("auth:login", usuario, password, empresa),
+    login: (usuario: string, password: string, empresa?: string, recordar?: boolean) => invoke("auth:login", usuario, password, empresa, recordar),
     logout: () => invoke("auth:logout"),
+    recordar: (sesion: any) => invoke("auth:recordar", sesion),
+    sesionRecordada: () => invoke("auth:sesionRecordada"),
   },
   usuarios: {
     listar: () => invoke("usuarios:listar"),
@@ -195,6 +197,7 @@ const api = {
       ipcRenderer.on("updater:estado", listener);
       return () => ipcRenderer.removeListener("updater:estado", listener);
     },
+    estadoActual: () => invoke("updater:estadoActual"),
   },
 };
 

@@ -236,13 +236,15 @@ export const mockApi = {
   },
   auth: {
     logout: async () => {},
-    login: async (usuario: string, password: string, _empresa?: string) => {
+    login: async (usuario: string, password: string, _empresa?: string, _recordar?: boolean) => {
       if ((usuario === "admin" && password === "admin") || (usuario === "dara" && password === "123")) {
         return { id: 1, usuario, nombre: usuario === "dara" ? "Darasistema" : "Administrador", rol: "ADMIN" as const };
       }
       if (usuario === "venta" && password === "123") return { id: 2, usuario: "venta", nombre: "Caja / Venta", rol: "CAJERO" as const };
       throw new Error("Usuario o contrasena incorrectos");
     },
+    recordar: async (_sesion: any) => {},
+    sesionRecordada: async (): Promise<any> => null,
   },
   usuarios: {
     listar: async (): Promise<Usuario[]> => [
@@ -300,5 +302,6 @@ export const mockApi = {
   updater: {
     // En vista previa no hay auto-update real: nunca se dispara el callback.
     onEstado: (_cb: (estado: any) => void) => () => {},
+    estadoActual: async (): Promise<any> => ({ estado: "no-disponible" }),
   },
 };

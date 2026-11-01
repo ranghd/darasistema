@@ -1,6 +1,6 @@
 import type { Empresa, InicializarEmpresa } from "./empresa-do";
 import type { Registro } from "./registro-do";
-import { firmarToken, verificarToken } from "./token";
+import { DURACION_RECORDADA_MS, firmarToken, verificarToken } from "./token";
 
 export { Empresa } from "./empresa-do";
 export { Registro } from "./registro-do";
@@ -64,7 +64,7 @@ async function login(req: Request, env: Env): Promise<Response> {
   } catch (err: any) {
     throw new ErrorHttp(401, err?.message ?? "Usuario o contrasena incorrectos");
   }
-  const token = await firmarToken({ empresa: codigo, uid: sesion.id, usuario: sesion.usuario, rol: sesion.rol }, env.TOKEN_SECRET);
+  const token = await firmarToken({ empresa: codigo, uid: sesion.id, usuario: sesion.usuario, rol: sesion.rol }, env.TOKEN_SECRET, body.recordar === true ? DURACION_RECORDADA_MS : undefined);
   return json({ resultado: { token, sesion, empresa: codigo } });
 }
 

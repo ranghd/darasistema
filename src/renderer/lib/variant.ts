@@ -13,6 +13,8 @@ export const esVariantCaja = APP_VARIANT === "caja" || APP_VARIANT === "cajacolm
 export const soloVentas = APP_VARIANT === "puntoventa" || APP_VARIANT === "puntoventaadmin";
 // Gas Damian Admin: todo lo de Darasistema, con lo propio de Gas Damian.
 export const adminVentas = APP_VARIANT === "puntoventaadmin";
+// La caja de Gas Damian entra sola: la sesion se recuerda 30 dias y al abrir se revisan las actualizaciones.
+export const recuerdaSesion = APP_VARIANT === "puntoventa";
 // Es para un colmado (productos con grupo y codigo de barras, sin envases).
 export const esColmado = APP_VARIANT === "colmado" || APP_VARIANT === "cajacolmado";
 // Abre, opera y cierra la caja en esta computadora.

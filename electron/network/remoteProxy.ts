@@ -1,3 +1,4 @@
+import { borrarSesionRecordada } from "../sesionRecordada";
 import { pedirHttp, type RespuestaHttp } from "./http";
 import { ipcMain } from "electron";
 import { normalizarServidorUrl } from "./config";
@@ -58,6 +59,12 @@ export function cerrarSesionNube(): void {
   tokenNube = null;
 }
 
+// Para recordar la sesion de la caja (electron/sesionRecordada.ts).
+export const tokenNubeActual = () => tokenNube;
+export function usarTokenNube(token: string): void {
+  tokenNube = token;
+}
+
 function describirFalloDeRed(err: any, servidorUrl: string, nube: boolean): Error {
   if (err.name === "AbortError") {
     return new Error(
@@ -100,6 +107,7 @@ async function postJson(servidorUrlCruda: string, ruta: string, cuerpo: unknown,
   if (!res.ok) {
     if (opciones.nube && res.status === 401 && ruta === "/api/invoke") {
       tokenNube = null;
+      borrarSesionRecordada();
       throw new Error("Sesion expirada. Vuelve a iniciar sesion.");
     }
     throw new Error(json.error ?? `Error del servidor (${res.status})`);
@@ -123,9 +131,9 @@ export function registrarProxiesNube(nubeUrl: string): void {
     });
   }
 
-  ipcMain.handle("auth:login", async (_e, usuario: string, password: string, empresa?: string) => {
+  ipcMain.handle("auth:login", async (_e, usuario: string, password: string, empresa?: string, recordar?: boolean) => {
     if (!empresa?.trim()) throw new Error("Escribe el codigo de empresa");
-    const r = await postJson(nubeUrl, "/api/login", { empresa: empresa.trim().toLowerCase(), usuario, password }, { nube: true });
+    const r = await postJson(nubeUrl, "/api/login", { empresa: empresa.trim().toLowerCase(), usuario, password, recordar: recordar === true }, { nube: true });
     tokenNube = r.token;
     return r.sesion;
   });

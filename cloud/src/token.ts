@@ -9,6 +9,8 @@ export interface PayloadToken {
 }
 
 const DURACION_MS = 12 * 60 * 60 * 1000;
+// La caja de Gas Damian recuerda la sesion un mes.
+export const DURACION_RECORDADA_MS = 30 * 24 * 60 * 60 * 1000;
 const encoder = new TextEncoder();
 
 function aBase64Url(bytes: Uint8Array): string {
@@ -29,8 +31,8 @@ function clave(secreto: string) {
   return crypto.subtle.importKey("raw", encoder.encode(secreto), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
 
-export async function firmarToken(datos: Omit<PayloadToken, "exp">, secreto: string): Promise<string> {
-  const payload = aBase64Url(encoder.encode(JSON.stringify({ ...datos, exp: Date.now() + DURACION_MS })));
+export async function firmarToken(datos: Omit<PayloadToken, "exp">, secreto: string, duracionMs = DURACION_MS): Promise<string> {
+  const payload = aBase64Url(encoder.encode(JSON.stringify({ ...datos, exp: Date.now() + duracionMs })));
   const firma = new Uint8Array(await crypto.subtle.sign("HMAC", await clave(secreto), encoder.encode(payload)));
   return `${payload}.${aBase64Url(firma)}`;
 }

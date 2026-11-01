@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import { autoUpdater } from "electron-updater";
 import { APP_VARIANT, PARA_WIN7 } from "./variant.generated";
 
@@ -10,7 +10,15 @@ export type EstadoUpdater =
   | { estado: "descargado"; version: string }
   | { estado: "error"; mensaje: string };
 
+let ultimoEstado: EstadoUpdater | null = null;
+
+// La pantalla de arranque de la caja pregunta como va: sin empaquetar (desarrollo) no se busca nada.
+export function registrarEstadoUpdater() {
+  ipcMain.handle("updater:estadoActual", () => (app.isPackaged ? ultimoEstado ?? { estado: "buscando" } : { estado: "no-disponible" }));
+}
+
 function enviarATodasLasVentanas(payload: EstadoUpdater) {
+  ultimoEstado = payload;
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send("updater:estado", payload);
   }

@@ -43,3 +43,13 @@ tr:focus-visible {
 aside :focus-visible {
   outline-color: #8ccdff;
 }
+
+/* barra de la pantalla de carga de Gas Damian */
+@keyframes cargar {
+  from {
+    left: -40%;
+  }
+  to {
+    left: 100%;
+  }
+}

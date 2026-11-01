@@ -5,7 +5,7 @@ import { AuthProvider, useAuth } from "./lib/auth";
 import { CajaProvider } from "./lib/caja";
 import CierreCaja from "./pages/CierreCaja/CierreCaja";
 import CierresCaja from "./pages/CierreCaja/CierresCaja";
-import { adminVentas, esColmado, esVariantCaja, manejaEnvases, operaCaja, soloVentas } from "./lib/variant";
+import { adminVentas, esColmado, esVariantCaja, manejaEnvases, operaCaja, recuerdaSesion, soloVentas } from "./lib/variant";
 import Layout from "./components/Layout";
 import Login from "./pages/Login/Login";
 import ConfigurarConexion from "./pages/Configuracion/ConfigurarConexion";
@@ -38,6 +38,7 @@ import Compras from "./pages/Compras/Compras";
 import Proveedores from "./pages/Proveedores/Proveedores";
 import DetalleProveedor from "./pages/Proveedores/DetalleProveedor";
 import UpdateBanner from "./components/UpdateBanner";
+import PantallaCarga from "./components/PantallaCarga";
 import { activarNavegacionConFlechas } from "./lib/navegacionFlechas";
 
 // Rutas que ve cualquier usuario que inicio sesion (admin o cajero).
@@ -78,7 +79,7 @@ const RUTAS_ADMIN_EXTRA = [
 ];
 
 function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
-  const { usuario } = useAuth();
+  const { usuario, revisando } = useAuth();
   const restringido = esVariantCaja || usuario?.rol === "CAJERO";
 
   // En Cajapunto1 el administrador entra a Configuracion solo para la conexion.
@@ -104,8 +105,47 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
     if (usuario && (esColmado || (soloVentas && !adminVentas)) && (location.hash === "" || location.hash === "#/")) navegar("/caja", { replace: true });
   }, [usuario?.id]);
 
-  if (!usuario) return <Login modoNube={modoNube} />;
+  if (!usuario) return revisando ? <PantallaCarga texto="Entrando..." /> : <Login modoNube={modoNube} />;
   return elemento;
+}
+
+// Caja de Gas Damian: al abrir, primero se revisa si hay una version nueva. Si la hay, se muestra
+// "Actualizando..." hasta que se instala sola (el programa se reinicia); si no, entra.
+type EstadoArranque = { estado: string; porcentaje?: number } | null;
+const ACTUALIZANDO = ["disponible", "descargando", "descargado"];
+
+function ArranqueCaja({ children }: { children: React.ReactNode }) {
+  const [estado, setEstado] = useState<EstadoArranque>(null);
+  const [listo, setListo] = useState(false);
+
+  useEffect(() => {
+    let ultimo: EstadoArranque = null;
+    const revisar = (e: EstadoArranque) => {
+      ultimo = e;
+      setEstado(e);
+      if (!e || !["buscando", ...ACTUALIZANDO].includes(e.estado)) setListo(true);
+    };
+    api.updater?.estadoActual?.().then(revisar).catch(() => setListo(true));
+    const quitar = api.updater?.onEstado?.(revisar);
+    // sin internet la revision puede tardar: a los 10 segundos se entra igual
+    const espera = setTimeout(() => {
+      if (!ultimo || ultimo.estado === "buscando") setListo(true);
+    }, 10000);
+    return () => {
+      quitar?.();
+      clearTimeout(espera);
+    };
+  }, []);
+
+  if (listo) return <>{children}</>;
+  if (estado && ACTUALIZANDO.includes(estado.estado))
+    return (
+      <PantallaCarga
+        texto={estado.estado === "descargado" ? "Actualizacion lista. Abriendo la version nueva..." : "Actualizando a la version nueva. No lo cierre."}
+        porcentaje={estado.estado === "descargando" ? estado.porcentaje ?? 0 : estado.estado === "descargado" ? 100 : undefined}
+      />
+    );
+  return <PantallaCarga texto="Revisando actualizaciones..." />;
 }
 
 export default function App() {
@@ -128,14 +168,18 @@ export default function App() {
     );
   }
 
+  const aplicacion = (
+    <AuthProvider>
+      <CajaProvider>
+        <RutasProtegidas modoNube={redConfig.modo === "NUBE"} />
+      </CajaProvider>
+    </AuthProvider>
+  );
+
   return (
     <>
       <UpdateBanner />
-      <AuthProvider>
-        <CajaProvider>
-          <RutasProtegidas modoNube={redConfig.modo === "NUBE"} />
-        </CajaProvider>
-      </AuthProvider>
+      {recuerdaSesion ? <ArranqueCaja>{aplicacion}</ArranqueCaja> : aplicacion}
     </>
   );
 }

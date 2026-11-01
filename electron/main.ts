@@ -20,11 +20,12 @@ import { registerBancosIpc } from "./ipc/bancos";
 import { leerConfigRed, guardarConfigRed, normalizarServidorUrl, type ConfigRed } from "./network/config";
 import { listarIpsLocales } from "./network/localIp";
 import { iniciarServidorHttp, type HandlerRegistry } from "./network/server";
-import { cerrarSesionNube, registrarProxiesNube, registrarProxiesRemotos } from "./network/remoteProxy";
-import { configurarAutoUpdate } from "./updater";
+import { cerrarSesionNube, tokenNubeActual, usarTokenNube, registrarProxiesNube, registrarProxiesRemotos } from "./network/remoteProxy";
+import { configurarAutoUpdate, registrarEstadoUpdater } from "./updater";
 import { registrarImpresionIpc } from "./impresion";
 import { APP_VARIANT } from "./variant.generated";
 import { pedirHttp } from "./network/http";
+import { borrarSesionRecordada, DIAS_RECORDADA, guardarSesionRecordada, leerSesionRecordada, venceToken } from "./sesionRecordada";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -75,7 +76,28 @@ async function registerAllIpc() {
     iniciarServidorHttp(handlerRegistry, configRed.puerto);
   }
 
-  ipcMain.handle("auth:logout", () => cerrarSesionNube());
+  ipcMain.handle("auth:logout", () => {
+    cerrarSesionNube();
+    borrarSesionRecordada();
+  });
+  // Caja de Gas Damian: recordar la sesion 30 dias para que el programa entre solo.
+  ipcMain.handle("auth:recordar", (_e, sesion: unknown) => {
+    if (configRed.modo === "NUBE") {
+      const token = tokenNubeActual();
+      if (token) guardarSesionRecordada({ sesion, token, vence: venceToken(token) });
+    } else {
+      guardarSesionRecordada({ sesion, vence: Date.now() + DIAS_RECORDADA * 24 * 60 * 60 * 1000 });
+    }
+  });
+  ipcMain.handle("auth:sesionRecordada", () => {
+    const datos = leerSesionRecordada();
+    if (!datos) return null;
+    if (configRed.modo === "NUBE") {
+      if (!datos.token) return null;
+      usarTokenNube(datos.token);
+    }
+    return datos.sesion;
+  });
   registrarImpresionIpc();
   ipcMain.handle("red:obtenerConfig", () => ({ ...leerConfigRed(), ips: listarIpsLocales() }));
   ipcMain.handle("red:guardarConfig", (_e, nuevaConfig: ConfigRed) => {
@@ -160,6 +182,7 @@ function createWindow(splash?: BrowserWindow | null) {
 app.whenReady().then(async () => {
   const splash = CON_PANTALLA_DE_CARGA ? mostrarPantallaDeCarga() : null;
   await registerAllIpc();
+  registrarEstadoUpdater();
   createWindow(splash);
   configurarAutoUpdate();
 
