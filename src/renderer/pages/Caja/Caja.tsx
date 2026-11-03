@@ -8,9 +8,9 @@ import { hayModalAbierto } from "../../lib/atajos";
 import CajaCerradaAviso from "../../components/CajaCerradaAviso";
 import AvisoBorrador from "../../components/AvisoBorrador";
 import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
-import type { Cliente, ModalidadLinea, Producto } from "../../lib/types";
+import type { Cliente, ModalidadLinea, Producto, TipoNcfVenta } from "../../lib/types";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
-import { VERSION_CODIGOS_NCF } from "../../lib/ncf";
+import { NCF_LABELS, TIPOS_NCF_VENTA, VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Modal } from "../../components/ui";
 import { esColmado, manejaEnvases, soloVentas, usaGrupos } from "../../lib/variant";
 import { imprimirFacturaGasDamian } from "../../lib/reciboGasDamian";
@@ -41,13 +41,18 @@ const modoDe = (l: LineaCarrito): ModoCilindro => (l.prestado ? "PRESTADO" : l.m
 const COLORES_CATEGORIA = ["border-t-sky-500", "border-t-amber-500", "border-t-emerald-500", "border-t-violet-500", "border-t-rose-500", "border-t-teal-500", "border-t-orange-500"];
 const colorDe = (grupo: string) => COLORES_CATEGORIA[[...grupo].reduce((s, c) => s + c.charCodeAt(0), 0) % COLORES_CATEGORIA.length];
 
-type Metodo = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA";
+// FIADO (solo Gas Damian): la venta queda a credito y se cobra despues en Fiados.
+type Metodo = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "FIADO";
 
 const METODOS: { valor: Metodo; nombre: string; tecla: string }[] = [
   { valor: "EFECTIVO", nombre: "Efectivo", tecla: "F6 · Ctrl1" },
   { valor: "TARJETA", nombre: "Tarjeta", tecla: "F7 · Ctrl2" },
   { valor: "TRANSFERENCIA", nombre: "Transferencia", tecla: "F8 · Ctrl3" },
+  ...(soloVentas ? [{ valor: "FIADO" as const, nombre: "Fiado", tecla: "Ctrl4" }] : []),
 ];
+
+// Comprobantes que piden el RNC del cliente.
+const PIDEN_RNC: TipoNcfVenta[] = ["B01", "B14", "B15"];
 
 // Campos del cliente en la caja de Gas Damian (nombre, RNC, razon social).
 const CAMPO_CLIENTE = "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100";
@@ -87,6 +92,9 @@ export default function Caja() {
   const [nombreCliente, setNombreCliente] = useBorrador<string>("venta.nombre", "");
   // Y si se le escribe un RNC, la factura sale con valor fiscal (B01) y el cliente se registra solo.
   const [rncCliente, setRncCliente] = useBorrador<string>("venta.rnc", "");
+  // Gas Damian: el comprobante que eligio el cajero (null = el que toca solo: B01 con RNC, si no B02)
+  const [tipoElegido, setTipoElegido] = useBorrador<TipoNcfVenta | null>("venta.tipoNcf", null);
+  const [telefonoFiado, setTelefonoFiado] = useState("");
   const habiaVenta = useHabiaBorrador("venta.carrito", (v) => Array.isArray(v) && v.length > 0);
   const [avisoRecuperada, setAvisoRecuperada] = useState(habiaVenta);
   const [categoria, setCategoria] = useState("TODOS");
@@ -107,7 +115,7 @@ export default function Caja() {
   const [recibido, setRecibido] = useState("");
   const [cobrando, setCobrando] = useState(false);
   const [confirmarCancelar, setConfirmarCancelar] = useState(false);
-  const [venta, setVenta] = useState<{ id: number; ncf: string | null; total: number; devuelta: number | null; metodo: Metodo; aviso: AvisoImpresion | null; impresoSolo: boolean } | null>(null);
+  const [venta, setVenta] = useState<{ id: number; ncf: string | null; total: number; devuelta: number | null; metodo: Metodo; fiadoA?: string; aviso: AvisoImpresion | null; impresoSolo: boolean } | null>(null);
   const [imprimiendo, setImprimiendo] = useState(false);
 
   const enfocar = () => setTimeout(() => buscador.current?.focus(), 0);
@@ -242,6 +250,8 @@ export default function Caja() {
     if (consumidorFinal) setClienteId(consumidorFinal.id);
     setNombreCliente("");
     setRncCliente("");
+    setTipoElegido(null);
+    setTelefonoFiado("");
     enfocar();
   }
 
@@ -257,6 +267,7 @@ export default function Caja() {
       if (rncEscrito.length !== 9 && rncEscrito.length !== 11) return setError("El RNC tiene 9 numeros (empresa) o 11 (cedula). Revisalo.");
       if (!nombreCliente.trim()) return setError("Escribe el nombre de la empresa del RNC");
     }
+    if (soloVentas && PIDEN_RNC.includes(tipoNcf) && !tieneRnc) return setError(`Para ${NCF_LABELS[tipoNcf]} hace falta el RNC del cliente`);
     setRecibido(calculo.total.toFixed(2));
     setPagando(true);
   }
@@ -268,9 +279,11 @@ export default function Caja() {
     e?.preventDefault();
     if (cobrando) return;
     if (metodoPago === "EFECTIVO" && devuelta < 0) return;
+    if (metodoPago === "FIADO" && esConsumidorFinal && !nombreCliente.trim()) return;
     setCobrando(true);
     try {
       let idCliente = clienteId as number;
+      let fiadoA = cliente?.nombre;
       if (soloVentas && esConsumidorFinal && (rncEscrito || nombreCliente.trim())) {
         // Con nombre o RNC la persona queda registrada como cliente (para verla en el Admin y darle
         // credito fiscal despues): se usa el que ya tiene ese RNC o ese nombre, o se registra uno nuevo.
@@ -281,17 +294,21 @@ export default function Caja() {
         const elegido =
           existente ??
           ((await api.clientes.crear(
-            rncEscrito ? { nombre, rnc_cedula: rncCliente.trim(), tipo: rncEscrito.length === 9 ? "JURIDICA" : "FISICA" } : { nombre, tipo: "FISICA" }
+            rncEscrito
+              ? { nombre, rnc_cedula: rncCliente.trim(), telefono: telefonoFiado.trim(), tipo: rncEscrito.length === 9 ? "JURIDICA" : "FISICA" }
+              : { nombre, telefono: telefonoFiado.trim(), tipo: "FISICA" }
           )) as Cliente);
         if (!existente) setClientes((cs) => [...cs, elegido]);
         idCliente = elegido.id;
+        fiadoA = elegido.nombre;
       }
       const factura = (await api.facturas.crear({
         cliente_id: idCliente,
         fecha: todayIso(),
-        condicion_pago: "CONTADO",
-        metodo_pago: metodoPago,
-        tipo_ncf: valorFiscal ? "B01" : "B02",
+        // fiado: la venta queda a credito (la caja no espera ese dinero) y se cobra despues en Fiados
+        condicion_pago: metodoPago === "FIADO" ? "CREDITO" : "CONTADO",
+        metodo_pago: metodoPago === "FIADO" ? undefined : metodoPago,
+        tipo_ncf: soloVentas ? tipoNcf : "B02",
         codigos_ncf: VERSION_CODIGOS_NCF,
         creado_por: usuario?.nombre,
         caja_sesion_id: sesion?.id ?? null,
@@ -307,6 +324,7 @@ export default function Caja() {
         total: factura.total,
         devuelta: metodoPago === "EFECTIVO" ? devuelta : null,
         metodo: metodoPago,
+        fiadoA: metodoPago === "FIADO" ? fiadoA : undefined,
         aviso: auto ? await (soloVentas ? imprimirFacturaGasDamian(factura.id, pago) : imprimirReciboFactura(factura.id, cfg!)) : null,
         impresoSolo: !!auto,
       });
@@ -314,6 +332,8 @@ export default function Caja() {
       setLineaSel(-1);
       setNombreCliente("");
       setRncCliente("");
+      setTipoElegido(null);
+      setTelefonoFiado("");
       api.productos.listar().then(setProductos); // existencias al dia
     } catch (err) {
       setPagando(false);
@@ -400,7 +420,7 @@ export default function Caja() {
   function metodoDeTecla(e: KeyboardEvent | React.KeyboardEvent): Metodo | undefined {
     const porF = { F6: "EFECTIVO", F7: "TARJETA", F8: "TRANSFERENCIA" }[e.key] as Metodo | undefined;
     if (porF) return porF;
-    if (e.ctrlKey || e.metaKey) return ({ "1": "EFECTIVO", "2": "TARJETA", "3": "TRANSFERENCIA" } as Record<string, Metodo>)[e.key];
+    if (e.ctrlKey || e.metaKey) return ({ "1": "EFECTIVO", "2": "TARJETA", "3": "TRANSFERENCIA", ...(soloVentas ? { "4": "FIADO" } : {}) } as Record<string, Metodo>)[e.key];
     return undefined;
   }
 
@@ -462,6 +482,8 @@ export default function Caja() {
   // Gas Damian: con valor fiscal (B01) si a Consumidor Final se le escribio un RNC o si el cliente elegido tiene RNC
   const valorFiscal = soloVentas && (esConsumidorFinal ? rncEscrito.length > 0 : !!(cliente?.rnc_cedula ?? "").replace(/\D/g, ""));
   const rncCompleto = rncEscrito.length === 9 || rncEscrito.length === 11;
+  const tieneRnc = esConsumidorFinal ? rncCompleto : !!(cliente?.rnc_cedula ?? "").replace(/\D/g, "");
+  const tipoNcf: TipoNcfVenta = tipoElegido ?? (valorFiscal ? "B01" : "B02");
   // si el RNC ya esta registrado, el nombre de la empresa se pone solo
   function escribirRnc(texto: string) {
     setRncCliente(texto);
@@ -716,6 +738,24 @@ export default function Caja() {
                   <p className={`rounded-lg px-3 py-1.5 text-sm font-medium ${valorFiscal ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
                     {valorFiscal ? `✓ Factura con RNC ${cliente?.rnc_cedula ?? ""}` : "Factura normal (sin RNC)"}
                   </p>
+                )}
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-slate-700">Comprobante</span>
+                  <select
+                    value={tipoNcf}
+                    onChange={(e) => setTipoElegido(e.target.value as TipoNcfVenta)}
+                    className={CAMPO_CLIENTE}
+                    data-nav-ignorar
+                  >
+                    {TIPOS_NCF_VENTA.map((t) => (
+                      <option key={t} value={t}>
+                        {NCF_LABELS[t]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {PIDEN_RNC.includes(tipoNcf) && !tieneRnc && (
+                  <p className="rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-700">Este comprobante lleva el RNC del cliente</p>
                 )}
               </div>
             )}
@@ -978,6 +1018,43 @@ export default function Caja() {
                 <span className="text-3xl font-bold">{formatMoney(Math.abs(devuelta))}</span>
               </div>
             </div>
+          ) : metodoPago === "FIADO" ? (
+            <div className="space-y-2">
+              {esConsumidorFinal ? (
+                <>
+                  <label className="block text-sm">
+                    <span className="mb-1 block font-medium text-slate-700">¿A quién se le fía?</span>
+                    <input
+                      autoFocus
+                      className="w-full rounded-lg border-2 border-amber-300 px-3 py-2 text-lg font-semibold outline-none focus:border-amber-500"
+                      placeholder="Nombre de la persona"
+                      value={nombreCliente}
+                      onChange={(e) => setNombreCliente(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="mb-1 block font-medium text-slate-700">
+                      Teléfono <span className="font-normal text-slate-400">(si quiere)</span>
+                    </span>
+                    <input
+                      inputMode="tel"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base outline-none focus:border-amber-500"
+                      value={telefonoFiado}
+                      onChange={(e) => setTelefonoFiado(e.target.value)}
+                    />
+                  </label>
+                </>
+              ) : (
+                <p className="text-sm text-slate-600">
+                  Se le fía a <b>{cliente?.nombre}</b>.
+                </p>
+              )}
+              <div className="rounded-lg bg-amber-50 px-3 py-3 text-amber-800">
+                <span className="block text-sm font-medium">Queda debiendo</span>
+                <span className="block text-3xl font-bold">{formatMoney(calculo.total)}</span>
+                <span className="block text-xs">No entra dinero a la caja ahora: lo paga después en Fiados.</span>
+              </div>
+            </div>
           ) : (
             <p className="rounded-lg bg-slate-50 px-3 py-3 text-sm text-slate-600">Confirma que el pago con {metodoPago === "TARJETA" ? "tarjeta" : "transferencia"} fue aprobado.</p>
           )}
@@ -985,8 +1062,12 @@ export default function Caja() {
             <Button type="button" variant="secondary" onClick={() => (setPagando(false), enfocar())}>
               Volver <Tecla>Esc</Tecla>
             </Button>
-            <Button type="submit" autoFocus={metodoPago !== "EFECTIVO"} disabled={cobrando || (metodoPago === "EFECTIVO" && devuelta < 0)}>
-              {cobrando ? "Cobrando..." : "Confirmar cobro"} <Tecla>Enter</Tecla>
+            <Button
+              type="submit"
+              autoFocus={metodoPago !== "EFECTIVO" && metodoPago !== "FIADO"}
+              disabled={cobrando || (metodoPago === "EFECTIVO" && devuelta < 0) || (metodoPago === "FIADO" && esConsumidorFinal && !nombreCliente.trim())}
+            >
+              {cobrando ? "Guardando..." : metodoPago === "FIADO" ? "Fiar" : "Confirmar cobro"} <Tecla>Enter</Tecla>
             </Button>
           </div>
         </form>
@@ -1002,6 +1083,13 @@ export default function Caja() {
               </span>
               <span>Total {formatMoney(venta.total)}</span>
             </div>
+            {venta.metodo === "FIADO" && (
+              <div className="rounded-lg bg-amber-50 px-4 py-4 text-amber-800">
+                <span className="block text-sm font-medium">Fiado a {venta.fiadoA}</span>
+                <span className="block text-4xl font-bold">{formatMoney(venta.total)}</span>
+                <span className="block text-xs">Cuando pague, cóbrale en Fiados.</span>
+              </div>
+            )}
             {venta.devuelta !== null && (
               <div className="flex items-end justify-between rounded-lg bg-emerald-50 px-4 py-4 text-emerald-800">
                 <span className="text-sm font-medium">Devuelta</span>
