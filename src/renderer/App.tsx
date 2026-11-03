@@ -22,6 +22,7 @@ import ControlEnvases from "./pages/Productos/ControlEnvases";
 import ListaFacturas from "./pages/Facturacion/ListaFacturas";
 import NuevaFactura from "./pages/Facturacion/NuevaFactura";
 import DetalleFactura from "./pages/Facturacion/DetalleFactura";
+import NotasFactura from "./pages/Facturacion/NotasFactura";
 import CuentasPorCobrar from "./pages/Reportes/CuentasPorCobrar";
 import CatalogoCuentas from "./pages/Contabilidad/CatalogoCuentas";
 import Asientos from "./pages/Contabilidad/Asientos";
@@ -61,6 +62,7 @@ const RUTAS_COMUNES = [
 
 // Rutas adicionales solo para administradores (no cajeros, no la variante Caja).
 const RUTAS_ADMIN_EXTRA = [
+  { path: "/notas", element: <NotasFactura /> },
   { path: "/compras", element: <Compras /> },
   { path: "/cierres-caja", element: <CierresCaja /> },
   { path: "/proveedores", element: <Proveedores /> },

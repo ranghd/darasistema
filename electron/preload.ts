@@ -46,6 +46,9 @@ const api = {
     agregarNotaDebito: (data: any) => invoke("facturas:agregarNotaDebito", data),
     agregarNotaCredito: (data: any) => invoke("facturas:agregarNotaCredito", data),
   },
+  notas: {
+    listar: (desde?: string, hasta?: string) => invoke("notas:listar", desde, hasta),
+  },
   cobros: {
     listarPorFactura: (facturaId: number) => invoke("cobros:listarPorFactura", facturaId),
     crear: (data: any) => invoke("cobros:crear", data),

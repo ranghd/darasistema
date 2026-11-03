@@ -2,7 +2,7 @@ import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { crearAsiento, fechaHoyRD } from "../db/contabilidad";
 import { validarSesionAbierta } from "./caja";
-import type { Factura, FacturaDetalle, NuevaFacturaInput, Producto, TipoNcf } from "../shared/types";
+import type { Factura, FacturaDetalle, NotaFactura, NuevaFacturaInput, Producto, TipoNcf } from "../shared/types";
 import { NCF_LABELS, TIPOS_NCF_VENTA, tipoNcfRecibido, type TipoNcfVenta } from "../shared/ncf";
 
 const CODIGO_CAJA = "1.1.01";
@@ -50,6 +50,23 @@ function intentarTomarSiguienteNcf(db: DB, tipo: TipoNcf): string | null {
 }
 
 export function registerFacturasIpc(db: DB) {
+  const guardarNota = db.prepare(
+    `INSERT INTO notas_factura (tipo, ncf, factura_id, fecha, motivo, monto, itbis, total, anulacion, asiento_id) VALUES (@tipo, @ncf, @factura_id, @fecha, @motivo, @monto, @itbis, @total, @anulacion, @asiento_id)`
+  );
+
+  // Historial de notas de credito y debito de un periodo, con su factura y su cliente.
+  ipcMain.handle("notas:listar", (_e, desde?: string, hasta?: string): NotaFactura[] => {
+    const hoy = fechaHoyRD();
+    return db
+      .prepare(
+        `SELECT n.*, f.ncf AS factura_ncf, f.numero AS factura_numero, c.rnc_cedula,
+                CASE WHEN c.codigo = 'CLI-0000' AND COALESCE(f.nombre_cliente, '') != '' THEN f.nombre_cliente ELSE c.nombre END AS cliente_nombre
+         FROM notas_factura n JOIN facturas f ON f.id = n.factura_id JOIN clientes c ON c.id = f.cliente_id
+         WHERE n.fecha BETWEEN @desde AND @hasta ORDER BY n.fecha DESC, n.id DESC`
+      )
+      .all({ desde: desde || hoy.slice(0, 7) + "-01", hasta: hasta || hoy }) as NotaFactura[];
+  });
+
   ipcMain.handle("facturas:listar", () => {
     return db
       .prepare(
@@ -257,6 +274,7 @@ export function registerFacturasIpc(db: DB) {
       }
 
       const notaCreditoNcf = intentarTomarSiguienteNcf(db, "B04");
+      let asientoAnulacion: number | null = null;
 
       if (factura.asiento_id) {
         const original = db.prepare(`SELECT * FROM asiento_lineas WHERE asiento_id = ?`).all(factura.asiento_id) as any[];
@@ -264,7 +282,7 @@ export function registerFacturasIpc(db: DB) {
           ? `Nota de Credito ${notaCreditoNcf} - Anulacion de factura ${factura.ncf}: ${motivo}`
           : `Anulacion de factura ${factura.ncf}: ${motivo}`;
         const reversa = original.map((l) => ({ cuenta_id: l.cuenta_id, debito: l.credito, credito: l.debito, descripcion: concepto }));
-        crearAsiento(db, {
+        asientoAnulacion = crearAsiento(db, {
           fecha: fechaHoyRD(),
           concepto,
           origen: "AJUSTE",
@@ -274,6 +292,20 @@ export function registerFacturasIpc(db: DB) {
       }
 
       db.prepare(`UPDATE facturas SET estado = 'ANULADA', nota_credito_ncf = ?, anulada_sesion_id = ? WHERE id = ?`).run(notaCreditoNcf, sesionAnulacion, id);
+      if (notaCreditoNcf) {
+        guardarNota.run({
+          tipo: "CREDITO",
+          ncf: notaCreditoNcf,
+          factura_id: id,
+          fecha: fechaHoyRD(),
+          motivo,
+          monto: Math.round((factura.total - factura.itbis) * 100) / 100,
+          itbis: factura.itbis,
+          total: factura.total,
+          anulacion: 1,
+          asiento_id: asientoAnulacion,
+        });
+      }
     });
     run();
     return db.prepare(`SELECT * FROM facturas WHERE id = ?`).get(id) as Factura;
@@ -296,7 +328,7 @@ export function registerFacturasIpc(db: DB) {
         const concepto = `Nota de Debito ${ncf} - Factura ${factura.ncf}: ${input.concepto}`;
         const cuentaCobro = factura.condicion_pago === "CONTADO" ? codigoCobroContado(factura.metodo_pago) : CODIGO_CXC;
 
-        crearAsiento(db, {
+        const asientoId = crearAsiento(db, {
           fecha: fechaHoyRD(),
           concepto,
           origen: "AJUSTE",
@@ -311,6 +343,7 @@ export function registerFacturasIpc(db: DB) {
         db.prepare(
           `UPDATE facturas SET subtotal = subtotal + @monto, itbis = itbis + @itbis, total = total + @total, nota_debito_ncf = @ncf WHERE id = @id`
         ).run({ monto: input.monto, itbis: itbisIncremento, total: totalIncremento, ncf, id: input.factura_id });
+        guardarNota.run({ tipo: "DEBITO", ncf, factura_id: input.factura_id, fecha: fechaHoyRD(), motivo: input.concepto, monto: input.monto, itbis: itbisIncremento, total: totalIncremento, anulacion: 0, asiento_id: asientoId });
 
         return ncf;
       });
@@ -338,7 +371,7 @@ export function registerFacturasIpc(db: DB) {
         const concepto = `Nota de Credito ${ncf} - Factura ${factura.ncf}: ${input.concepto}`;
         const cuentaCobro = factura.condicion_pago === "CONTADO" ? codigoCobroContado(factura.metodo_pago) : CODIGO_CXC;
 
-        crearAsiento(db, {
+        const asientoId = crearAsiento(db, {
           fecha: fechaHoyRD(),
           concepto,
           origen: "AJUSTE",
@@ -353,6 +386,7 @@ export function registerFacturasIpc(db: DB) {
         db.prepare(
           `UPDATE facturas SET subtotal = subtotal - @monto, itbis = itbis - @itbis, total = total - @total, nota_credito_ncf = @ncf WHERE id = @id`
         ).run({ monto: input.monto, itbis: itbisReduccion, total: totalReduccion, ncf, id: input.factura_id });
+        guardarNota.run({ tipo: "CREDITO", ncf, factura_id: input.factura_id, fecha: fechaHoyRD(), motivo: input.concepto, monto: input.monto, itbis: itbisReduccion, total: totalReduccion, anulacion: 0, asiento_id: asientoId });
 
         return ncf;
       });

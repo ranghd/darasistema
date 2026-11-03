@@ -124,6 +124,41 @@ function corregirCodigosNcf(db: DB) {
   }
 }
 
+// Antes las notas de credito y debito solo quedaban en su asiento (y la ultima en la factura):
+// se pasan a notas_factura leyendo esos asientos.
+function notasDesdeAsientos(db: DB) {
+  const itbis = db.prepare(`SELECT id FROM cuentas_contables WHERE codigo = '2.1.02'`).get() as { id: number } | undefined;
+  const asientos = db
+    .prepare(`SELECT id, fecha, concepto, referencia_id FROM asientos WHERE origen = 'AJUSTE' AND (concepto LIKE 'Nota de Credito %' OR concepto LIKE 'Nota de Debito %') ORDER BY id`)
+    .all() as { id: number; fecha: string; concepto: string; referencia_id: number | null }[];
+  const lineas = db.prepare(`SELECT cuenta_id, debito, credito FROM asiento_lineas WHERE asiento_id = ?`);
+  const factura = db.prepare(`SELECT subtotal, itbis, total FROM facturas WHERE id = ?`);
+  const insertar = db.prepare(
+    `INSERT INTO notas_factura (tipo, ncf, factura_id, fecha, motivo, monto, itbis, total, anulacion, asiento_id) VALUES (@tipo, @ncf, @factura_id, @fecha, @motivo, @monto, @itbis, @total, @anulacion, @asiento_id)`
+  );
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  for (const a of asientos) {
+    const m = /^Nota de (Credito|Debito) (\S+) - ([\s\S]*)$/.exec(a.concepto);
+    if (!m || !a.referencia_id) continue;
+    const f = factura.get(a.referencia_id) as { subtotal: number; itbis: number; total: number } | undefined;
+    if (!f) continue;
+    const tipo = m[1] === "Credito" ? "CREDITO" : "DEBITO";
+    const anulacion = m[3].startsWith("Anulacion de factura");
+    const motivo = m[3].includes(": ") ? m[3].slice(m[3].indexOf(": ") + 2) : m[3];
+    let monto: number, impuesto: number, total: number;
+    if (anulacion) {
+      // la anulacion devuelve la factura completa (que conserva sus montos)
+      [monto, impuesto, total] = [f.total - f.itbis, f.itbis, f.total];
+    } else {
+      const ls = lineas.all(a.id) as { cuenta_id: number; debito: number; credito: number }[];
+      impuesto = ls.filter((l) => l.cuenta_id === itbis?.id).reduce((s, l) => s + l.debito + l.credito, 0);
+      total = ls.reduce((s, l) => s + (tipo === "CREDITO" ? l.debito : l.credito), 0);
+      monto = total - impuesto;
+    }
+    insertar.run({ tipo, ncf: m[2], factura_id: a.referencia_id, fecha: a.fecha, motivo, monto: r2(monto), itbis: r2(impuesto), total: r2(total), anulacion: anulacion ? 1 : 0, asiento_id: a.id });
+  }
+}
+
 // Agrega columnas nuevas a bases de datos que ya existian antes de una
 // actualizacion. Como el schema usa CREATE TABLE IF NOT EXISTS, las columnas
 // nuevas no se aplican automaticamente sobre tablas ya creadas.
@@ -191,6 +226,7 @@ export function migrar(db: DB) {
     ["bancos-y-tipos-de-gasto", () => prepararBancosYGastos(db)],
     ["tipos-de-gasto-dgii-606", () => ponerTiposDgii(db)],
     ["codigos-ncf-norma-06-2018", () => corregirCodigosNcf(db)],
+    ["notas-factura-desde-asientos", () => notasDesdeAsientos(db)],
   ];
   db.exec(`CREATE INDEX IF NOT EXISTS ix_cobros_recibo ON cobros(recibo_id)`);
   for (const [nombre, aplicar] of datos) {

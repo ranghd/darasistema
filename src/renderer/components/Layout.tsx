@@ -19,6 +19,7 @@ const NAV_COMPLETO = [
     items: [
       { to: "/facturas/nueva", label: "Nueva Factura" },
       { to: "/facturas", label: "Facturas", end: true },
+      { to: "/notas", label: "Notas de credito y debito" },
       { to: "/cuentas-por-cobrar", label: "Cuentas por Cobrar" },
     ],
   },
@@ -125,6 +126,7 @@ const NAV_COLMADO = [
       { to: "/cierre-caja", label: "Cierre de Caja" },
       { to: "/facturas/nueva", label: "Nueva Factura" },
       { to: "/facturas", label: "Facturas", end: true },
+      { to: "/notas", label: "Notas de credito y debito" },
     ],
   },
   {

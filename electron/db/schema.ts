@@ -94,6 +94,22 @@ CREATE TABLE IF NOT EXISTS facturas (
   creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
+-- Notas de credito (B04) y de debito (B03) de las facturas: una fila por nota (una factura puede tener varias).
+CREATE TABLE IF NOT EXISTS notas_factura (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tipo TEXT NOT NULL CHECK (tipo IN ('CREDITO','DEBITO')),
+  ncf TEXT,
+  factura_id INTEGER NOT NULL REFERENCES facturas(id),
+  fecha TEXT NOT NULL,
+  motivo TEXT,
+  monto REAL NOT NULL DEFAULT 0,
+  itbis REAL NOT NULL DEFAULT 0,
+  total REAL NOT NULL DEFAULT 0,
+  anulacion INTEGER NOT NULL DEFAULT 0,
+  asiento_id INTEGER REFERENCES asientos(id),
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
 CREATE TABLE IF NOT EXISTS comprobantes_varios (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tipo TEXT NOT NULL CHECK (tipo IN (${listaSql(TIPOS_COMPROBANTE_VARIOS)})),

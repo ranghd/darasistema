@@ -154,6 +154,26 @@ export interface FacturaDetalle extends Factura {
   lineas: FacturaLinea[];
 }
 
+/** Nota de credito (B04) o de debito (B03) de una factura. */
+export interface NotaFactura {
+  id: number;
+  tipo: "CREDITO" | "DEBITO";
+  ncf: string | null;
+  factura_id: number;
+  fecha: string;
+  motivo: string | null;
+  /** Antes de ITBIS. */
+  monto: number;
+  itbis: number;
+  total: number;
+  /** 1 si la nota salio al anular la factura completa. */
+  anulacion: number;
+  factura_ncf: string | null;
+  factura_numero: number;
+  cliente_nombre: string;
+  rnc_cedula: string | null;
+}
+
 export type MetodoPago = "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE";
 
 export interface NuevaFacturaInput {
