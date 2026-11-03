@@ -184,6 +184,18 @@ export class Empresa extends DurableObject {
   // productos, compras, proveedores, NCF y cajas de prueba. Conserva el codigo, los usuarios
   // (con sus contrasenas), los datos de la empresa y el catalogo de cuentas.
   // (Cloudflare guarda 30 dias de historial por si hiciera falta recuperar algo.)
+  // Corrige los datos del negocio (nombre, RNC, direccion, telefono) desde la administracion de Darasistema,
+  // sin entrar con el usuario de la empresa. Lo demas de la configuracion queda igual.
+  async datosEmpresa(cambios: { nombre_empresa?: string; rnc?: string; direccion?: string; telefono?: string }): Promise<unknown> {
+    const actual = this.db.prepare(`SELECT * FROM company_config WHERE id = 1`).get() as Record<string, unknown> | undefined;
+    if (!actual) throw new Error("La empresa no tiene configuracion");
+    const limpios = Object.fromEntries(
+      Object.entries(cambios).filter(([k, v]) => ["nombre_empresa", "rnc", "direccion", "telefono"].includes(k) && typeof v === "string").map(([k, v]) => [k, (v as string).trim()])
+    );
+    await this.handlers["config:actualizar"]({}, { ...actual, ...limpios });
+    return this.db.prepare(`SELECT nombre_empresa, rnc, direccion, telefono FROM company_config WHERE id = 1`).get();
+  }
+
   vaciar(): Record<string, number> {
     // Primero los detalles y despues lo principal, para respetar las relaciones entre tablas.
     const tablas = [
