@@ -8,7 +8,7 @@ import { NCF_LABELS } from "./ncf";
 import { PIE_FACTURA, imprimirFacturaCarta, prestadosPendientes } from "./facturaCarta";
 import { avisoDeResultado, type AvisoImpresion } from "./ticket";
 import type { Cliente, Cobro, CompanyConfig, FacturaDetalle, SaldoBotellaFiada, TipoNcf } from "./types";
-import logo from "../assets/gas-damian-ticket.png?inline";
+import logo from "../assets/logoTicketGasDamian";
 
 const METODOS: Record<string, string> = { EFECTIVO: "Efectivo", TRANSFERENCIA: "Transferencia", TARJETA: "Tarjeta", CHEQUE: "Cheque" };
 
