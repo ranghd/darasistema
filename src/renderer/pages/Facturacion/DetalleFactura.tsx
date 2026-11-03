@@ -7,6 +7,7 @@ import type { AsientoConLineas, Banco, Cobro, CompanyConfig, Cuenta, FacturaDeta
 import { useAuth } from "../../lib/auth";
 import { esVariantCaja } from "../../lib/variant";
 import { imprimirReciboFactura } from "../../lib/ticket";
+import { imprimirFacturaGasDamian } from "../../lib/reciboGasDamian";
 import { useCaja } from "../../lib/caja";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { Badge, Button, Card, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
@@ -79,11 +80,11 @@ export default function DetalleFactura() {
   const saldo = factura.total - cobrado;
 
   async function imprimir() {
-    if (soloVentas) return imprimirFacturaCarta(factura!.id);
-    if (formatoImpresion === "CARTA") return window.print();
+    if (!soloVentas && formatoImpresion === "CARTA") return window.print();
     setImprimiendo(true);
     setAvisoImpresion(null);
-    setAvisoImpresion(await imprimirReciboFactura(factura!.id));
+    // Gas Damian: su recibo en la termica (o la hoja carta, segun la impresora configurada).
+    setAvisoImpresion(await (soloVentas ? imprimirFacturaGasDamian(factura!.id) : imprimirReciboFactura(factura!.id)));
     setImprimiendo(false);
   }
 
@@ -203,7 +204,7 @@ export default function DetalleFactura() {
               {imprimiendo ? "Imprimiendo..." : soloVentas ? "Imprimir factura" : formatoImpresion === "TICKET" ? "Imprimir recibo" : "Imprimir"}
             </Button>
             {formatoImpresion === "TICKET" && (
-              <Button variant="ghost" onClick={() => window.print()} title="Imprimir en hoja carta con el dialogo de Windows">
+              <Button variant="ghost" onClick={() => (soloVentas ? imprimirFacturaCarta(factura.id) : window.print())} title="Imprimir en hoja carta con el dialogo de Windows">
                 Hoja carta
               </Button>
             )}

@@ -13,7 +13,7 @@ import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Modal } from "../../components/ui";
 import { esColmado, manejaEnvases, soloVentas, usaGrupos } from "../../lib/variant";
-import { imprimirFacturaCarta } from "../../lib/facturaCarta";
+import { imprimirFacturaGasDamian } from "../../lib/reciboGasDamian";
 import TablaFactura from "./TablaFactura";
 import { leerBusqueda, sinAcentos } from "./buscar";
 import { leerPrecios } from "../../lib/precios";
@@ -299,14 +299,15 @@ export default function Caja() {
       })) as any;
       setPagando(false);
       const cfg = await api.impresion.obtenerConfig().catch(() => null);
-      const auto = !soloVentas && cfg?.formato === "TICKET" && cfg.imprimirAlCobrar;
+      const auto = cfg?.formato === "TICKET" && cfg.imprimirAlCobrar;
+      const pago = metodoPago === "EFECTIVO" ? { recibido: montoRecibido, devuelta } : null;
       setVenta({
         id: factura.id,
         ncf: factura.ncf,
         total: factura.total,
         devuelta: metodoPago === "EFECTIVO" ? devuelta : null,
         metodo: metodoPago,
-        aviso: auto ? await imprimirReciboFactura(factura.id, cfg!) : null,
+        aviso: auto ? await (soloVentas ? imprimirFacturaGasDamian(factura.id, pago) : imprimirReciboFactura(factura.id, cfg!)) : null,
         impresoSolo: !!auto,
       });
       setCarrito([]);
@@ -328,8 +329,9 @@ export default function Caja() {
   async function imprimirVenta() {
     if (!venta) return;
     setImprimiendo(true);
-    // Punto de Venta Dara: factura en hoja carta con "Recibido por" y "Entregado por".
-    const aviso = soloVentas ? await imprimirFacturaCarta(venta.id) : await imprimirReciboFactura(venta.id);
+    // Gas Damian: su recibo en la termica (o la hoja carta, segun la impresora configurada).
+    const pago = venta.devuelta !== null ? { recibido: venta.total + venta.devuelta, devuelta: venta.devuelta } : null;
+    const aviso = soloVentas ? await imprimirFacturaGasDamian(venta.id, pago) : await imprimirReciboFactura(venta.id);
     setVenta({ ...venta, aviso });
     setImprimiendo(false);
   }

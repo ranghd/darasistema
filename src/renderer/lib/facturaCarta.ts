@@ -148,14 +148,18 @@ function cuadroEnvases(f: FacturaDetalle, prestados: SaldoBotellaFiada[]): strin
   return salida;
 }
 
+// Los cilindros prestados que el cliente todavia debe (a Consumidor Final no se le presta).
+export async function prestadosPendientes(cliente: Cliente | null): Promise<SaldoBotellaFiada[]> {
+  if (!cliente || cliente.codigo === "CLI-0000") return [];
+  return (await api.fiados.saldos().catch(() => [] as SaldoBotellaFiada[])).filter((s) => s.cliente_id === cliente.id && s.pendientes > 0);
+}
+
 // Abre el dialogo de imprimir de Windows con la factura en hoja carta.
 export async function imprimirFacturaCarta(facturaId: number): Promise<AvisoImpresion> {
   try {
     const [f, empresa] = await Promise.all([api.facturas.obtener(facturaId) as Promise<FacturaDetalle>, api.config.obtener() as Promise<CompanyConfig>]);
     const cliente = ((await api.clientes.obtener(f.cliente_id)) as Cliente | undefined) ?? null;
-    // los cilindros prestados que todavia debe (a Consumidor Final no se le presta)
-    const prestados =
-      cliente && cliente.codigo !== "CLI-0000" ? (await api.fiados.saldos().catch(() => [] as SaldoBotellaFiada[])).filter((s) => s.cliente_id === cliente.id && s.pendientes > 0) : [];
+    const prestados = await prestadosPendientes(cliente);
     const marco = document.createElement("iframe");
     marco.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
     document.body.appendChild(marco);
