@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import path from "node:path";
 import { getDb } from "./db";
 import { registerCuentasIpc } from "./ipc/cuentas";
@@ -181,7 +181,12 @@ function createWindow(splash?: BrowserWindow | null) {
 
 app.whenReady().then(async () => {
   const splash = CON_PANTALLA_DE_CARGA ? mostrarPantallaDeCarga() : null;
-  await registerAllIpc();
+  try {
+    await registerAllIpc();
+  } catch (err: any) {
+    console.error("Error al arrancar:", err);
+    dialog.showErrorBox("El programa no arranco bien", `Cierralo y vuelve a abrirlo. Si sigue pasando, avisa a soporte.\n\nDetalle: ${err?.message ?? err}`);
+  }
   registrarEstadoUpdater();
   createWindow(splash);
   configurarAutoUpdate();

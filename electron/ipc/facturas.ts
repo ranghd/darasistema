@@ -50,9 +50,16 @@ function intentarTomarSiguienteNcf(db: DB, tipo: TipoNcf): string | null {
 }
 
 export function registerFacturasIpc(db: DB) {
-  const guardarNota = db.prepare(
-    `INSERT INTO notas_factura (tipo, ncf, factura_id, fecha, motivo, monto, itbis, total, anulacion, asiento_id) VALUES (@tipo, @ncf, @factura_id, @fecha, @motivo, @monto, @itbis, @total, @anulacion, @asiento_id)`
-  );
+  // Se prepara al usarla, no aqui: en modo nube estas funciones se registran con una base vacia
+  // solo para saber los nombres de los canales.
+  const guardarNota = {
+    run: (datos: Record<string, unknown>) =>
+      db
+        .prepare(
+          `INSERT INTO notas_factura (tipo, ncf, factura_id, fecha, motivo, monto, itbis, total, anulacion, asiento_id) VALUES (@tipo, @ncf, @factura_id, @fecha, @motivo, @monto, @itbis, @total, @anulacion, @asiento_id)`
+        )
+        .run(datos),
+  };
 
   // Historial de notas de credito y debito de un periodo, con su factura y su cliente.
   ipcMain.handle("notas:listar", (_e, desde?: string, hasta?: string): NotaFactura[] => {

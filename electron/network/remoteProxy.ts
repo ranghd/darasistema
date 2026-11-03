@@ -30,24 +30,36 @@ function listarCanalesDeNegocio(): string[] {
   };
 
   const dbFalsa = {} as any;
-  registerCuentasIpc(dbFalsa);
-  registerAsientosIpc(dbFalsa);
-  registerClientesIpc(dbFalsa);
-  registerProductosIpc(dbFalsa);
-  registerFacturasIpc(dbFalsa);
-  registerCobrosIpc(dbFalsa);
-  registerEnvasesIpc(dbFalsa);
-  registerReportesIpc(dbFalsa);
-  registerConfigIpc(dbFalsa);
-  registerComprobantesIpc(dbFalsa);
-  registerAuthIpc(dbFalsa);
-  registerComprasIpc(dbFalsa);
-  registerProveedoresIpc(dbFalsa);
-  registerCajaIpc(dbFalsa);
-  registerGastosIpc(dbFalsa);
-  registerBancosIpc(dbFalsa);
-
-  ipcMain.handle = handleOriginal;
+  const registros = [
+    registerCuentasIpc,
+    registerAsientosIpc,
+    registerClientesIpc,
+    registerProductosIpc,
+    registerFacturasIpc,
+    registerCobrosIpc,
+    registerEnvasesIpc,
+    registerReportesIpc,
+    registerConfigIpc,
+    registerComprobantesIpc,
+    registerAuthIpc,
+    registerComprasIpc,
+    registerProveedoresIpc,
+    registerCajaIpc,
+    registerGastosIpc,
+    registerBancosIpc,
+  ];
+  try {
+    for (const registrar of registros) {
+      try {
+        registrar(dbFalsa);
+      } catch (err) {
+        // un registro que use la base al registrarse no debe tumbar el arranque (sus canales anteriores ya se anotaron)
+        console.error("No se pudieron listar todos los canales:", err);
+      }
+    }
+  } finally {
+    ipcMain.handle = handleOriginal;
+  }
   return canales;
 }
 
