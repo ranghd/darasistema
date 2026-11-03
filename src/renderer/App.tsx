@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "./lib/auth";
 import { CajaProvider } from "./lib/caja";
 import CierreCaja from "./pages/CierreCaja/CierreCaja";
 import CierresCaja from "./pages/CierreCaja/CierresCaja";
+import GastosCaja from "./pages/CierreCaja/GastosCaja";
 import { adminVentas, esColmado, esVariantCaja, manejaEnvases, operaCaja, recuerdaSesion, soloVentas } from "./lib/variant";
 import Layout from "./components/Layout";
 import Login from "./pages/Login/Login";
@@ -91,6 +92,7 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
         // (la factura se sigue abriendo desde la venta para reimprimirla).
         ...(soloVentas && !adminVentas ? RUTAS_COMUNES.filter((r) => ["/caja", "/cierre-caja", "/facturas/:id"].includes(r.path)) : RUTAS_COMUNES),
         ...(soloVentas ? [{ path: "/botellas-fiadas", element: <BotellasFiadas /> }] : []),
+        ...(soloVentas && !adminVentas ? [{ path: "/gastos-caja", element: <GastosCaja /> }] : []),
         ...(adminVentas && !restringido ? [{ path: "/categorias", element: <Categorias /> }] : []),
         ...(restringido ? rutaConexionCaja : RUTAS_ADMIN_EXTRA),
         { path: "*", element: <Navigate to={restringido || esColmado || (soloVentas && !adminVentas) ? "/caja" : "/"} replace /> },

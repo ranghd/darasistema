@@ -106,6 +106,7 @@ const NAV_CAJA_GAS_DAMIAN = [
     section: "Ventas",
     items: [
       { to: "/caja", label: "Punto de venta" },
+      { to: "/gastos-caja", label: "Gastos de caja" },
       { to: "/cierre-caja", label: "Cierre de Caja" },
       { to: "/botellas-fiadas", label: "Cilindros prestados" },
     ],
