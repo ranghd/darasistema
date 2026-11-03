@@ -254,6 +254,7 @@ export const mockApi = {
     ],
     crear: async (data: any): Promise<Usuario> => { warn(); return { id: Date.now(), usuario: data.usuario, nombre: data.nombre, rol: data.rol, activo: 1 }; },
     actualizar: async (id: number, data: any): Promise<Usuario> => { warn(); return { id, usuario: "x", nombre: data.nombre, rol: data.rol, activo: data.activo ?? 1 }; },
+    eliminar: async (_id: number, _data?: any): Promise<boolean> => { warn(); return true; },
   },
   ncf: {
     listar: async (..._args: any[]) => ncfSecuencias,

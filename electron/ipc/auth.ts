@@ -77,4 +77,21 @@ export function registerAuthIpc(db: DB) {
 
     return db.prepare(`SELECT id, usuario, nombre, rol, activo FROM usuarios WHERE id = ?`).get(id) as Usuario;
   });
+
+  // Borra el usuario. Sus ventas, cierres y movimientos quedan con su nombre (se guardan por nombre).
+  ipcMain.handle("usuarios:eliminar", (_e, id: number, data?: { autor?: { id?: number | null } }): boolean => {
+    const actual = db.prepare(`SELECT * FROM usuarios WHERE id = ?`).get(id) as Usuario | undefined;
+    if (!actual) throw new Error("Usuario no encontrado");
+    if (data?.autor?.id === id) throw new Error("No puedes eliminar el usuario con el que entraste");
+    if (actual.rol === "ADMIN") {
+      const otros = (db.prepare(`SELECT COUNT(*) AS n FROM usuarios WHERE rol = 'ADMIN' AND activo = 1 AND id != ?`).get(id) as { n: number }).n;
+      if (!otros) throw new Error("Es el unico administrador: crea otro antes de eliminarlo");
+    }
+    const abierta = db.prepare(`SELECT c.nombre FROM caja_sesiones s JOIN cajas c ON c.id = s.caja_id WHERE s.estado = 'ABIERTA' AND s.abierta_por_id = ?`).get(id) as
+      | { nombre: string }
+      | undefined;
+    if (abierta) throw new Error(`Tiene abierta ${abierta.nombre}: cierrala antes de eliminar el usuario`);
+    db.prepare(`DELETE FROM usuarios WHERE id = ?`).run(id);
+    return true;
+  });
 }

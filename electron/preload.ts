@@ -143,6 +143,7 @@ const api = {
     listar: () => invoke("usuarios:listar"),
     crear: (data: any) => invoke("usuarios:crear", data),
     actualizar: (id: number, data: any) => invoke("usuarios:actualizar", id, data),
+    eliminar: (id: number, data?: any) => invoke("usuarios:eliminar", id, data),
   },
   comprobantes: {
     listar: () => invoke("comprobantes:listar"),

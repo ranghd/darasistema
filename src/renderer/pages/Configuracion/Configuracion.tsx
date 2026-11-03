@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../../lib/api";
+import { api, mensajeDeError } from "../../lib/api";
 import type { CompanyConfig, NcfSecuencia, RolUsuario, TipoNcf, Usuario } from "../../lib/types";
 import { formatDate } from "../../lib/format";
 import { NCF_LABELS, TODOS_LOS_TIPOS_NCF, VERSION_CODIGOS_NCF } from "../../lib/ncf";
@@ -50,6 +50,8 @@ export default function Configuracion() {
   const [usuarioForm, setUsuarioForm] = useState({ usuario: "", nombre: "", password: "", rol: "CAJERO" as RolUsuario });
   const [usuarioError, setUsuarioError] = useState("");
   const [passwordModal, setPasswordModal] = useState<Usuario | null>(null);
+  const [eliminando, setEliminando] = useState<Usuario | null>(null);
+  const [errorEliminar, setErrorEliminar] = useState("");
   const [nuevaPassword, setNuevaPassword] = useState("");
 
   const [configRed, setConfigRed] = useState<ConfigRedUI | null>(null);
@@ -139,6 +141,18 @@ export default function Configuracion() {
   async function toggleActivo(u: Usuario) {
     await api.usuarios.actualizar(u.id, { activo: u.activo ? 0 : 1 });
     await cargar();
+  }
+
+  async function eliminarUsuario() {
+    if (!eliminando) return;
+    setErrorEliminar("");
+    try {
+      await api.usuarios.eliminar(eliminando.id, { autor: { id: usuario?.id ?? null } });
+      setEliminando(null);
+      await cargar();
+    } catch (err) {
+      setErrorEliminar(mensajeDeError(err));
+    }
   }
 
   async function cambiarPassword(e: React.FormEvent) {
@@ -256,6 +270,18 @@ export default function Configuracion() {
                     <Button size="sm" variant="ghost" onClick={() => setPasswordModal(u)}>
                       Cambiar clave
                     </Button>
+                    {u.id !== usuario?.id && (
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-red-600 hover:underline"
+                        onClick={() => {
+                          setErrorEliminar("");
+                          setEliminando(u);
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -421,6 +447,26 @@ export default function Configuracion() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal open={!!eliminando} onClose={() => setEliminando(null)} title="Eliminar usuario">
+        {eliminando && (
+          <div>
+            <p className="text-sm text-slate-600">
+              Vas a eliminar a <b className="text-slate-900">{eliminando.nombre}</b> ({eliminando.usuario}). Ya no podra entrar al sistema, ni siquiera en la caja que
+              tenia la sesion guardada. Sus ventas y cierres se quedan como estan, con su nombre.
+            </p>
+            {errorEliminar && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{errorEliminar}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setEliminando(null)}>
+                Cancelar
+              </Button>
+              <Button variant="danger" onClick={eliminarUsuario}>
+                Eliminar
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <Modal open={!!passwordModal} onClose={() => setPasswordModal(null)} title={`Cambiar contrasena de ${passwordModal?.usuario ?? ""}`}>

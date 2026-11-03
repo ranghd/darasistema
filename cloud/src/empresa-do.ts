@@ -49,6 +49,7 @@ const CANALES_CAJA_AUTOR: Record<string, number> = {
   "cajas:crear": 0,
   "cajas:actualizar": 1,
   "cierres:corregir": 0,
+  "usuarios:eliminar": 1,
 };
 const BLOQUEO_MS = 10 * 60 * 1000;
 
@@ -152,6 +153,13 @@ export class Empresa extends DurableObject {
   }
 
   async invoke(canal: string, args: unknown[], rol: Rol, uid?: number): Promise<unknown> {
+    // Un usuario eliminado o desactivado no sigue entrando con la sesion que tenia guardada
+    // (la caja la recuerda 30 dias); y si le cambiaron el rol, vale el de ahora.
+    if (uid) {
+      const actual = this.db.prepare(`SELECT rol, activo FROM usuarios WHERE id = ?`).get(uid) as { rol: Rol; activo: number } | undefined;
+      if (!actual || !actual.activo) throw new Error("Sesion expirada. Vuelve a iniciar sesion.");
+      rol = actual.rol;
+    }
     if (!puedeInvocar(rol, canal)) throw new Error("No tienes permiso para esta operacion");
     const handler = this.handlers[canal];
     if (!handler) throw new Error(`Operacion desconocida: ${canal}`);

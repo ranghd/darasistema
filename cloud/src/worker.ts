@@ -81,7 +81,7 @@ async function invoke(req: Request, env: Env): Promise<Response> {
     return json({ resultado: resultado ?? null });
   } catch (err: any) {
     const mensaje = err?.message ?? "Error en el servidor";
-    throw new ErrorHttp(mensaje.startsWith("No tienes permiso") ? 403 : 400, mensaje);
+    throw new ErrorHttp(mensaje.startsWith("No tienes permiso") ? 403 : mensaje.startsWith("Sesion expirada") ? 401 : 400, mensaje);
   }
 }
 
