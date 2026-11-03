@@ -55,7 +55,7 @@ const METODOS: { valor: Metodo; nombre: string; tecla: string }[] = [
 const PIDEN_RNC: TipoNcfVenta[] = ["B01", "B14", "B15"];
 
 // Campos del cliente en la caja de Gas Damian (nombre, RNC, razon social).
-const CAMPO_CLIENTE = "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100";
+const CAMPO_CLIENTE = "w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100";
 
 // Categoria de un producto en las pestanas (colmado y Gas Damian). Si no tiene, se usa su tipo.
 const TIPO_A_GRUPO: Record<string, string> = { GAS: "Gas propano", OXIGENO: "Oxigeno", AGUA: "Agua" };
@@ -686,7 +686,7 @@ export default function Caja() {
                 setClienteSel(0);
                 setEligiendoCliente(true);
               }}
-              className="flex items-center justify-between border-b border-slate-200 p-4 text-left hover:bg-slate-50"
+              className={`flex items-center justify-between border-b border-slate-200 text-left hover:bg-slate-50 ${soloVentas ? "px-4 py-2.5" : "p-4"}`}
             >
               <span>
                 <span className="block text-xs text-slate-400">Cliente</span>
@@ -697,56 +697,45 @@ export default function Caja() {
               </span>
             </button>
             {soloVentas && (
-              <div className="space-y-2.5 border-b border-slate-200 px-4 py-3">
+              <div className="space-y-1.5 border-b border-slate-200 px-4 py-2.5">
                 {esConsumidorFinal ? (
-                  <>
+                  <div className="grid grid-cols-2 gap-2">
                     <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-slate-700">
+                      <span className="mb-0.5 block text-xs font-medium text-slate-600">
                         Nombre <span className="font-normal text-slate-400">(si quiere)</span>
                       </span>
                       <input
                         value={nombreCliente}
                         onChange={(e) => setNombreCliente(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), enfocar())}
-                        placeholder={rncEscrito ? "Nombre de la empresa" : "Ej. Jose"}
+                        placeholder={rncEscrito ? "Empresa" : "Ej. Jose"}
                         className={CAMPO_CLIENTE}
                         data-nav-ignorar
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-slate-700">
-                        RNC <span className="font-normal text-slate-400">(solo si lo pide)</span>
+                      <span className="mb-0.5 block text-xs font-medium text-slate-600">
+                        RNC <span className="font-normal text-slate-400">(si lo pide)</span>
                       </span>
                       <input
                         value={rncCliente}
                         onChange={(e) => escribirRnc(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), enfocar())}
-                        placeholder="Escriba el RNC"
+                        placeholder="RNC"
                         inputMode="numeric"
                         className={CAMPO_CLIENTE}
                         data-nav-ignorar
                       />
                     </label>
-                    {rncEscrito &&
-                      (rncCompleto ? (
-                        <p className="rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">✓ Factura con RNC (valor fiscal)</p>
-                      ) : (
-                        <p className="rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-700">El RNC tiene 9 numeros (o 11 si es cedula)</p>
-                      ))}
-                  </>
+                  </div>
                 ) : (
-                  <p className={`rounded-lg px-3 py-1.5 text-sm font-medium ${valorFiscal ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
+                  <p className={`rounded-md px-2 py-1 text-xs font-medium ${valorFiscal ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
                     {valorFiscal ? `✓ Factura con RNC ${cliente?.rnc_cedula ?? ""}` : "Factura normal (sin RNC)"}
                   </p>
                 )}
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">Comprobante</span>
-                  <select
-                    value={tipoNcf}
-                    onChange={(e) => setTipoElegido(e.target.value as TipoNcfVenta)}
-                    className={CAMPO_CLIENTE}
-                    data-nav-ignorar
-                  >
+                <label className="flex items-center gap-2">
+                  <span className="shrink-0 text-xs font-medium text-slate-600">Comprobante</span>
+                  <select value={tipoNcf} onChange={(e) => setTipoElegido(e.target.value as TipoNcfVenta)} className={CAMPO_CLIENTE} data-nav-ignorar>
                     {TIPOS_NCF_VENTA.map((t) => (
                       <option key={t} value={t}>
                         {NCF_LABELS[t]}
@@ -754,9 +743,8 @@ export default function Caja() {
                     ))}
                   </select>
                 </label>
-                {PIDEN_RNC.includes(tipoNcf) && !tieneRnc && (
-                  <p className="rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-700">Este comprobante lleva el RNC del cliente</p>
-                )}
+                {esConsumidorFinal && rncEscrito && !rncCompleto && <p className="text-xs text-amber-700">El RNC tiene 9 numeros (o 11 si es cedula)</p>}
+                {PIDEN_RNC.includes(tipoNcf) && !tieneRnc && !rncEscrito && <p className="text-xs text-amber-700">Este comprobante lleva el RNC del cliente</p>}
               </div>
             )}
 
