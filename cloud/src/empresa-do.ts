@@ -157,7 +157,7 @@ export class Empresa extends DurableObject {
     }
   }
 
-  async invoke(canal: string, args: unknown[], rol: Rol, uid?: number): Promise<unknown> {
+  async invoke(canal: string, args: unknown[], rol: Rol, uid?: number, empresa?: string): Promise<unknown> {
     // Un usuario eliminado o desactivado no sigue entrando con la sesion que tenia guardada
     // (la caja la recuerda 30 dias); y si le cambiaron el rol, vale el de ahora.
     if (uid) {
@@ -165,7 +165,7 @@ export class Empresa extends DurableObject {
       if (!actual || !actual.activo) throw new Error("Sesion expirada. Vuelve a iniciar sesion.");
       rol = actual.rol;
     }
-    if (!puedeInvocar(rol, canal)) throw new Error("No tienes permiso para esta operacion");
+    if (!puedeInvocar(rol, canal, empresa)) throw new Error("No tienes permiso para esta operacion");
     const handler = this.handlers[canal];
     if (!handler) throw new Error(`Operacion desconocida: ${canal}`);
     const lista = [...(args ?? [])];

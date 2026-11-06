@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { isPreviewMode } from "../lib/api";
-import { adminVentas, EDICION, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, soloVentas } from "../lib/variant";
+import { adminVentas, cajaConInventario, EDICION, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, soloVentas } from "../lib/variant";
 import { useAuth } from "../lib/auth";
 import ConnectionBanner from "./ConnectionBanner";
 import Logo from "./Logo";
@@ -101,7 +101,7 @@ const NAV_CAJA = [
   { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
 ];
 
-// Caja de Gas Damian: vender, cerrar la caja y los cilindros prestados.
+// Caja de Gas Damian: vender, cerrar la caja, los cilindros prestados y el inventario.
 const NAV_CAJA_GAS_DAMIAN = [
   {
     section: "Ventas",
@@ -114,6 +114,19 @@ const NAV_CAJA_GAS_DAMIAN = [
       { to: "/botellas-fiadas", label: "Cilindros prestados" },
     ],
   },
+  ...(cajaConInventario
+    ? [
+        {
+          section: "Inventario",
+          items: [
+            { to: "/productos", label: "Productos" },
+            { to: "/categorias", label: "Categorias" },
+            { to: "/compras", label: "Compras" },
+            { to: "/proveedores", label: "Proveedores" },
+          ],
+        },
+      ]
+    : []),
   { section: "Sistema", items: [{ to: "/configuracion", label: "Configuracion" }] },
 ];
 

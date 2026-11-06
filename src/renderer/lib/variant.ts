@@ -17,6 +17,8 @@ export const esFritura = APP_VARIANT === "fritura" || APP_VARIANT === "frituraad
 export const soloVentas = APP_VARIANT === "puntoventa" || APP_VARIANT === "puntoventaadmin" || esFritura;
 // El programa del dueno de esas ediciones: todo lo de Darasistema, con lo propio de cada una.
 export const adminVentas = APP_VARIANT === "puntoventaadmin" || APP_VARIANT === "frituraadmin";
+// La caja de Gas Damian tambien lleva el inventario: productos, categorias, compras y proveedores.
+export const cajaConInventario = APP_VARIANT === "puntoventa";
 // Esas cajas entran solas: la sesion se recuerda 30 dias y al abrir se revisan las actualizaciones.
 export const recuerdaSesion = APP_VARIANT === "puntoventa" || APP_VARIANT === "fritura";
 // Es para un colmado (productos con grupo y codigo de barras, sin envases).
