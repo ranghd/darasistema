@@ -24,6 +24,8 @@ import NuevaFactura from "./pages/Facturacion/NuevaFactura";
 import DetalleFactura from "./pages/Facturacion/DetalleFactura";
 import NotasFactura from "./pages/Facturacion/NotasFactura";
 import PreciosCambiados from "./pages/Reportes/PreciosCambiados";
+import ReportePlatos from "./pages/Reportes/ReportePlatos";
+import PlatosDia from "./pages/Caja/PlatosDia";
 import CuentasPorCobrar from "./pages/Reportes/CuentasPorCobrar";
 import CatalogoCuentas from "./pages/Contabilidad/CatalogoCuentas";
 import Asientos from "./pages/Contabilidad/Asientos";
@@ -98,7 +100,13 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
         ...(soloVentas && manejaEnvases ? [{ path: "/botellas-fiadas", element: <BotellasFiadas /> }] : []),
         ...(soloVentas && !adminVentas ? [{ path: "/gastos-caja", element: <GastosCaja /> }, { path: "/fiados", element: <FiadosCaja /> }] : []),
         ...(adminVentas && !restringido ? [{ path: "/categorias", element: <Categorias /> }] : []),
-        ...(esFritura && adminVentas && !restringido ? [{ path: "/reportes/precios-cambiados", element: <PreciosCambiados /> }] : []),
+        ...(esFritura ? [{ path: "/platos-dia", element: <PlatosDia /> }] : []),
+        ...(esFritura && adminVentas && !restringido
+          ? [
+              { path: "/reportes/precios-cambiados", element: <PreciosCambiados /> },
+              { path: "/reportes/platos-dia", element: <ReportePlatos /> },
+            ]
+          : []),
         ...(restringido ? rutaConexionCaja : RUTAS_ADMIN_EXTRA),
         { path: "*", element: <Navigate to={restringido || esColmado || (soloVentas && !adminVentas) ? "/caja" : "/"} replace /> },
       ]

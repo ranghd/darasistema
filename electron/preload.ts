@@ -46,6 +46,14 @@ const api = {
     agregarNotaDebito: (data: any) => invoke("facturas:agregarNotaDebito", data),
     agregarNotaCredito: (data: any) => invoke("facturas:agregarNotaCredito", data),
   },
+  platos: {
+    listar: (fecha: string) => invoke("platos:listar", fecha),
+    guardar: (data: any) => invoke("platos:guardar", data),
+    quitar: (data: any) => invoke("platos:quitar", data),
+    copiar: (data: any) => invoke("platos:copiar", data),
+    reporte: (desde: string, hasta: string) => invoke("platos:reporte", desde, hasta),
+    cambios: (desde: string, hasta: string) => invoke("platos:cambios", desde, hasta),
+  },
   notas: {
     listar: (desde?: string, hasta?: string) => invoke("notas:listar", desde, hasta),
   },

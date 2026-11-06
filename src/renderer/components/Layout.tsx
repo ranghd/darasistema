@@ -107,6 +107,7 @@ const NAV_CAJA_GAS_DAMIAN = [
     section: "Ventas",
     items: [
       { to: "/caja", label: "Punto de venta" },
+      ...(esFritura ? [{ to: "/platos-dia", label: "Platos del dia" }] : []),
       { to: "/fiados", label: "Fiados" },
       { to: "/gastos-caja", label: "Gastos de caja" },
       { to: "/cierre-caja", label: "Cierre de Caja" },
@@ -185,7 +186,12 @@ export default function Layout() {
     // Gas Damian Admin: el menu de Darasistema con los cilindros prestados
     .map((g) => (adminVentas && manejaEnvases && g.section === "Clientes" ? { ...g, items: [...g.items, { to: "/botellas-fiadas", label: "Cilindros prestados" }] } : g))
     // Dara Frituras Admin: lo que la caja vendio por debajo o por encima del precio
-    .map((g) => (esFritura && adminVentas && g.section === "Reportes" ? { ...g, items: [...g.items, { to: "/reportes/precios-cambiados", label: "Precios cambiados" }] } : g))
+    .map((g) =>
+      esFritura && adminVentas && g.section === "Reportes"
+        ? { ...g, items: [...g.items, { to: "/reportes/precios-cambiados", label: "Precios cambiados" }, { to: "/reportes/platos-dia", label: "Reporte de platos" }] }
+        : g
+    )
+    .map((g) => (esFritura && adminVentas && !mostrarCaja && g.section === "Inventario" ? { ...g, items: [{ to: "/platos-dia", label: "Platos del dia" }, ...g.items] } : g))
     // Gas Damian Admin: las categorias de la caja, debajo de Productos
     .map((g) =>
       adminVentas && !mostrarCaja && g.section === "Inventario"

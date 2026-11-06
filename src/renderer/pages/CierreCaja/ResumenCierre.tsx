@@ -1,3 +1,4 @@
+import { esFritura } from "../../lib/variant";
 import { api, mensajeDeError } from "../../lib/api";
 import { NOMBRE_RESULTADO, TONO_RESULTADO } from "../../lib/caja";
 import { html, imprimirDocumento } from "../../lib/exportar";
@@ -67,6 +68,16 @@ export function ResumenCierreVista({ s }: { s: SesionCaja }) {
         <Fila etiqueta="A credito (no entra dinero)" valor={v.CREDITO} />
         <div className="my-2 border-t border-slate-100" />
         <Fila etiqueta="Total general vendido" valor={r.ventas.total_general} fuerte />
+        {!!r.por_categoria?.length && esFritura && (
+          <>
+            <div className="my-2 border-t border-slate-100" />
+            <p className="text-xs font-semibold uppercase text-slate-400">Ventas por categoria</p>
+            {!!r.platos_dia && <Fila etiqueta="Platos del dia" valor={r.platos_dia} />}
+            {r.por_categoria.map((c) => (
+              <Fila key={c.nombre} etiqueta={c.nombre} valor={c.total} />
+            ))}
+          </>
+        )}
         {r.cobros.total > 0 && (
           <>
             <div className="my-2 border-t border-slate-100" />

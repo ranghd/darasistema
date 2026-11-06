@@ -42,7 +42,7 @@ function cuentaId(db: DB, codigo: string): number {
   return row.id;
 }
 
-function autorValido(autor: Autor | undefined): Autor {
+export function autorValido(autor: Autor | undefined): Autor {
   const nombre = autor?.nombre?.trim();
   if (!nombre) throw new Error("No se sabe que usuario hace la operacion. Vuelve a iniciar sesion.");
   return { id: autor?.id ?? null, nombre, rol: autor?.rol };
@@ -115,6 +115,22 @@ export function calcularResumen(db: DB, sesionId: number): ResumenCaja {
     )
     .get(sesionId) as { n: number; rebaja: number };
 
+  const porCategoria = db
+    .prepare(
+      `SELECT COALESCE(NULLIF(p.grupo, ''), 'Otros') AS nombre, SUM(l.subtotal + l.itbis) AS total
+       FROM factura_lineas l JOIN facturas f ON f.id = l.factura_id JOIN productos p ON p.id = l.producto_id
+       WHERE f.caja_sesion_id = ? AND f.estado != 'ANULADA' GROUP BY 1 ORDER BY total DESC`
+    )
+    .all(sesionId) as { nombre: string; total: number }[];
+  const platosDia = (
+    db
+      .prepare(
+        `SELECT COALESCE(SUM(l.subtotal + l.itbis), 0) AS t FROM factura_lineas l JOIN facturas f ON f.id = l.factura_id
+         WHERE f.caja_sesion_id = ? AND f.estado != 'ANULADA' AND l.plato_dia = 1`
+      )
+      .get(sesionId) as { t: number }
+  ).t;
+
   const efectivoEsperado = sesion.monto_inicial + porMetodo.EFECTIVO + cobros.EFECTIVO + mov.e - mov.s - reembolsos - devolucionesEfectivo;
 
   return {
@@ -135,6 +151,8 @@ export function calcularResumen(db: DB, sesionId: number): ResumenCaja {
     salidas: r2(mov.s),
     reembolsos_envases: r2(reembolsos),
     precios_cambiados: { cantidad: cambios.n, rebaja: r2(cambios.rebaja) },
+    por_categoria: porCategoria.map((c) => ({ nombre: c.nombre, total: r2(c.total) })),
+    platos_dia: r2(platosDia),
     efectivo_esperado: r2(efectivoEsperado),
   };
 }

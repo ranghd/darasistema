@@ -154,6 +154,39 @@ export interface FacturaDetalle extends Factura {
   lineas: FacturaLinea[];
 }
 
+/** Plato del menu de un dia. */
+export interface PlatoDia {
+  fecha: string;
+  producto_id: number;
+  nombre: string;
+  grupo: string | null;
+  itbis_rate: number;
+  /** Precio de ese dia, sin ITBIS. */
+  precio: number;
+  porciones: number;
+  vendidas: number;
+  quedan: number;
+}
+
+export interface ReportePlato {
+  fecha: string;
+  producto_id: number;
+  nombre: string;
+  porciones: number;
+  vendidas: number;
+  sobrantes: number;
+  dinero: number;
+}
+
+/** Cambio del menu del dia, de la auditoria. */
+export interface CambioPlato {
+  id: number;
+  fecha: string;
+  usuario_nombre: string;
+  accion: string;
+  detalle: string | null;
+}
+
 /** Linea vendida a un precio distinto al normal del producto. */
 export interface PrecioCambiado {
   id: number;
@@ -539,6 +572,9 @@ export interface ResumenCaja {
   reembolsos_envases: number;
   /** Lineas vendidas a otro precio y lo que se dejo de cobrar (los cierres viejos no lo traen). */
   precios_cambiados?: { cantidad: number; rebaja: number };
+  /** Lo vendido por categoria y lo que fue plato del dia (los cierres viejos no lo traen). */
+  por_categoria?: { nombre: string; total: number }[];
+  platos_dia?: number;
   efectivo_esperado: number;
 }
 

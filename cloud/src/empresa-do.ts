@@ -22,6 +22,7 @@ import { registerProveedoresIpc } from "../../electron/ipc/proveedores";
 import { registerCajaIpc } from "../../electron/ipc/caja";
 import { registerGastosIpc } from "../../electron/ipc/gastos";
 import { registerBancosIpc } from "../../electron/ipc/bancos";
+import { registerPlatosIpc } from "../../electron/ipc/platos";
 
 export interface InicializarEmpresa {
   empresa: DatosEmpresa;
@@ -50,6 +51,9 @@ const CANALES_CAJA_AUTOR: Record<string, number> = {
   "cajas:actualizar": 1,
   "cierres:corregir": 0,
   "usuarios:eliminar": 1,
+  "platos:guardar": 0,
+  "platos:quitar": 0,
+  "platos:copiar": 0,
 };
 const BLOQUEO_MS = 10 * 60 * 1000;
 
@@ -81,6 +85,7 @@ export class Empresa extends DurableObject {
       registerCajaIpc(db);
       registerGastosIpc(db);
       registerBancosIpc(db);
+      registerPlatosIpc(db);
     });
   }
 
@@ -199,7 +204,7 @@ export class Empresa extends DurableObject {
   vaciar(): Record<string, number> {
     // Primero los detalles y despues lo principal, para respetar las relaciones entre tablas.
     const tablas = [
-      "factura_lineas", "notas_factura", "cobros", "recibos_cobro", "envase_movimientos", "envases_cliente", "botellas_fiadas", "caja_movimientos", "caja_correcciones",
+      "factura_lineas", "notas_factura", "platos_dia", "cobros", "recibos_cobro", "envase_movimientos", "envases_cliente", "botellas_fiadas", "caja_movimientos", "caja_correcciones",
       "pagos_compra", "compra_lineas", "producto_proveedor", "comprobantes_varios", "pagos_gasto", "gastos", "banco_movimientos",
       "facturas", "compras", "caja_sesiones", "cajas",
       "asiento_lineas", "asientos",

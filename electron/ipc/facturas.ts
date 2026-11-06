@@ -2,6 +2,7 @@ import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { crearAsiento, fechaHoyRD } from "../db/contabilidad";
 import { validarSesionAbierta } from "./caja";
+import { platoDelDia } from "./platos";
 import type { Factura, FacturaDetalle, NotaFactura, NuevaFacturaInput, Producto, TipoNcf } from "../shared/types";
 import { NCF_LABELS, TIPOS_NCF_VENTA, tipoNcfRecibido, type TipoNcfVenta } from "../shared/ncf";
 
@@ -114,12 +115,20 @@ export function registerFacturasIpc(db: DB) {
     }
 
     const productos = new Map<number, Producto>();
+    const platos = new Map<number, ReturnType<typeof platoDelDia>>();
     for (const l of input.lineas) {
       if (!productos.has(l.producto_id)) {
         const p = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(l.producto_id) as Producto | undefined;
         if (!p) throw new Error(`Producto ${l.producto_id} no existe`);
+        // Un plato del dia ademas no puede pasar de las porciones de hoy.
+        const plato = platoDelDia(db, input.fecha, l.producto_id);
+        if (plato) {
+          const pedidas = input.lineas.filter((x) => x.producto_id === l.producto_id).reduce((s, x) => s + x.cantidad, 0);
+          if (pedidas > plato.quedan) throw new Error(plato.quedan > 0 ? `Solo quedan ${plato.quedan} porciones de ${p.nombre}` : `Se acabo ${p.nombre}`);
+        }
         if (p.existencia < l.cantidad) throw new Error(`Existencia insuficiente de ${p.nombre} (disponible: ${p.existencia})`);
         productos.set(l.producto_id, p);
+        platos.set(l.producto_id, plato);
       }
     }
 
@@ -171,8 +180,8 @@ export function registerFacturasIpc(db: DB) {
       const facturaId = Number(infoFactura.lastInsertRowid);
 
       const insertLinea = db.prepare(
-        `INSERT INTO factura_lineas (factura_id, producto_id, modalidad, cantidad, precio_unitario, descuento, itbis, subtotal, prestado, precio_lista)
-         VALUES (@factura_id, @producto_id, @modalidad, @cantidad, @precio_unitario, @descuento, @itbis, @subtotal, @prestado, @precio_lista)`
+        `INSERT INTO factura_lineas (factura_id, producto_id, modalidad, cantidad, precio_unitario, descuento, itbis, subtotal, prestado, precio_lista, plato_dia)
+         VALUES (@factura_id, @producto_id, @modalidad, @cantidad, @precio_unitario, @descuento, @itbis, @subtotal, @prestado, @precio_lista, @plato_dia)`
       );
       const updateExistencia = db.prepare(`UPDATE productos SET existencia = existencia - ? WHERE id = ?`);
       const upsertEnvase = db.prepare(
@@ -198,7 +207,8 @@ export function registerFacturasIpc(db: DB) {
           itbis: l.itbis,
           subtotal: l.subtotal,
           prestado: l.prestado && l.producto.maneja_envase ? 1 : 0,
-          precio_lista: l.producto.precio_contenido,
+          precio_lista: platos.get(l.producto_id)?.precio ?? l.producto.precio_contenido,
+          plato_dia: platos.get(l.producto_id) ? 1 : 0,
         });
         updateExistencia.run(l.cantidad, l.producto_id);
 

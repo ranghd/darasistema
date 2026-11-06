@@ -94,6 +94,15 @@ CREATE TABLE IF NOT EXISTS facturas (
   creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
+-- Platos del dia: que se vende cada dia, a que precio (sin ITBIS) y cuantas porciones se prepararon.
+CREATE TABLE IF NOT EXISTS platos_dia (
+  fecha TEXT NOT NULL,
+  producto_id INTEGER NOT NULL REFERENCES productos(id),
+  precio REAL NOT NULL,
+  porciones REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (fecha, producto_id)
+);
+
 -- Notas de credito (B04) y de debito (B03) de las facturas: una fila por nota (una factura puede tener varias).
 CREATE TABLE IF NOT EXISTS notas_factura (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -49,8 +49,11 @@ function siguienteCodigo(db: DB, categoria: string): string {
     while (db.prepare(`SELECT 1 FROM productos WHERE codigo = ?`).get(String(n))) n++;
     return String(n);
   }
-  const count = (db.prepare(`SELECT COUNT(*) as c FROM productos`).get() as { c: number }).c;
-  return `${categoria.slice(0, 3).toUpperCase()}-${String(count + 1).padStart(3, "0")}`;
+  // Se busca el primero libre: al borrar productos el conteo baja y el siguiente numero puede estar ocupado.
+  let n = (db.prepare(`SELECT COUNT(*) as c FROM productos`).get() as { c: number }).c + 1;
+  const codigoDe = (i: number) => `${categoria.slice(0, 3).toUpperCase()}-${String(i).padStart(3, "0")}`;
+  while (db.prepare(`SELECT 1 FROM productos WHERE codigo = ?`).get(codigoDe(n))) n++;
+  return codigoDe(n);
 }
 
 // Cada categoria (Gas Damian) es tambien su tipo contable: tiene sus cuentas de ventas, costo e inventario.

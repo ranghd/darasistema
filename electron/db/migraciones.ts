@@ -200,6 +200,8 @@ export function migrar(db: DB) {
     `ALTER TABLE productos ADD COLUMN precios_extra TEXT`,
     // Precio normal del producto al venderlo: para ver lo que la caja vendio a otro precio.
     `ALTER TABLE factura_lineas ADD COLUMN precio_lista REAL`,
+    // Linea vendida como plato del dia: cuenta para las porciones vendidas de ese dia.
+    `ALTER TABLE factura_lineas ADD COLUMN plato_dia INTEGER NOT NULL DEFAULT 0`,
   ];
   for (const sql of columnas) {
     try {
