@@ -29,9 +29,9 @@
   </head>
   <body>
     <div class="tarjeta">
-      <div class="logo"><img src="gas-damian.png" alt="" /></div>
+      <div class="logo"><img id="logo" src="gas-damian.png" alt="" /></div>
       <h1 id="nombre">Gas Damian</h1>
-      <p class="lema">Oxigeno · Acetileno · Gas propano</p>
+      <p class="lema" id="lema">Oxigeno · Acetileno · Gas propano</p>
       <div class="barra"><span></span></div>
       <p class="estado">Cargando...</p>
       <p class="pie" id="pie">Sistema DARA</p>
@@ -39,6 +39,8 @@
     <script>
       const q = new URLSearchParams(location.search);
       if (q.get("nombre")) document.getElementById("nombre").textContent = q.get("nombre");
+      if (q.get("lema")) document.getElementById("lema").textContent = q.get("lema");
+      if (q.get("logo")) document.getElementById("logo").src = q.get("logo");
       if (q.get("version")) document.getElementById("pie").textContent += " · version " + q.get("version");
     </script>
   </body>

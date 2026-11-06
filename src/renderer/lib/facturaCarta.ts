@@ -7,10 +7,11 @@ import { formatDate, formatMoney } from "./format";
 import { NCF_LABELS } from "./ncf";
 import type { Cliente, CompanyConfig, FacturaDetalle, SaldoBotellaFiada, TipoNcf } from "./types";
 import type { AvisoImpresion } from "./ticket";
+import { esFritura } from "./variant";
 import logo from "../assets/gas-damian.png?inline";
 
 // Lo que sale al pie si en Configuracion no se escribio otro mensaje.
-export const PIE_FACTURA = "Gracias por su compra · El mejor gas de Santo Domingo · www.gasdamian.com";
+export const PIE_FACTURA = esFritura ? "Gracias por su compra" : "Gracias por su compra · El mejor gas de Santo Domingo · www.gasdamian.com";
 
 const METODOS: Record<string, string> = { EFECTIVO: "Efectivo", TRANSFERENCIA: "Transferencia", TARJETA: "Tarjeta", CHEQUE: "Cheque" };
 
@@ -67,7 +68,7 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
     .anulada { margin-top: 10px; text-align: center; font-size: 18px; font-weight: 700; color: #b00; }
   </style></head><body>
     <div class="cab">
-      <div class="marca"><img src="${logo}" alt=""><div>
+      <div class="marca">${esFritura ? "" : `<img src="${logo}" alt="">`}<div>
         <div class="empresa">${html(empresa?.nombre_empresa ?? "")}</div>
         ${empresa?.rnc ? `<div>RNC: ${html(empresa.rnc)}</div>` : ""}
         ${empresa?.direccion ? `<div class="gris">${html(empresa.direccion)}</div>` : ""}

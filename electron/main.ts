@@ -29,7 +29,7 @@ import { borrarSesionRecordada, DIAS_RECORDADA, guardarSesionRecordada, leerSesi
 
 const isDev = process.env.NODE_ENV === "development";
 
-const NOMBRES = { full: "Darasistema", caja: "Cajapunto1", colmado: "Darasistema Colmado", cajacolmado: "Cajapunto1 Colmado", puntoventa: "Gas Damian", puntoventaadmin: "Gas Damian Admin" } as const;
+const NOMBRES = { full: "Darasistema", caja: "Cajapunto1", colmado: "Darasistema Colmado", cajacolmado: "Cajapunto1 Colmado", puntoventa: "Gas Damian", puntoventaadmin: "Gas Damian Admin", fritura: "Dara Frituras", frituraadmin: "Dara Frituras Admin" } as const;
 app.setName(NOMBRES[APP_VARIANT]);
 
 async function registerAllIpc() {
@@ -118,8 +118,9 @@ async function registerAllIpc() {
   });
 }
 
-// Pantalla de carga con el logo (solo Gas Damian) mientras arranca el programa.
-const CON_PANTALLA_DE_CARGA = APP_VARIANT === "puntoventa" || APP_VARIANT === "puntoventaadmin";
+// Pantalla de carga con el logo (Gas Damian y Dara Frituras) mientras arranca el programa.
+const ES_FRITURA = APP_VARIANT === "fritura" || APP_VARIANT === "frituraadmin";
+const CON_PANTALLA_DE_CARGA = APP_VARIANT === "puntoventa" || APP_VARIANT === "puntoventaadmin" || ES_FRITURA;
 
 function mostrarPantallaDeCarga(): BrowserWindow {
   const splash = new BrowserWindow({
@@ -134,7 +135,8 @@ function mostrarPantallaDeCarga(): BrowserWindow {
     center: true,
     webPreferences: { sandbox: true },
   });
-  const query = { nombre: NOMBRES[APP_VARIANT], version: app.getVersion() };
+  const query: Record<string, string> = { nombre: NOMBRES[APP_VARIANT], version: app.getVersion() };
+  if (ES_FRITURA) Object.assign(query, { lema: "Frituras · Platos · Bebidas", logo: "dara-frituras.png" });
   if (isDev) splash.loadURL(`http://localhost:5173/splash.html?${new URLSearchParams(query)}`);
   else splash.loadFile(path.join(__dirname, "../dist/splash.html"), { query });
   return splash;

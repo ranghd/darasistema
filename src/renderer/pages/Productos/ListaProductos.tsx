@@ -4,7 +4,7 @@ import type { Cuenta, Producto } from "../../lib/types";
 import { formatMoney } from "../../lib/format";
 import { Badge, Button, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
-import { CATEGORIAS_GAS_DAMIAN, esColmado, esVariantCaja, GRUPOS_COLMADO, soloVentas } from "../../lib/variant";
+import { CATEGORIAS_SUGERIDAS, esColmado, esVariantCaja, GRUPOS_COLMADO, manejaEnvases, soloVentas } from "../../lib/variant";
 import { mensajeDeError } from "../../lib/api";
 import { leerPrecios } from "../../lib/precios";
 import { ProveedoresDeProductoModal } from "../Proveedores/componentes";
@@ -15,11 +15,11 @@ const emptyForm = {
   grupo: "",
   nombre: "",
   // En el colmado todo va a una sola cuenta de ventas, costo e inventario (categoria OTRO).
-  categoria: (esColmado ? "OTRO" : "GAS") as Producto["categoria"],
-  unidad: esColmado ? "UNIDAD" : "CILINDRO",
+  categoria: (manejaEnvases ? "GAS" : "OTRO") as Producto["categoria"],
+  unidad: manejaEnvases ? "CILINDRO" : "UNIDAD",
   precio_contenido: 0,
   costo_contenido: 0,
-  maneja_envase: !esColmado,
+  maneja_envase: manejaEnvases,
   fianza_envase: 0,
   itbis_rate: 0.18,
   cuenta_ingreso_id: undefined as number | undefined,
@@ -67,7 +67,7 @@ export default function ListaProductos() {
   const [aviso, setAviso] = useState("");
   const [editActivo, setEditActivo] = useState(1);
   const [categoriasGuardadas, setCategoriasGuardadas] = useState<string[]>([]);
-  const grupos = Array.from(new Set([...(soloVentas ? CATEGORIAS_GAS_DAMIAN : GRUPOS_COLMADO), ...categoriasGuardadas, ...productos.map((p) => p.grupo).filter(Boolean) as string[]])).sort();
+  const grupos = Array.from(new Set([...(soloVentas ? CATEGORIAS_SUGERIDAS : GRUPOS_COLMADO), ...categoriasGuardadas, ...productos.map((p) => p.grupo).filter(Boolean) as string[]])).sort();
   const q = buscar.trim().toLowerCase();
   // El que se pone solo si se deja vacio (colmado: 1, 2, 3...).
   const siguienteCodigo = Math.max(0, ...productos.map((p) => (/^\d+$/.test(p.codigo) ? Number(p.codigo) : 0))) + 1;
@@ -512,13 +512,13 @@ export default function ListaProductos() {
               </button>
             </div>
           )}
-          {!esColmado && (
+          {manejaEnvases && (
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" checked={form.maneja_envase} onChange={(e) => setForm({ ...form, maneja_envase: e.target.checked })} />
             Maneja envase retornable (cilindro / botellon)
           </label>
           )}
-          {!esColmado && form.maneja_envase && (
+          {manejaEnvases && form.maneja_envase && (
             <Input label="Fianza del envase" type="number" step="0.01" value={form.fianza_envase} onChange={(e) => setForm({ ...form, fianza_envase: Number(e.target.value) })} />
           )}
           <p className="text-xs text-slate-400">

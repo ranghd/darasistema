@@ -21,6 +21,8 @@ const variantes = [
   { nombre: 'cajacolmado', config: 'electron-builder.cajacolmado.yml' },
   { nombre: 'puntoventa', config: 'electron-builder.puntoventa.yml' },
   { nombre: 'puntoventaadmin', config: 'electron-builder.puntoventaadmin.yml' },
+  { nombre: 'fritura', config: 'electron-builder.fritura.yml' },
+  { nombre: 'frituraadmin', config: 'electron-builder.frituraadmin.yml' },
 ];
 
 for (const v of variantes) {

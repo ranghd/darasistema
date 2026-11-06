@@ -128,6 +128,7 @@ const api = {
     balanceGeneral: (hasta?: string) => invoke("reportes:balanceGeneral", hasta),
     itbis: (desde?: string, hasta?: string) => invoke("reportes:itbis", desde, hasta),
     cuentasPorCobrar: () => invoke("reportes:cuentasPorCobrar"),
+    preciosCambiados: (desde?: string, hasta?: string) => invoke("reportes:preciosCambiados", desde, hasta),
     cxcPorCliente: () => invoke("reportes:cxcPorCliente"),
     ventas: (desde?: string, hasta?: string) => invoke("reportes:ventas", desde, hasta),
     dashboard: () => invoke("reportes:dashboard"),

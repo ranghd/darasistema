@@ -107,6 +107,14 @@ export function calcularResumen(db: DB, sesionId: number): ResumenCaja {
     .get(sesionId) as { e: number; s: number };
   const reembolsos = (db.prepare(`SELECT COALESCE(SUM(monto_reembolsado), 0) AS r FROM envase_movimientos WHERE caja_sesion_id = ?`).get(sesionId) as { r: number }).r;
 
+  const cambios = db
+    .prepare(
+      `SELECT COUNT(*) AS n, COALESCE(SUM((l.precio_lista - l.precio_unitario) * (1 + p.itbis_rate) * l.cantidad), 0) AS rebaja
+       FROM factura_lineas l JOIN facturas f ON f.id = l.factura_id JOIN productos p ON p.id = l.producto_id
+       WHERE f.caja_sesion_id = ? AND f.estado != 'ANULADA' AND l.precio_lista IS NOT NULL AND ABS(l.precio_lista - l.precio_unitario) > 0.005`
+    )
+    .get(sesionId) as { n: number; rebaja: number };
+
   const efectivoEsperado = sesion.monto_inicial + porMetodo.EFECTIVO + cobros.EFECTIVO + mov.e - mov.s - reembolsos - devolucionesEfectivo;
 
   return {
@@ -126,6 +134,7 @@ export function calcularResumen(db: DB, sesionId: number): ResumenCaja {
     entradas: r2(mov.e),
     salidas: r2(mov.s),
     reembolsos_envases: r2(reembolsos),
+    precios_cambiados: { cantidad: cambios.n, rebaja: r2(cambios.rebaja) },
     efectivo_esperado: r2(efectivoEsperado),
   };
 }

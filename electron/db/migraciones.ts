@@ -198,6 +198,8 @@ export function migrar(db: DB) {
     `ALTER TABLE botellas_fiadas ADD COLUMN factura_id INTEGER REFERENCES facturas(id)`,
     // Gas Damian: otros precios del producto (por mayor, especial...) como JSON [{nombre, precio}] (precio sin ITBIS).
     `ALTER TABLE productos ADD COLUMN precios_extra TEXT`,
+    // Precio normal del producto al venderlo: para ver lo que la caja vendio a otro precio.
+    `ALTER TABLE factura_lineas ADD COLUMN precio_lista REAL`,
   ];
   for (const sql of columnas) {
     try {

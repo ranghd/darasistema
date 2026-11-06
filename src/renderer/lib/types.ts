@@ -154,6 +154,23 @@ export interface FacturaDetalle extends Factura {
   lineas: FacturaLinea[];
 }
 
+/** Linea vendida a un precio distinto al normal del producto. */
+export interface PrecioCambiado {
+  id: number;
+  factura_id: number;
+  ncf: string | null;
+  numero: number;
+  fecha: string;
+  creado_por: string | null;
+  producto_nombre: string;
+  cantidad: number;
+  /** Con ITBIS. */
+  precio_normal: number;
+  precio_vendido: number;
+  /** Lo que se dejo de cobrar (negativo si se vendio mas caro). */
+  diferencia: number;
+}
+
 /** Nota de credito (B04) o de debito (B03) de una factura. */
 export interface NotaFactura {
   id: number;
@@ -520,6 +537,8 @@ export interface ResumenCaja {
   entradas: number;
   salidas: number;
   reembolsos_envases: number;
+  /** Lineas vendidas a otro precio y lo que se dejo de cobrar (los cierres viejos no lo traen). */
+  precios_cambiados?: { cantidad: number; rebaja: number };
   efectivo_esperado: number;
 }
 

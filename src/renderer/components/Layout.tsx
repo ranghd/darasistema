@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { isPreviewMode } from "../lib/api";
-import { adminVentas, EDICION, esColmado, esVariantCaja, manejaEnvases, operaCaja, soloVentas } from "../lib/variant";
+import { adminVentas, EDICION, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, soloVentas } from "../lib/variant";
 import { useAuth } from "../lib/auth";
 import ConnectionBanner from "./ConnectionBanner";
 import Logo from "./Logo";
@@ -181,9 +181,11 @@ export default function Layout() {
   const mostrarCaja = esVariantCaja || usuario?.rol === "CAJERO";
   const nav = (soloVentas && !adminVentas ? NAV_CAJA_GAS_DAMIAN : mostrarCaja ? NAV_CAJA : esColmado ? NAV_COLMADO : NAV_COMPLETO)
     .filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN")
-    .map((g) => ({ ...g, items: g.items.filter((i) => manejaEnvases || i.to !== "/envases") }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => manejaEnvases || (i.to !== "/envases" && i.to !== "/botellas-fiadas")) }))
     // Gas Damian Admin: el menu de Darasistema con los cilindros prestados
-    .map((g) => (adminVentas && g.section === "Clientes" ? { ...g, items: [...g.items, { to: "/botellas-fiadas", label: "Cilindros prestados" }] } : g))
+    .map((g) => (adminVentas && manejaEnvases && g.section === "Clientes" ? { ...g, items: [...g.items, { to: "/botellas-fiadas", label: "Cilindros prestados" }] } : g))
+    // Dara Frituras Admin: lo que la caja vendio por debajo o por encima del precio
+    .map((g) => (esFritura && adminVentas && g.section === "Reportes" ? { ...g, items: [...g.items, { to: "/reportes/precios-cambiados", label: "Precios cambiados" }] } : g))
     // Gas Damian Admin: las categorias de la caja, debajo de Productos
     .map((g) =>
       adminVentas && !mostrarCaja && g.section === "Inventario"

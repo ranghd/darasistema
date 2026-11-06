@@ -12,7 +12,7 @@ import type { Cliente, ModalidadLinea, Producto, TipoNcfVenta } from "../../lib/
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { NCF_LABELS, TIPOS_NCF_VENTA, VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Modal } from "../../components/ui";
-import { esColmado, manejaEnvases, soloVentas, usaGrupos } from "../../lib/variant";
+import { esColmado, esFritura, manejaEnvases, soloVentas, usaGrupos } from "../../lib/variant";
 import { imprimirFacturaGasDamian } from "../../lib/reciboGasDamian";
 import TablaFactura from "./TablaFactura";
 import { leerBusqueda, sinAcentos } from "./buscar";
@@ -95,6 +95,8 @@ export default function Caja() {
   // Gas Damian: el comprobante que eligio el cajero (null = el que toca solo: B01 con RNC, si no B02)
   const [tipoElegido, setTipoElegido] = useBorrador<TipoNcfVenta | null>("venta.tipoNcf", null);
   const [telefonoFiado, setTelefonoFiado] = useState("");
+  // Dara Frituras: la linea a la que se le esta cambiando el precio y lo que se va escribiendo (precio final)
+  const [cambiandoPrecio, setCambiandoPrecio] = useState<{ i: number; texto: string } | null>(null);
   const habiaVenta = useHabiaBorrador("venta.carrito", (v) => Array.isArray(v) && v.length > 0);
   const [avisoRecuperada, setAvisoRecuperada] = useState(habiaVenta);
   const [categoria, setCategoria] = useState("TODOS");
@@ -233,6 +235,16 @@ export default function Caja() {
 
   function elegirPrecio(i: number, precio: number | undefined) {
     setCarrito(carrito.map((x, j) => (j === i ? { ...x, precio } : x)));
+  }
+
+  // El precio se escribe final (con ITBIS) y se guarda sin ITBIS, con 4 decimales para que el total de exacto.
+  function guardarPrecio(i: number) {
+    const l = calculo.lineas[i];
+    const final = Number((cambiandoPrecio?.texto ?? "").replace(",", "."));
+    setCambiandoPrecio(null);
+    if (!l || !(final > 0)) return;
+    const base = Math.round((final / (1 + (l.producto.itbis_rate ?? 0.18))) * 10000) / 10000;
+    elegirPrecio(i, Math.abs(base - l.producto.precio_contenido) < 0.00005 ? undefined : base);
   }
 
   function elegirModo(i: number, modo: ModoCilindro) {
@@ -777,6 +789,46 @@ export default function Caja() {
                         </div>
                         <span className="text-sm font-semibold text-slate-900">{formatMoney(l.bruto + l.itbisLinea + l.fianzaLinea)}</span>
                       </div>
+                      {esFritura &&
+                        (cambiandoPrecio?.i === i ? (
+                          <form
+                            className="mt-2 flex items-center gap-2"
+                            onClick={(e) => e.stopPropagation()}
+                            onSubmit={(e) => (e.preventDefault(), guardarPrecio(i))}
+                          >
+                            <span className="text-xs text-slate-500">Precio RD$</span>
+                            <input
+                              autoFocus
+                              inputMode="decimal"
+                              onFocus={(e) => e.target.select()}
+                              value={cambiandoPrecio.texto}
+                              onChange={(e) => setCambiandoPrecio({ i, texto: e.target.value.replace(/[^0-9.,]/g, "") })}
+                              className="w-24 rounded-lg border-2 border-brand-300 px-2 py-1 text-base font-semibold outline-none focus:border-brand-500"
+                              data-nav-ignorar
+                            />
+                            <button type="submit" className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700">
+                              Listo
+                            </button>
+                          </form>
+                        ) : (
+                          <div className="mt-2 flex items-center justify-between gap-2 text-xs">
+                            <button
+                              tabIndex={-1}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCambiandoPrecio({ i, texto: String(Math.round((l.precio ?? l.producto.precio_contenido) * (1 + (l.producto.itbis_rate ?? 0.18)) * 100) / 100) });
+                              }}
+                              className="rounded-lg bg-slate-200 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-300"
+                            >
+                              Cambiar precio
+                            </button>
+                            {l.precio !== undefined && (
+                              <button tabIndex={-1} onClick={(e) => (e.stopPropagation(), elegirPrecio(i, undefined))} className="text-amber-700 hover:underline">
+                                Normal: {formatMoney(l.producto.precio_contenido * (1 + (l.producto.itbis_rate ?? 0.18)))} ✕
+                              </button>
+                            )}
+                          </div>
+                        ))}
                       {soloVentas && leerPrecios(l.producto).length > 0 && (
                         // Gas Damian: cual de sus precios se cobra
                         <div className="mt-2 flex flex-wrap gap-1 text-[11px] font-medium">
@@ -796,7 +848,7 @@ export default function Caja() {
                           })}
                         </div>
                       )}
-                      {l.producto.maneja_envase && soloVentas && (
+                      {!!l.producto.maneja_envase && soloVentas && (
                         // Gas Damian: que pasa con el cilindro, con tres botones claros
                         <div className="mt-2 grid grid-cols-3 gap-1 text-[11px] font-medium leading-tight">
                           {MODOS_CILINDRO.map((m) => (
@@ -811,7 +863,7 @@ export default function Caja() {
                           ))}
                         </div>
                       )}
-                      {l.producto.maneja_envase && !soloVentas && (
+                      {!!l.producto.maneja_envase && !soloVentas && (
                         <div className="mt-2 flex gap-1.5 text-xs">
                           <button
                             tabIndex={-1}

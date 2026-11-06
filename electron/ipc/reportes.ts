@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { fechaHoyRD } from "../db/contabilidad";
-import type { CxcCliente, ReporteVentas } from "../shared/types";
+import type { CxcCliente, PrecioCambiado, ReporteVentas } from "../shared/types";
 import { TIPO_COMPROBANTE_INGRESO } from "../shared/ncf";
 
 function rangoClause(desde?: string, hasta?: string) {
@@ -19,6 +19,23 @@ function rangoClause(desde?: string, hasta?: string) {
 }
 
 export function registerReportesIpc(db: DB) {
+  // Lo que se vendio a un precio distinto al normal del producto, con quien lo vendio.
+  ipcMain.handle("reportes:preciosCambiados", (_e, desde?: string, hasta?: string): PrecioCambiado[] => {
+    const hoy = fechaHoyRD();
+    return db
+      .prepare(
+        `SELECT l.id, f.id AS factura_id, f.ncf, f.numero, f.fecha, f.creado_por, p.nombre AS producto_nombre, l.cantidad,
+                ROUND(l.precio_lista * (1 + p.itbis_rate), 2) AS precio_normal,
+                ROUND(l.precio_unitario * (1 + p.itbis_rate), 2) AS precio_vendido,
+                ROUND((l.precio_lista - l.precio_unitario) * (1 + p.itbis_rate) * l.cantidad, 2) AS diferencia
+         FROM factura_lineas l JOIN facturas f ON f.id = l.factura_id JOIN productos p ON p.id = l.producto_id
+         WHERE f.estado != 'ANULADA' AND l.precio_lista IS NOT NULL AND ABS(l.precio_lista - l.precio_unitario) > 0.005
+           AND f.fecha BETWEEN @desde AND @hasta
+         ORDER BY f.fecha DESC, l.id DESC`
+      )
+      .all({ desde: desde || hoy.slice(0, 7) + "-01", hasta: hasta || hoy }) as PrecioCambiado[];
+  });
+
   ipcMain.handle("reportes:estadoResultados", (_e, desde?: string, hasta?: string) => {
     const { clause, params } = rangoClause(desde, hasta);
     const porTipo = db

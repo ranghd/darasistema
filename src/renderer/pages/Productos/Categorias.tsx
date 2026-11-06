@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, mensajeDeError } from "../../lib/api";
-import { CATEGORIAS_GAS_DAMIAN, soloVentas } from "../../lib/variant";
+import { CATEGORIAS_SUGERIDAS, soloVentas } from "../../lib/variant";
 import type { CategoriaPropia } from "../../lib/types";
 import { Button, EmptyRow, Input, Modal, PageHeader, Table } from "../../components/ui";
 
@@ -20,7 +20,7 @@ export default function Categorias() {
     let lista = await api.categorias.listar();
     // Gas Damian empieza con sus categorias de siempre
     if (soloVentas && lista.length === 0) {
-      for (const c of CATEGORIAS_GAS_DAMIAN) await api.categorias.crear(c);
+      for (const c of CATEGORIAS_SUGERIDAS) await api.categorias.crear(c);
       lista = await api.categorias.listar();
     }
     setCategorias(lista);

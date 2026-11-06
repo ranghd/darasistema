@@ -8,6 +8,7 @@ import { NCF_LABELS } from "./ncf";
 import { PIE_FACTURA, imprimirFacturaCarta, prestadosPendientes } from "./facturaCarta";
 import { avisoDeResultado, type AvisoImpresion } from "./ticket";
 import type { Cliente, Cobro, CompanyConfig, FacturaDetalle, SaldoBotellaFiada, TipoNcf } from "./types";
+import { esFritura } from "./variant";
 import logo from "../assets/logoTicketGasDamian";
 
 const METODOS: Record<string, string> = { EFECTIVO: "Efectivo", TRANSFERENCIA: "Transferencia", TARJETA: "Tarjeta", CHEQUE: "Cheque" };
@@ -85,7 +86,7 @@ export function htmlReciboGasDamian(
     .tot span:last-child { width: 30%; text-align: right; }
     .neto { font-weight: 700; font-size: 1.2em; }
   </style></head><body>
-    <img class="logo" src="${logo}" alt="">
+    ${esFritura ? "" : `<img class="logo" src="${logo}" alt="">`}
     <div class="c b" style="font-size: 1.2em">${html((empresa?.nombre_empresa ?? "").toUpperCase())}</div>
     ${empresa?.direccion ? `<div class="c">${html(empresa.direccion)}</div>` : ""}
     <div class="c">${[empresa?.telefono ? `Tel. ${html(empresa.telefono)}` : "", empresa?.rnc ? `RNC ${html(empresa.rnc)}` : ""].filter(Boolean).join(" ")}</div>

@@ -2,7 +2,7 @@
 // cuando la app corre como pagina web normal (sin Electron), para poder revisar
 // visualmente las pantallas en el navegador integrado durante el desarrollo.
 // La app real siempre usa window.api expuesto por electron/preload.ts.
-import type { BotellaFiadaInput, CategoriaPropia, MovimientoBotellaFiada, NotaFactura, SaldoBotellaFiada,
+import type { BotellaFiadaInput, CategoriaPropia, MovimientoBotellaFiada, NotaFactura, PrecioCambiado, SaldoBotellaFiada,
   AsientoConLineas,
   Autor,
   Caja,
@@ -222,6 +222,7 @@ export const mockApi = {
     devolver: async (_data: BotellaFiadaInput): Promise<number> => { warn(); throw new Error("No disponible en vista previa"); },
   },
   reportes: {
+    preciosCambiados: async (_desde?: string, _hasta?: string): Promise<PrecioCambiado[]> => [],
     estadoResultados: async (..._args: any[]) => ({ ingresos: 185000, costos: 98000, utilidadBruta: 87000, gastos: 32000, utilidadNeta: 55000, detalle: [] }),
     balanceGeneral: async (..._args: any[]) => ({ activo: [], pasivo: [], patrimonio: [], utilidadDelPeriodo: 55000, totalActivo: 420000, totalPasivo: 95000, totalPatrimonio: 325000 }),
     itbis: async (..._args: any[]) => ({ resumen: { cantidad_facturas: 12, subtotal: 185000, itbis: 33300, total: 218300 }, facturas: [] }),

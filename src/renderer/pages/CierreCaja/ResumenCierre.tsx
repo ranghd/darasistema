@@ -37,6 +37,7 @@ function Fila({ etiqueta, valor, fuerte, signo, tono }: { etiqueta: string; valo
 
 export function ResumenCierreVista({ s }: { s: SesionCaja }) {
   const r = s.resumen;
+  const cambios = r.precios_cambiados;
   const v = r.ventas.por_metodo;
   const cerrada = s.estado === "CERRADA";
   const dif = s.diferencia_final ?? 0;
@@ -52,6 +53,7 @@ export function ResumenCierreVista({ s }: { s: SesionCaja }) {
         <Fila etiqueta="Facturas realizadas" valor={String(r.ventas.cantidad)} />
         <Fila etiqueta="Facturas anuladas" valor={`${r.anuladas.cantidad} (${formatMoney(r.anuladas.total)})`} />
         <Fila etiqueta="Descuentos" valor={r.ventas.descuentos} />
+        {!!cambios?.cantidad && <Fila etiqueta={`Precios cambiados (${cambios.cantidad})`} valor={cambios.rebaja} />}
         <Fila etiqueta="Impuestos (ITBIS)" valor={r.ventas.itbis} />
         <Fila etiqueta="Depositos de envases" valor={r.ventas.fianzas} />
       </div>

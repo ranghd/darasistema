@@ -171,8 +171,8 @@ export function registerFacturasIpc(db: DB) {
       const facturaId = Number(infoFactura.lastInsertRowid);
 
       const insertLinea = db.prepare(
-        `INSERT INTO factura_lineas (factura_id, producto_id, modalidad, cantidad, precio_unitario, descuento, itbis, subtotal, prestado)
-         VALUES (@factura_id, @producto_id, @modalidad, @cantidad, @precio_unitario, @descuento, @itbis, @subtotal, @prestado)`
+        `INSERT INTO factura_lineas (factura_id, producto_id, modalidad, cantidad, precio_unitario, descuento, itbis, subtotal, prestado, precio_lista)
+         VALUES (@factura_id, @producto_id, @modalidad, @cantidad, @precio_unitario, @descuento, @itbis, @subtotal, @prestado, @precio_lista)`
       );
       const updateExistencia = db.prepare(`UPDATE productos SET existencia = existencia - ? WHERE id = ?`);
       const upsertEnvase = db.prepare(
@@ -198,6 +198,7 @@ export function registerFacturasIpc(db: DB) {
           itbis: l.itbis,
           subtotal: l.subtotal,
           prestado: l.prestado && l.producto.maneja_envase ? 1 : 0,
+          precio_lista: l.producto.precio_contenido,
         });
         updateExistencia.run(l.cantidad, l.producto_id);
 
