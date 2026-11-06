@@ -47,7 +47,8 @@ export function htmlReciboGasDamian(
 ): string {
   const angosto = anchoMm <= 58;
   const tipo = (f.ncf?.slice(0, 3) ?? "") as TipoNcf;
-  const titulo = NCF_LABELS[tipo]?.split(" - ")[1] ?? "Factura";
+  const titulo = NCF_LABELS[tipo]?.split(" - ")[1] ?? "Recibo de venta";
+  const fiscal = !!f.ncf;
   const descuento = f.lineas.reduce((s, l) => s + (l.descuento ?? 0), 0);
   const cobrado = cobros.reduce((s, c) => s + c.monto, 0);
 
@@ -56,7 +57,7 @@ export function htmlReciboGasDamian(
       const bruto = l.cantidad * l.precio_unitario - (l.descuento ?? 0);
       const nota = envase(l);
       return `<div class="b">${html((l.producto_nombre ?? "").toUpperCase())}</div>
-        <div class="det"><span>${l.cantidad} X ${dinero(l.precio_unitario)}</span><span>${dinero(l.itbis ?? 0)}</span><span>${dinero(bruto + (l.itbis ?? 0))}</span></div>
+        <div class="det"><span>${l.cantidad} X ${dinero(l.precio_unitario)}</span><span>${fiscal ? dinero(l.itbis ?? 0) : ""}</span><span>${dinero(bruto + (l.itbis ?? 0))}</span></div>
         ${l.descuento ? `<div class="nota">Descuento -${dinero(l.descuento)}</div>` : ""}
         ${nota ? `<div class="nota">(${html(nota)})</div>` : ""}`;
     })
@@ -93,20 +94,20 @@ export function htmlReciboGasDamian(
     <div class="c">${[empresa?.telefono ? `Tel. ${html(empresa.telefono)}` : "", empresa?.rnc ? `RNC ${html(empresa.rnc)}` : ""].filter(Boolean).join(" ")}</div>
     <div class="fila" style="margin-top: 4px"><span>Fecha: ${fecha}</span><span>Hr: ${hora(f.creado_en)}</span></div>
     <div>${html(titulo)}</div>
-    <div>NCF: ${html(f.ncf ?? "-")}</div>
-    <div>Factura ${f.condicion_pago === "CREDITO" ? "Crédito" : "Contado"}</div>
+    ${fiscal ? `<div>NCF: ${html(f.ncf ?? "-")}</div>` : ""}
+    <div>${fiscal ? "Factura" : "Venta"} ${f.condicion_pago === "CREDITO" ? "Crédito" : "Contado"}</div>
     <div>Cliente: ${html((f.cliente_nombre ?? "Consumidor Final").toUpperCase())}</div>
-    <div class="fila"><span>RNC: ${html(cliente?.rnc_cedula ?? "")}</span><span>Fact.: ${f.numero}</span></div>
+    <div class="fila"><span>${fiscal ? `RNC: ${html(cliente?.rnc_cedula ?? "")}` : ""}</span><span>${fiscal ? "Fact." : "No."}: ${f.numero}</span></div>
     ${f.creado_por ? `<div>Usuario: ${html(f.creado_por.toUpperCase())}</div>` : ""}
-    <div class="tit"><span>Descripcion</span><span>Itbis</span><span>Valor</span></div>
+    <div class="tit"><span>Descripcion</span><span>${fiscal ? "Itbis" : ""}</span><span>Valor</span></div>
     ${productos}
     <div class="linea"></div>
-    ${fila("Monto Bruto:", dinero(f.subtotal + descuento + f.itbis))}
-    ${fila("Descuento:", dinero(descuento))}
-    ${fila("Subtotal:", dinero(f.subtotal))}
-    ${fila("Itbis:", dinero(f.itbis))}
+    ${fiscal ? fila("Monto Bruto:", dinero(f.subtotal + descuento + f.itbis)) : ""}
+    ${fiscal || descuento ? fila("Descuento:", dinero(descuento)) : ""}
+    ${fiscal ? fila("Subtotal:", dinero(f.subtotal)) : ""}
+    ${fiscal ? fila("Itbis:", dinero(f.itbis)) : ""}
     ${f.fianza_total ? fila("Fianza cilindros:", dinero(f.fianza_total)) : ""}
-    ${fila("Neto:", dinero(f.total), "neto")}
+    ${fila(fiscal ? "Neto:" : "Total:", dinero(f.total), "neto")}
     ${
       f.condicion_pago === "CREDITO"
         ? `<div class="fila" style="margin-top: 3px"><span>Pagado: ${dinero(cobrado)}</span><span class="b">Pendiente: ${dinero(f.total - cobrado)}</span></div>`

@@ -18,7 +18,8 @@ const METODOS: Record<string, string> = { EFECTIVO: "Efectivo", TRANSFERENCIA: "
 
 export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | null, cliente: Cliente | null, prestados: SaldoBotellaFiada[] = []): string {
   const tipo = (f.ncf?.slice(0, 3) ?? "") as TipoNcf;
-  const titulo = NCF_LABELS[tipo]?.split(" - ")[1] ?? "Factura";
+  const titulo = NCF_LABELS[tipo]?.split(" - ")[1] ?? "Recibo de venta";
+  const fiscal = !!f.ncf;
   const descuento = f.lineas.reduce((s, l) => s + (l.descuento ?? 0), 0);
   const filas = f.lineas
     .map((l) => {
@@ -28,7 +29,7 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
         <td>${html(l.producto_nombre ?? "")}${envaseDe(l)}</td>
         <td class="n">${formatMoney(l.precio_unitario)}</td>
         <td class="n">${l.descuento ? formatMoney(l.descuento) : "-"}</td>
-        <td class="n">${formatMoney(l.itbis ?? 0)}</td>
+        ${fiscal ? `<td class="n">${formatMoney(l.itbis ?? 0)}</td>` : ""}
         <td class="n b">${formatMoney(bruto + (l.itbis ?? 0))}</td>
       </tr>`;
     })
@@ -77,8 +78,8 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
       </div></div>
       <div class="doc">
         <div class="tit">${html(titulo)}</div>
-        <div class="ncf">NCF: ${html(f.ncf ?? "-")}</div>
-        <div>Factura No. ${f.numero}</div>
+        ${fiscal ? `<div class="ncf">NCF: ${html(f.ncf ?? "-")}</div>` : ""}
+        <div>${fiscal ? "Factura" : "Recibo"} No. ${f.numero}</div>
         <div>Fecha: ${formatDate(f.fecha)} ${html(f.creado_en?.slice(11, 16) ?? "")}</div>
       </div>
     </div>
@@ -90,15 +91,15 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
       ${cliente?.direccion ? `<div style="grid-column: span 2"><span class="gris">Direccion:</span> ${html(cliente.direccion)}</div>` : ""}
     </div>
     <table>
-      <thead><tr><th class="n">Cant.</th><th>Descripcion</th><th class="n">Precio</th><th class="n">Desc.</th><th class="n">ITBIS</th><th class="n">Total</th></tr></thead>
+      <thead><tr><th class="n">Cant.</th><th>Descripcion</th><th class="n">Precio</th><th class="n">Desc.</th>${fiscal ? `<th class="n">ITBIS</th>` : ""}<th class="n">Total</th></tr></thead>
       <tbody>${filas}</tbody>
     </table>
     <div class="bajo">
     <div class="envases">${cuadroEnvases(f, prestados)}</div>
     <div class="totales">
-      <div><span>Subtotal</span><span>${formatMoney(f.subtotal + descuento)}</span></div>
+      ${fiscal || descuento ? `<div><span>Subtotal</span><span>${formatMoney(f.subtotal + descuento)}</span></div>` : ""}
       ${descuento ? `<div><span>Descuento</span><span>-${formatMoney(descuento)}</span></div>` : ""}
-      <div><span>ITBIS</span><span>${formatMoney(f.itbis)}</span></div>
+      ${fiscal ? `<div><span>ITBIS</span><span>${formatMoney(f.itbis)}</span></div>` : ""}
       ${f.fianza_total ? `<div><span>Deposito de envases</span><span>${formatMoney(f.fianza_total)}</span></div>` : ""}
       <div class="total"><span>TOTAL</span><span>${formatMoney(f.total)}</span></div>
     </div>

@@ -260,7 +260,7 @@ export default function DetalleFactura() {
           {empresa?.telefono && <p className="text-sm text-slate-600">Tel: {empresa.telefono}</p>}
         </div>
         <div className="text-right">
-          <p className="font-mono text-sm text-slate-600">NCF: {factura.ncf}</p>
+          {factura.ncf && <p className="font-mono text-sm text-slate-600">NCF: {factura.ncf}</p>}
           <p className="text-sm text-slate-600">Factura No. {factura.numero}</p>
           <p className="text-sm text-slate-600">Fecha: {formatDate(factura.fecha)}</p>
           <p className="text-sm text-slate-600">Cliente: {factura.cliente_nombre}</p>

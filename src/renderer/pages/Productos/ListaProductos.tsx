@@ -4,7 +4,7 @@ import type { Cuenta, Producto } from "../../lib/types";
 import { formatMoney } from "../../lib/format";
 import { Badge, Button, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
-import { CATEGORIAS_SUGERIDAS, esColmado, esVariantCaja, GRUPOS_COLMADO, manejaEnvases, soloVentas } from "../../lib/variant";
+import { CATEGORIAS_SUGERIDAS, esColmado, esVariantCaja, GRUPOS_COLMADO, manejaEnvases, sinImpuestos, soloVentas } from "../../lib/variant";
 import { mensajeDeError } from "../../lib/api";
 import { leerPrecios } from "../../lib/precios";
 import { ProveedoresDeProductoModal } from "../Proveedores/componentes";
@@ -21,7 +21,7 @@ const emptyForm = {
   costo_contenido: 0,
   maneja_envase: manejaEnvases,
   fianza_envase: 0,
-  itbis_rate: 0.18,
+  itbis_rate: sinImpuestos ? 0 : 0.18,
   cuenta_ingreso_id: undefined as number | undefined,
   cuenta_costo_id: undefined as number | undefined,
   cuenta_inventario_id: undefined as number | undefined,
@@ -119,11 +119,12 @@ export default function ListaProductos() {
       nombre: p.nombre,
       categoria: p.categoria,
       unidad: p.unidad,
-      precio_contenido: p.precio_contenido,
+      // sin ITBIS el precio guardado pasa a ser el final, el mismo que paga el cliente
+      precio_contenido: sinImpuestos ? Math.round(p.precio_contenido * (1 + (p.itbis_rate ?? 0.18)) * 100) / 100 : p.precio_contenido,
       costo_contenido: p.costo_contenido,
       maneja_envase: !!p.maneja_envase,
       fianza_envase: p.fianza_envase,
-      itbis_rate: p.itbis_rate ?? 0.18,
+      itbis_rate: sinImpuestos ? 0 : p.itbis_rate ?? 0.18,
       cuenta_ingreso_id: p.cuenta_ingreso_id ?? undefined,
       cuenta_costo_id: p.cuenta_costo_id ?? undefined,
       cuenta_inventario_id: p.cuenta_inventario_id ?? undefined,
@@ -437,10 +438,10 @@ export default function ListaProductos() {
           )}
           </>
           )}
-          <div className="grid grid-cols-3 gap-3">
+          <div className={`grid gap-3 ${sinImpuestos ? "grid-cols-2" : "grid-cols-3"}`}>
             <Input label="Costo (compra)" type="number" step="0.01" value={form.costo_contenido} onChange={(e) => cambiarCosto(Number(e.target.value))} />
             <Input label="% de ganancia" type="number" step="0.01" value={margenPct} onChange={(e) => cambiarMargen(Number(e.target.value))} />
-            {esColmado ? (
+            {sinImpuestos ? null : esColmado ? (
               <Select label="ITBIS" value={String(form.itbis_rate)} onChange={(e) => setForm({ ...form, itbis_rate: Number(e.target.value) })}>
                 {ITBIS_OPCIONES.map(([v, t]) => (
                   <option key={t} value={String(v)}>
@@ -461,14 +462,14 @@ export default function ListaProductos() {
           <div className="grid grid-cols-2 gap-3">
             <Input label="Existencia" type="number" value={form.existencia} onChange={(e) => setForm({ ...form, existencia: Number(e.target.value) })} />
             <Input
-              label="Precio de venta (sin ITBIS, ajustable)"
+              label={sinImpuestos ? "Precio de venta" : "Precio de venta (sin ITBIS, ajustable)"}
               type="number"
               step="0.01"
               value={form.precio_contenido}
               onChange={(e) => cambiarPrecio(Number(e.target.value))}
             />
           </div>
-          <div className="rounded-lg bg-brand-50 px-3 py-2">
+          <div className={`rounded-lg bg-brand-50 px-3 py-2 ${sinImpuestos ? "hidden" : ""}`}>
             <Input
               label="Precio final con ITBIS (lo que paga el cliente)"
               type="number"

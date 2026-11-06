@@ -232,6 +232,8 @@ export interface NuevaFacturaInput {
   condicion_pago: "CONTADO" | "CREDITO";
   metodo_pago?: MetodoPago;
   tipo_ncf: TipoNcfVenta;
+  /** Negocio sin registrar: la venta no lleva NCF ni ITBIS. */
+  sin_comprobante?: boolean;
   /** VERSION_CODIGOS_NCF de la pantalla que pide (sin ella, el tipo es un codigo de antes de la correccion). */
   codigos_ncf?: number;
   lineas: FacturaLineaInput[];

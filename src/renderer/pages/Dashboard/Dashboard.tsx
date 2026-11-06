@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import { formatMoney } from "../../lib/format";
 import { Card, PageHeader, StatCard } from "../../components/ui";
-import { esColmado, esVariantCaja } from "../../lib/variant";
+import { esColmado, esVariantCaja, sinImpuestos } from "../../lib/variant";
 import { useAuth } from "../../lib/auth";
 
 interface DashboardData {
@@ -29,9 +29,11 @@ export default function Dashboard() {
         title="Panel Principal"
         subtitle={esColmado ? "Resumen del colmado" : "Resumen del negocio: venta de gas, oxigeno y agua purificada"}
         actions={
-          <Link to="/facturas/nueva" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
-            + Nueva Factura
-          </Link>
+          !sinImpuestos && (
+            <Link to="/facturas/nueva" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
+              + Nueva Factura
+            </Link>
+          )
         }
       />
 
@@ -47,7 +49,7 @@ export default function Dashboard() {
           <h2 className="mb-3 text-sm font-semibold text-slate-700">Accesos rapidos</h2>
           <div className="grid grid-cols-2 gap-2.5">
             {(esVariantCaja || esColmado || esCajero) && <QuickLink to="/caja" label="Punto de venta" />}
-            <QuickLink to="/facturas/nueva" label="Factura detallada" />
+            {!sinImpuestos && <QuickLink to="/facturas/nueva" label="Factura detallada" />}
             <QuickLink to="/clientes" label="Clientes" />
             <QuickLink to="/productos" label="Inventario" />
             {!esVariantCaja && !esCajero && <QuickLink to="/contabilidad/asientos" label="Libro Diario" />}

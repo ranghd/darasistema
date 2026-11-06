@@ -17,6 +17,8 @@ export const esFritura = APP_VARIANT === "fritura" || APP_VARIANT === "frituraad
 export const soloVentas = APP_VARIANT === "puntoventa" || APP_VARIANT === "puntoventaadmin" || esFritura;
 // El programa del dueno de esas ediciones: todo lo de Darasistema, con lo propio de cada una.
 export const adminVentas = APP_VARIANT === "puntoventaadmin" || APP_VARIANT === "frituraadmin";
+// Negocio sin registrar en la DGII: no cobra ITBIS ni usa NCF, la venta sale como recibo. Cuando se registre, esto pasa a false.
+export const sinImpuestos = esFritura;
 // La caja de Gas Damian tambien lleva el inventario: productos, categorias, compras y proveedores.
 export const cajaConInventario = APP_VARIANT === "puntoventa";
 // Esas cajas entran solas: la sesion se recuerda 30 dias y al abrir se revisan las actualizaciones.

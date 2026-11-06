@@ -7,7 +7,7 @@ import CierreCaja from "./pages/CierreCaja/CierreCaja";
 import CierresCaja from "./pages/CierreCaja/CierresCaja";
 import GastosCaja from "./pages/CierreCaja/GastosCaja";
 import FiadosCaja from "./pages/Caja/FiadosCaja";
-import { adminVentas, cajaConInventario, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, recuerdaSesion, soloVentas } from "./lib/variant";
+import { adminVentas, cajaConInventario, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, recuerdaSesion, sinImpuestos, soloVentas } from "./lib/variant";
 import Layout from "./components/Layout";
 import Login from "./pages/Login/Login";
 import ConfigurarConexion from "./pages/Configuracion/ConfigurarConexion";
@@ -54,7 +54,7 @@ const RUTAS_COMUNES = [
   // Abrir y cerrar caja solo en Cajapunto1; Darasistema solo consulta los cierres.
   ...(operaCaja ? [{ path: "/cierre-caja", element: <CierreCaja /> }] : []),
   { path: "/facturas", element: <ListaFacturas /> },
-  { path: "/facturas/nueva", element: <NuevaFactura /> },
+  { path: "/facturas/nueva", element: sinImpuestos ? <Navigate to="/facturas" replace /> : <NuevaFactura /> },
   { path: "/facturas/:id", element: <DetalleFactura /> },
   { path: "/cuentas-por-cobrar", element: <CuentasPorCobrar /> },
   { path: "/clientes", element: <ListaClientes /> },

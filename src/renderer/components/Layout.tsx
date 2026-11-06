@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { isPreviewMode } from "../lib/api";
-import { adminVentas, cajaConInventario, EDICION, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, soloVentas } from "../lib/variant";
+import { adminVentas, cajaConInventario, EDICION, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, sinImpuestos, soloVentas } from "../lib/variant";
 import { useAuth } from "../lib/auth";
 import ConnectionBanner from "./ConnectionBanner";
 import Logo from "./Logo";
@@ -196,6 +196,8 @@ export default function Layout() {
   const nav = (soloVentas && !adminVentas ? NAV_CAJA_GAS_DAMIAN : mostrarCaja ? NAV_CAJA : esColmado ? NAV_COLMADO : NAV_COMPLETO)
     .filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN")
     .map((g) => ({ ...g, items: g.items.filter((i) => manejaEnvases || (i.to !== "/envases" && i.to !== "/botellas-fiadas")) }))
+    // Sin registrar no hay NCF: las ventas se hacen en la caja
+    .map((g) => ({ ...g, items: g.items.filter((i) => !sinImpuestos || i.to !== "/facturas/nueva") }))
     // Gas Damian Admin: el menu de Darasistema con los cilindros prestados
     .map((g) => (adminVentas && manejaEnvases && g.section === "Clientes" ? { ...g, items: [...g.items, { to: "/botellas-fiadas", label: "Cilindros prestados" }] } : g))
     // Dara Frituras Admin: lo que la caja vendio por debajo o por encima del precio

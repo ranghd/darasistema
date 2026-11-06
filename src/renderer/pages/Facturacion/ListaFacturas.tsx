@@ -1,3 +1,4 @@
+import { sinImpuestos } from "../../lib/variant";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
@@ -16,11 +17,13 @@ export default function ListaFacturas() {
     <div>
       <PageHeader
         title="Facturas"
-        subtitle="Facturacion de ventas con NCF e ITBIS"
+        subtitle={sinImpuestos ? "Ventas hechas en la caja" : "Facturacion de ventas con NCF e ITBIS"}
         actions={
-          <Link to="/facturas/nueva">
-            <Button>+ Nueva Factura</Button>
-          </Link>
+          !sinImpuestos && (
+            <Link to="/facturas/nueva">
+              <Button>+ Nueva Factura</Button>
+            </Link>
+          )
         }
       />
 

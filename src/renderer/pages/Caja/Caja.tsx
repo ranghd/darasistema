@@ -12,7 +12,7 @@ import type { Cliente, ModalidadLinea, PlatoDia, Producto, TipoNcfVenta } from "
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { NCF_LABELS, TIPOS_NCF_VENTA, VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Modal } from "../../components/ui";
-import { esColmado, esFritura, manejaEnvases, soloVentas, usaGrupos } from "../../lib/variant";
+import { esColmado, esFritura, manejaEnvases, sinImpuestos, soloVentas, usaGrupos } from "../../lib/variant";
 import { imprimirFacturaGasDamian } from "../../lib/reciboGasDamian";
 import TablaFactura from "./TablaFactura";
 import { leerBusqueda, sinAcentos } from "./buscar";
@@ -129,7 +129,9 @@ export default function Caja() {
     const [p, platos] = await Promise.all([api.productos.listar() as Promise<Producto[]>, esFritura ? api.platos.listar(todayIso()) : Promise.resolve([] as PlatoDia[])]);
     const lista = p.map((x) => {
       const plato = platos.find((d) => d.producto_id === x.id);
-      return plato ? { ...x, precio_contenido: plato.precio, existencia: Math.min(plato.quedan, x.existencia) } : x;
+      const conPlato = plato ? { ...x, precio_contenido: plato.precio, existencia: Math.min(plato.quedan, x.existencia) } : x;
+      // Sin ITBIS se cobra el precio final, tambien en los productos que se crearon con ITBIS.
+      return sinImpuestos ? { ...conPlato, precio_contenido: r2(conPlato.precio_contenido * (1 + (x.itbis_rate ?? 0.18))), itbis_rate: 0 } : conPlato;
     });
     setPlatosHoy(platos);
     setProductos(lista);
@@ -336,6 +338,7 @@ export default function Caja() {
         condicion_pago: metodoPago === "FIADO" ? "CREDITO" : "CONTADO",
         metodo_pago: metodoPago === "FIADO" ? undefined : metodoPago,
         tipo_ncf: soloVentas ? tipoNcf : "B02",
+        sin_comprobante: sinImpuestos,
         codigos_ncf: VERSION_CODIGOS_NCF,
         creado_por: usuario?.nombre,
         caja_sesion_id: sesion?.id ?? null,
@@ -738,7 +741,7 @@ export default function Caja() {
             {soloVentas && (
               <div className="space-y-1.5 border-b border-slate-200 px-4 py-2.5">
                 {esConsumidorFinal ? (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className={`grid gap-2 ${sinImpuestos ? "grid-cols-1" : "grid-cols-2"}`}>
                     <label className="block">
                       <span className="mb-0.5 block text-xs font-medium text-slate-600">
                         Nombre <span className="font-normal text-slate-400">(si quiere)</span>
@@ -752,36 +755,40 @@ export default function Caja() {
                         data-nav-ignorar
                       />
                     </label>
-                    <label className="block">
-                      <span className="mb-0.5 block text-xs font-medium text-slate-600">
-                        RNC <span className="font-normal text-slate-400">(si lo pide)</span>
-                      </span>
-                      <input
-                        value={rncCliente}
-                        onChange={(e) => escribirRnc(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), enfocar())}
-                        placeholder="RNC"
-                        inputMode="numeric"
-                        className={CAMPO_CLIENTE}
-                        data-nav-ignorar
-                      />
-                    </label>
+                    {!sinImpuestos && (
+                      <label className="block">
+                        <span className="mb-0.5 block text-xs font-medium text-slate-600">
+                          RNC <span className="font-normal text-slate-400">(si lo pide)</span>
+                        </span>
+                        <input
+                          value={rncCliente}
+                          onChange={(e) => escribirRnc(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), enfocar())}
+                          placeholder="RNC"
+                          inputMode="numeric"
+                          className={CAMPO_CLIENTE}
+                          data-nav-ignorar
+                        />
+                      </label>
+                    )}
                   </div>
-                ) : (
+                ) : sinImpuestos ? null : (
                   <p className={`rounded-md px-2 py-1 text-xs font-medium ${valorFiscal ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
                     {valorFiscal ? `✓ Factura con RNC ${cliente?.rnc_cedula ?? ""}` : "Factura normal (sin RNC)"}
                   </p>
                 )}
-                <label className="flex items-center gap-2">
-                  <span className="shrink-0 text-xs font-medium text-slate-600">Comprobante</span>
-                  <select value={tipoNcf} onChange={(e) => setTipoElegido(e.target.value as TipoNcfVenta)} className={CAMPO_CLIENTE} data-nav-ignorar>
-                    {TIPOS_NCF_VENTA.map((t) => (
-                      <option key={t} value={t}>
-                        {NCF_LABELS[t]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {!sinImpuestos && (
+                  <label className="flex items-center gap-2">
+                    <span className="shrink-0 text-xs font-medium text-slate-600">Comprobante</span>
+                    <select value={tipoNcf} onChange={(e) => setTipoElegido(e.target.value as TipoNcfVenta)} className={CAMPO_CLIENTE} data-nav-ignorar>
+                      {TIPOS_NCF_VENTA.map((t) => (
+                        <option key={t} value={t}>
+                          {NCF_LABELS[t]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 {esConsumidorFinal && rncEscrito && !rncCompleto && <p className="text-xs text-amber-700">El RNC tiene 9 numeros (o 11 si es cedula)</p>}
                 {PIDEN_RNC.includes(tipoNcf) && !tieneRnc && !rncEscrito && <p className="text-xs text-amber-700">Este comprobante lleva el RNC del cliente</p>}
               </div>
@@ -916,14 +923,18 @@ export default function Caja() {
             </div>
 
             <div className="space-y-1 border-t border-slate-200 p-4 text-sm">
-              <div className="flex justify-between text-slate-600">
-                <span>Subtotal</span>
-                <span>{formatMoney(calculo.subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>ITBIS</span>
-                <span>{formatMoney(calculo.itbis)}</span>
-              </div>
+              {!sinImpuestos && (
+                <>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Subtotal</span>
+                    <span>{formatMoney(calculo.subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>ITBIS</span>
+                    <span>{formatMoney(calculo.itbis)}</span>
+                  </div>
+                </>
+              )}
               {calculo.fianza > 0 && (
                 <div className="flex justify-between text-slate-600">
                   <span>Fianza</span>
@@ -1146,7 +1157,11 @@ export default function Caja() {
           <div className="space-y-4">
             <div className="flex justify-between text-sm text-slate-600">
               <span>
-                NCF <span className="font-mono">{venta.ncf}</span>
+                {venta.ncf && (
+                  <>
+                    NCF <span className="font-mono">{venta.ncf}</span>
+                  </>
+                )}
               </span>
               <span>Total {formatMoney(venta.total)}</span>
             </div>
@@ -1173,7 +1188,7 @@ export default function Caja() {
               </Button>
               {!venta.impresoSolo && (
                 <Button autoFocus onClick={imprimirVenta} disabled={imprimiendo}>
-                  {imprimiendo ? "Imprimiendo..." : soloVentas ? "Imprimir factura" : "Imprimir recibo"} <Tecla>Enter</Tecla>
+                  {imprimiendo ? "Imprimiendo..." : soloVentas && !sinImpuestos ? "Imprimir factura" : "Imprimir recibo"} <Tecla>Enter</Tecla>
                 </Button>
               )}
             </div>

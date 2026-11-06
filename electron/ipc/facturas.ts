@@ -132,6 +132,9 @@ export function registerFacturasIpc(db: DB) {
       }
     }
 
+    // Sin comprobante el precio que se cobra es el final, asi que la lista se compara con el final.
+    const precioDeLista = (precio: number, p: Producto) => (input.sin_comprobante ? Math.round(precio * (1 + (p.itbis_rate ?? 0.18)) * 100) / 100 : precio);
+
     let subtotal = 0;
     let itbisTotal = 0;
     let fianzaTotal = 0;
@@ -141,7 +144,7 @@ export function registerFacturasIpc(db: DB) {
       const bruto = Math.round(exacto * 100) / 100;
       // El ITBIS sale de redondear el precio final: asi un precio final redondo (ej. RD$1,300) da justo ese total
       // aunque el precio sin ITBIS tenga mas de dos decimales. Con precios de dos decimales da lo mismo que antes.
-      const itbisLinea = Math.round((Math.round(exacto * (1 + (producto.itbis_rate ?? 0.18)) * 100) / 100 - bruto) * 100) / 100;
+      const itbisLinea = input.sin_comprobante ? 0 : Math.round((Math.round(exacto * (1 + (producto.itbis_rate ?? 0.18)) * 100) / 100 - bruto) * 100) / 100;
       const fianzaLinea = l.modalidad === "LLENO" && producto.maneja_envase ? producto.fianza_envase * l.cantidad : 0;
       subtotal += bruto;
       itbisTotal += itbisLinea;
@@ -151,8 +154,9 @@ export function registerFacturasIpc(db: DB) {
     const total = subtotal + itbisTotal + fianzaTotal;
 
     const run = db.transaction(() => {
-      const ncf = tomarSiguienteNcf(db, tipoNcf);
+      const ncf = input.sin_comprobante ? null : tomarSiguienteNcf(db, tipoNcf);
       const maxNumero = (db.prepare(`SELECT COALESCE(MAX(numero), 0) as m FROM facturas`).get() as { m: number }).m;
+      const documento = ncf ?? `#${maxNumero + 1}`;
 
       const estadoInicial = input.condicion_pago === "CONTADO" ? "PAGADA" : "PENDIENTE";
 
@@ -207,7 +211,7 @@ export function registerFacturasIpc(db: DB) {
           itbis: l.itbis,
           subtotal: l.subtotal,
           prestado: l.prestado && l.producto.maneja_envase ? 1 : 0,
-          precio_lista: platos.get(l.producto_id)?.precio ?? l.producto.precio_contenido,
+          precio_lista: precioDeLista(platos.get(l.producto_id)?.precio ?? l.producto.precio_contenido, l.producto),
           plato_dia: platos.get(l.producto_id) ? 1 : 0,
         });
         updateExistencia.run(l.cantidad, l.producto_id);
@@ -237,26 +241,26 @@ export function registerFacturasIpc(db: DB) {
 
       const lineasAsiento = [];
       const cuentaCobroId = input.condicion_pago === "CONTADO" ? cuentaCobroContado(db, input.metodo_pago) : cuentaIdPorCodigo(db, CODIGO_CXC);
-      lineasAsiento.push({ cuenta_id: cuentaCobroId, debito: total, credito: 0, descripcion: `Factura ${ncf}` });
+      lineasAsiento.push({ cuenta_id: cuentaCobroId, debito: total, credito: 0, descripcion: `Factura ${documento}` });
       for (const [cuentaId, monto] of ingresoPorCuenta) {
-        lineasAsiento.push({ cuenta_id: cuentaId, debito: 0, credito: Math.round(monto * 100) / 100, descripcion: `Factura ${ncf}` });
+        lineasAsiento.push({ cuenta_id: cuentaId, debito: 0, credito: Math.round(monto * 100) / 100, descripcion: `Factura ${documento}` });
       }
       if (itbisTotal > 0) {
-        lineasAsiento.push({ cuenta_id: cuentaIdPorCodigo(db, CODIGO_ITBIS_PAGAR), debito: 0, credito: Math.round(itbisTotal * 100) / 100, descripcion: `ITBIS factura ${ncf}` });
+        lineasAsiento.push({ cuenta_id: cuentaIdPorCodigo(db, CODIGO_ITBIS_PAGAR), debito: 0, credito: Math.round(itbisTotal * 100) / 100, descripcion: `ITBIS factura ${documento}` });
       }
       if (fianzaTotal > 0) {
-        lineasAsiento.push({ cuenta_id: cuentaIdPorCodigo(db, CODIGO_DEPOSITOS_GARANTIA), debito: 0, credito: fianzaTotal, descripcion: `Deposito en garantia envases ${ncf}` });
+        lineasAsiento.push({ cuenta_id: cuentaIdPorCodigo(db, CODIGO_DEPOSITOS_GARANTIA), debito: 0, credito: fianzaTotal, descripcion: `Deposito en garantia envases ${documento}` });
       }
       for (const [cuentaCostoId, { costo, inventarioId }] of costoPorCuenta) {
         if (costo <= 0) continue;
         const montoRedondeado = Math.round(costo * 100) / 100;
-        lineasAsiento.push({ cuenta_id: cuentaCostoId, debito: montoRedondeado, credito: 0, descripcion: `Costo de venta factura ${ncf}` });
-        lineasAsiento.push({ cuenta_id: inventarioId, debito: 0, credito: montoRedondeado, descripcion: `Salida de inventario factura ${ncf}` });
+        lineasAsiento.push({ cuenta_id: cuentaCostoId, debito: montoRedondeado, credito: 0, descripcion: `Costo de venta factura ${documento}` });
+        lineasAsiento.push({ cuenta_id: inventarioId, debito: 0, credito: montoRedondeado, descripcion: `Salida de inventario factura ${documento}` });
       }
 
       const asientoId = crearAsiento(db, {
         fecha: input.fecha,
-        concepto: `Venta segun factura ${ncf}`,
+        concepto: `Venta segun factura ${documento}`,
         origen: "FACTURA",
         referencia_id: facturaId,
         lineas: lineasAsiento,
@@ -296,9 +300,10 @@ export function registerFacturasIpc(db: DB) {
 
       if (factura.asiento_id) {
         const original = db.prepare(`SELECT * FROM asiento_lineas WHERE asiento_id = ?`).all(factura.asiento_id) as any[];
+        const documento = factura.ncf ?? `#${factura.numero}`;
         const concepto = notaCreditoNcf
-          ? `Nota de Credito ${notaCreditoNcf} - Anulacion de factura ${factura.ncf}: ${motivo}`
-          : `Anulacion de factura ${factura.ncf}: ${motivo}`;
+          ? `Nota de Credito ${notaCreditoNcf} - Anulacion de factura ${documento}: ${motivo}`
+          : `Anulacion de factura ${documento}: ${motivo}`;
         const reversa = original.map((l) => ({ cuenta_id: l.cuenta_id, debito: l.credito, credito: l.debito, descripcion: concepto }));
         asientoAnulacion = crearAsiento(db, {
           fecha: fechaHoyRD(),

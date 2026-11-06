@@ -5,6 +5,7 @@ import { formatMoney, todayIso } from "../../lib/format";
 import type { PlatoDia, Producto } from "../../lib/types";
 import { Button, Card, Input, Modal, PageHeader } from "../../components/ui";
 import { sinAcentos } from "./buscar";
+import { sinImpuestos } from "../../lib/variant";
 
 // Platos del dia (Dara Frituras): el menu de hoy, en la caja y en el Admin. Cada cambio queda anotado con quien lo hizo.
 // El plato se escribe por su nombre: si no existe se crea aqui mismo, y las porciones preparadas entran al inventario.
@@ -65,11 +66,11 @@ export default function PlatosDia() {
         grupo: "Platos",
         unidad: "UNIDAD",
         categoria: "OTRO",
-        precio_contenido: Math.round((numero(f.precio) / 1.18) * 10000) / 10000,
+        precio_contenido: sinImpuestos ? numero(f.precio) : Math.round((numero(f.precio) / 1.18) * 10000) / 10000,
         costo_contenido: numero(f.costo) || 0,
         existencia: porciones,
         maneja_envase: 0,
-        itbis_rate: 0.18,
+        itbis_rate: sinImpuestos ? 0 : 0.18,
         cuentas_por_categoria: true,
       })) as Producto;
       return creado.id;
