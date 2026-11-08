@@ -8,7 +8,7 @@ import { hayModalAbierto } from "../../lib/atajos";
 import CajaCerradaAviso from "../../components/CajaCerradaAviso";
 import AvisoBorrador from "../../components/AvisoBorrador";
 import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
-import type { Cliente, MercanciaResumen, ModalidadLinea, PlatoDia, Producto, TipoNcfVenta } from "../../lib/types";
+import type { Cliente, MercanciaResumen, ModalidadLinea, Producto, TipoNcfVenta } from "../../lib/types";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { NCF_LABELS, TIPOS_NCF_VENTA, VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Modal } from "../../components/ui";
@@ -102,9 +102,7 @@ export default function Caja() {
   const [cambiandoPrecio, setCambiandoPrecio] = useState<{ i: number; texto: string } | null>(null);
   const habiaVenta = useHabiaBorrador("venta.carrito", (v) => Array.isArray(v) && v.length > 0);
   const [avisoRecuperada, setAvisoRecuperada] = useState(habiaVenta);
-  // Dara Frituras: abre en los platos de hoy
-  const [categoria, setCategoria] = useState(esFritura ? "HOY" : "TODOS");
-  const [platosHoy, setPlatosHoy] = useState<PlatoDia[]>([]);
+  const [categoria, setCategoria] = useState("TODOS");
   const [mercancias, setMercancias] = useState<MercanciaResumen[]>([]);
   // Como va la pieza abierta de la mercancia de un producto (control de piezas).
   const estadoPieza = (mercanciaId: number) => {
@@ -115,7 +113,7 @@ export default function Caja() {
   };
   // En el colmado y en Gas Damian las pestanas son las categorias de los productos (Viveres, Bebidas... / Oxigeno, Acetileno...).
   const pestanas = usaGrupos
-    ? [...(esFritura ? [{ value: "HOY", label: "Hoy" }] : []), { value: "TODOS", label: "Todos" }, ...Array.from(new Set(productos.filter((p) => p.activo).map(grupoDe))).sort().map((g) => ({ value: g, label: g }))]
+    ? [{ value: "TODOS", label: "Todos" }, ...Array.from(new Set(productos.filter((p) => p.activo).map(grupoDe))).sort().map((g) => ({ value: g, label: g }))]
     : CATEGORIAS;
   const [busqueda, setBusqueda] = useState("");
   const [resaltado, setResaltado] = useState(0);
@@ -135,22 +133,17 @@ export default function Caja() {
 
   const enfocar = () => setTimeout(() => buscador.current?.focus(), 0);
 
-  // Un plato de hoy se vende a su precio de hoy, hasta donde alcancen sus porciones y su existencia.
   // Lo que sale de una mercancia con control de piezas no se cuenta por unidades: no tiene tope de existencia.
   async function traerProductos(): Promise<Producto[]> {
-    const [p, platos, mercancias] = await Promise.all([
+    const [p, mercancias] = await Promise.all([
       api.productos.listar() as Promise<Producto[]>,
-      esFritura ? api.platos.listar(todayIso()) : Promise.resolve([] as PlatoDia[]),
       esFritura ? api.piezas.resumen().catch(() => [] as MercanciaResumen[]) : Promise.resolve([] as MercanciaResumen[]),
     ]);
     const lista = p.map((original) => {
       const x = original.mercancia_id ? { ...original, existencia: SIN_TOPE } : original;
-      const plato = platos.find((d) => d.producto_id === x.id);
-      const conPlato = plato ? { ...x, precio_contenido: plato.precio, existencia: Math.min(plato.quedan, x.existencia) } : x;
       // Sin ITBIS se cobra el precio final, tambien en los productos que se crearon con ITBIS.
-      return sinImpuestos ? { ...conPlato, precio_contenido: r2(conPlato.precio_contenido * (1 + (x.itbis_rate ?? 0.18))), itbis_rate: 0 } : conPlato;
+      return sinImpuestos ? { ...x, precio_contenido: r2(x.precio_contenido * (1 + (x.itbis_rate ?? 0.18))), itbis_rate: 0 } : x;
     });
-    setPlatosHoy(platos);
     setMercancias(mercancias);
     setProductos(lista);
     return lista;
@@ -176,14 +169,12 @@ export default function Caja() {
     const t = sinAcentos(q.trim());
     const lista = productos.filter((p) => {
       if (!p.activo) return false;
-      if (categoria === "HOY") {
-        if (!t && !platosHoy.some((d) => d.producto_id === p.id)) return false;
-      } else if (categoria !== "TODOS" && (usaGrupos ? grupoDe(p) : p.categoria) !== categoria) return false;
+      if (categoria !== "TODOS" && (usaGrupos ? grupoDe(p) : p.categoria) !== categoria) return false;
       return !t || sinAcentos(p.nombre).includes(t) || sinAcentos(p.codigo).includes(t);
     });
     // Un codigo exacto (lector de codigos de barras) va primero.
     return lista.sort((a, b) => Number(sinAcentos(b.codigo) === t) - Number(sinAcentos(a.codigo) === t));
-  }, [productos, categoria, q, platosHoy]);
+  }, [productos, categoria, q]);
 
   useEffect(() => setResaltado(0), [q, categoria]);
 
@@ -715,28 +706,12 @@ export default function Caja() {
                   <span className={`mt-1 font-semibold text-slate-800 ${soloVentas ? "text-base leading-snug" : "text-sm"}`}>{p.nombre}</span>
                   {/* en el colmado y en Gas Damian se ve el precio final, el que paga el cliente (con ITBIS) */}
                   <span className={`mt-1.5 font-bold text-slate-900 ${soloVentas ? "text-2xl" : "text-base"}`}>{formatMoney(esColmado || soloVentas ? p.precio_contenido * (1 + (p.itbis_rate ?? 0)) : p.precio_contenido)}</span>
-                  <span className={`mt-1 text-xs ${p.existencia <= 0 && platosHoy.some((d) => d.producto_id === p.id) ? "font-bold text-red-600" : "text-slate-400"}`}>
-                    {p.existencia <= 0 && platosHoy.some((d) => d.producto_id === p.id)
-                      ? "Agotado"
-                      : p.mercancia_id && !platosHoy.some((d) => d.producto_id === p.id)
-                        ? estadoPieza(p.mercancia_id)
-                        : soloVentas
-                          ? `Quedan ${p.existencia}`
-                          : `Existencia: ${p.existencia}`}
+                  <span className="mt-1 text-xs text-slate-400">
+                    {p.mercancia_id ? estadoPieza(p.mercancia_id) : soloVentas ? `Quedan ${p.existencia}` : `Existencia: ${p.existencia}`}
                   </span>
                 </button>
               ))}
-              {resultados.length === 0 &&
-                (categoria === "HOY" ? (
-                  <div className="col-span-full py-10 text-center text-sm text-slate-500">
-                    <p>Todavia no hay platos de hoy.</p>
-                    <Button className="mt-3 py-2.5 text-base" onClick={() => navigate("/platos-dia")}>
-                      Poner los platos de hoy
-                    </Button>
-                  </div>
-                ) : (
-                  <p className="col-span-full py-10 text-center text-sm text-slate-400">No hay productos que coincidan</p>
-                ))}
+              {resultados.length === 0 && <p className="col-span-full py-10 text-center text-sm text-slate-400">No hay productos que coincidan</p>}
             </div>
             <p className={`mt-2 text-[11px] text-slate-400 ${soloVentas ? "hidden" : ""}`}>
               ↑↓ elegir · Enter agregar · + / − cantidad · Supr quitar · F2 o Ctrl+B cliente · {manejaEnvases ? "F4 o Ctrl+E lleno/intercambio · " : ""}F6-F8 o Ctrl+1-3 pago · F12 o Ctrl+Enter cobrar · Esc cancelar · F1 ayuda

@@ -2,7 +2,6 @@ import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { crearAsiento, fechaHoyRD } from "../db/contabilidad";
 import { validarSesionAbierta } from "./caja";
-import { platoDelDia } from "./platos";
 import { piezaParaVenta } from "./piezas";
 import type { Factura, FacturaDetalle, NotaFactura, NuevaFacturaInput, Producto, TipoNcf } from "../shared/types";
 import { NCF_LABELS, TIPOS_NCF_VENTA, tipoNcfRecibido, type TipoNcfVenta } from "../shared/ncf";
@@ -115,22 +114,15 @@ export function registerFacturasIpc(db: DB) {
       if (!cli || cli.codigo === "CLI-0000") throw new Error("Para prestar un cilindro escribe el nombre de quien se lo lleva");
     }
 
+    // Los platos del dia se quitaron de Dara Frituras: la venta ya no los usa (la tabla y sus datos quedan).
     const productos = new Map<number, Producto>();
-    const platos = new Map<number, ReturnType<typeof platoDelDia>>();
     for (const l of input.lineas) {
       if (!productos.has(l.producto_id)) {
         const p = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(l.producto_id) as Producto | undefined;
         if (!p) throw new Error(`Producto ${l.producto_id} no existe`);
-        // Un plato del dia ademas no puede pasar de las porciones de hoy.
-        const plato = platoDelDia(db, input.fecha, l.producto_id);
-        if (plato) {
-          const pedidas = input.lineas.filter((x) => x.producto_id === l.producto_id).reduce((s, x) => s + x.cantidad, 0);
-          if (pedidas > plato.quedan) throw new Error(plato.quedan > 0 ? `Solo quedan ${plato.quedan} porciones de ${p.nombre}` : `Se acabo ${p.nombre}`);
-        }
         // Lo que sale de una mercancia con control de piezas (Dara Frituras) no se cuenta por unidades: no se bloquea.
         if (!p.mercancia_id && p.existencia < l.cantidad) throw new Error(`Existencia insuficiente de ${p.nombre} (disponible: ${p.existencia})`);
         productos.set(l.producto_id, p);
-        platos.set(l.producto_id, plato);
       }
     }
 
@@ -219,8 +211,8 @@ export function registerFacturasIpc(db: DB) {
           itbis: l.itbis,
           subtotal: l.subtotal,
           prestado: l.prestado && l.producto.maneja_envase ? 1 : 0,
-          precio_lista: precioDeLista(platos.get(l.producto_id)?.precio ?? l.producto.precio_contenido, l.producto),
-          plato_dia: platos.get(l.producto_id) ? 1 : 0,
+          precio_lista: precioDeLista(l.producto.precio_contenido, l.producto),
+          plato_dia: 0,
           mercancia_id: l.producto.mercancia_id ?? null,
           pieza_id: l.producto.mercancia_id ? piezaPara(l.producto.mercancia_id) : null,
         });
