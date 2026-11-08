@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { isPreviewMode } from "../lib/api";
-import { adminVentas, cajaConInventario, EDICION, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, sinImpuestos, soloVentas } from "../lib/variant";
+import { adminVentas, cajaConInventario, EDICION, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, permiteFiar, sinImpuestos, soloVentas } from "../lib/variant";
 import { useAuth } from "../lib/auth";
 import ConnectionBanner from "./ConnectionBanner";
 import Logo from "./Logo";
@@ -108,7 +108,7 @@ const NAV_CAJA_GAS_DAMIAN = [
     items: [
       { to: "/caja", label: "Punto de venta" },
       ...(esFritura ? [{ to: "/platos-dia", label: "Platos del dia" }] : []),
-      { to: "/fiados", label: "Fiados" },
+      ...(permiteFiar ? [{ to: "/fiados", label: "Fiados" }] : []),
       { to: "/gastos-caja", label: "Gastos de caja" },
       { to: "/cierre-caja", label: "Cierre de Caja" },
       { to: "/botellas-fiadas", label: "Cilindros prestados" },

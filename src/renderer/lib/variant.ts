@@ -19,6 +19,8 @@ export const soloVentas = APP_VARIANT === "puntoventa" || APP_VARIANT === "punto
 export const adminVentas = APP_VARIANT === "puntoventaadmin" || APP_VARIANT === "frituraadmin";
 // Negocio sin registrar en la DGII: no cobra ITBIS ni usa NCF, la venta sale como recibo. Cuando se registre, esto pasa a false.
 export const sinImpuestos = esFritura;
+// La caja vende fiado (a credito, se cobra despues en Fiados). Gas Damian no fia; Dara Frituras si.
+export const permiteFiar = esFritura;
 // La caja de Gas Damian tambien lleva el inventario: productos, categorias, compras y proveedores.
 export const cajaConInventario = APP_VARIANT === "puntoventa";
 // Esas cajas entran solas: la sesion se recuerda 30 dias y al abrir se revisan las actualizaciones.

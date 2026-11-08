@@ -7,7 +7,7 @@ import CierreCaja from "./pages/CierreCaja/CierreCaja";
 import CierresCaja from "./pages/CierreCaja/CierresCaja";
 import GastosCaja from "./pages/CierreCaja/GastosCaja";
 import FiadosCaja from "./pages/Caja/FiadosCaja";
-import { adminVentas, cajaConInventario, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, recuerdaSesion, sinImpuestos, soloVentas } from "./lib/variant";
+import { adminVentas, cajaConInventario, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, permiteFiar, recuerdaSesion, sinImpuestos, soloVentas } from "./lib/variant";
 import Layout from "./components/Layout";
 import Login from "./pages/Login/Login";
 import ConfigurarConexion from "./pages/Configuracion/ConfigurarConexion";
@@ -98,7 +98,7 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
         // (la factura se sigue abriendo desde la venta para reimprimirla).
         ...(soloVentas && !adminVentas ? RUTAS_COMUNES.filter((r) => ["/caja", "/cierre-caja", "/facturas/:id", ...(cajaConInventario ? ["/productos"] : [])].includes(r.path)) : RUTAS_COMUNES),
         ...(soloVentas && manejaEnvases ? [{ path: "/botellas-fiadas", element: <BotellasFiadas /> }] : []),
-        ...(soloVentas && !adminVentas ? [{ path: "/gastos-caja", element: <GastosCaja /> }, { path: "/fiados", element: <FiadosCaja /> }] : []),
+        ...(soloVentas && !adminVentas ? [{ path: "/gastos-caja", element: <GastosCaja /> }, ...(permiteFiar ? [{ path: "/fiados", element: <FiadosCaja /> }] : [])] : []),
         ...((adminVentas && !restringido) || cajaConInventario ? [{ path: "/categorias", element: <Categorias /> }] : []),
         ...(cajaConInventario ? RUTAS_ADMIN_EXTRA.filter((r) => ["/compras", "/proveedores", "/proveedores/:id"].includes(r.path)) : []),
         ...(esFritura ? [{ path: "/platos-dia", element: <PlatosDia /> }] : []),

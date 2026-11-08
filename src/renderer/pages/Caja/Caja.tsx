@@ -12,7 +12,7 @@ import type { Cliente, ModalidadLinea, PlatoDia, Producto, TipoNcfVenta } from "
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { NCF_LABELS, TIPOS_NCF_VENTA, VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Modal } from "../../components/ui";
-import { esColmado, esFritura, manejaEnvases, sinImpuestos, soloVentas, usaGrupos } from "../../lib/variant";
+import { esColmado, esFritura, manejaEnvases, permiteFiar, sinImpuestos, soloVentas, usaGrupos } from "../../lib/variant";
 import { imprimirFacturaGasDamian } from "../../lib/reciboGasDamian";
 import TablaFactura from "./TablaFactura";
 import { leerBusqueda, sinAcentos } from "./buscar";
@@ -41,14 +41,14 @@ const modoDe = (l: LineaCarrito): ModoCilindro => (l.prestado ? "PRESTADO" : l.m
 const COLORES_CATEGORIA = ["border-t-sky-500", "border-t-amber-500", "border-t-emerald-500", "border-t-violet-500", "border-t-rose-500", "border-t-teal-500", "border-t-orange-500"];
 const colorDe = (grupo: string) => COLORES_CATEGORIA[[...grupo].reduce((s, c) => s + c.charCodeAt(0), 0) % COLORES_CATEGORIA.length];
 
-// FIADO (solo Gas Damian): la venta queda a credito y se cobra despues en Fiados.
+// FIADO (solo Dara Frituras; Gas Damian no fia): la venta queda a credito y se cobra despues en Fiados.
 type Metodo = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "FIADO";
 
 const METODOS: { valor: Metodo; nombre: string; tecla: string }[] = [
   { valor: "EFECTIVO", nombre: "Efectivo", tecla: "F6 · Ctrl1" },
   { valor: "TARJETA", nombre: "Tarjeta", tecla: "F7 · Ctrl2" },
   { valor: "TRANSFERENCIA", nombre: "Transferencia", tecla: "F8 · Ctrl3" },
-  ...(soloVentas ? [{ valor: "FIADO" as const, nombre: "Fiado", tecla: "Ctrl4" }] : []),
+  ...(permiteFiar ? [{ valor: "FIADO" as const, nombre: "Fiado", tecla: "Ctrl4" }] : []),
 ];
 
 // Comprobantes que piden el RNC del cliente.
@@ -450,7 +450,7 @@ export default function Caja() {
   function metodoDeTecla(e: KeyboardEvent | React.KeyboardEvent): Metodo | undefined {
     const porF = { F6: "EFECTIVO", F7: "TARJETA", F8: "TRANSFERENCIA" }[e.key] as Metodo | undefined;
     if (porF) return porF;
-    if (e.ctrlKey || e.metaKey) return ({ "1": "EFECTIVO", "2": "TARJETA", "3": "TRANSFERENCIA", ...(soloVentas ? { "4": "FIADO" } : {}) } as Record<string, Metodo>)[e.key];
+    if (e.ctrlKey || e.metaKey) return ({ "1": "EFECTIVO", "2": "TARJETA", "3": "TRANSFERENCIA", ...(permiteFiar ? { "4": "FIADO" } : {}) } as Record<string, Metodo>)[e.key];
     return undefined;
   }
 
