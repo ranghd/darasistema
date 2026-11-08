@@ -8,7 +8,7 @@ import { hayModalAbierto } from "../../lib/atajos";
 import CajaCerradaAviso from "../../components/CajaCerradaAviso";
 import AvisoBorrador from "../../components/AvisoBorrador";
 import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
-import type { Cliente, ModalidadLinea, PlatoDia, Producto, TipoNcfVenta } from "../../lib/types";
+import type { Cliente, MercanciaResumen, ModalidadLinea, PlatoDia, Producto, TipoNcfVenta } from "../../lib/types";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { NCF_LABELS, TIPOS_NCF_VENTA, VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Modal } from "../../components/ui";
@@ -40,6 +40,9 @@ const modoDe = (l: LineaCarrito): ModoCilindro => (l.prestado ? "PRESTADO" : l.m
 // Gas Damian: un color por categoria para reconocer las tarjetas de un vistazo.
 const COLORES_CATEGORIA = ["border-t-sky-500", "border-t-amber-500", "border-t-emerald-500", "border-t-violet-500", "border-t-rose-500", "border-t-teal-500", "border-t-orange-500"];
 const colorDe = (grupo: string) => COLORES_CATEGORIA[[...grupo].reduce((s, c) => s + c.charCodeAt(0), 0) % COLORES_CATEGORIA.length];
+
+// Sin tope de existencia (productos con control de piezas: no se cuentan por unidades).
+const SIN_TOPE = 1_000_000;
 
 // FIADO (solo Dara Frituras; Gas Damian no fia): la venta queda a credito y se cobra despues en Fiados.
 type Metodo = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "FIADO";
@@ -102,6 +105,14 @@ export default function Caja() {
   // Dara Frituras: abre en los platos de hoy
   const [categoria, setCategoria] = useState(esFritura ? "HOY" : "TODOS");
   const [platosHoy, setPlatosHoy] = useState<PlatoDia[]>([]);
+  const [mercancias, setMercancias] = useState<MercanciaResumen[]>([]);
+  // Como va la pieza abierta de la mercancia de un producto (control de piezas).
+  const estadoPieza = (mercanciaId: number) => {
+    const m = mercancias.find((x) => x.id === mercanciaId);
+    if (!m) return "Control de piezas";
+    if (m.abierta) return `${m.pieza[0].toUpperCase()}${m.pieza.slice(1)}: ${formatMoney(m.abierta.vendido)} de ${formatMoney(m.abierta.esperado)}`;
+    return m.cerradas > 0 ? `${m.cerradas} sin abrir` : `Sin ${m.pieza} registrada`;
+  };
   // En el colmado y en Gas Damian las pestanas son las categorias de los productos (Viveres, Bebidas... / Oxigeno, Acetileno...).
   const pestanas = usaGrupos
     ? [...(esFritura ? [{ value: "HOY", label: "Hoy" }] : []), { value: "TODOS", label: "Todos" }, ...Array.from(new Set(productos.filter((p) => p.activo).map(grupoDe))).sort().map((g) => ({ value: g, label: g }))]
@@ -125,15 +136,22 @@ export default function Caja() {
   const enfocar = () => setTimeout(() => buscador.current?.focus(), 0);
 
   // Un plato de hoy se vende a su precio de hoy, hasta donde alcancen sus porciones y su existencia.
+  // Lo que sale de una mercancia con control de piezas no se cuenta por unidades: no tiene tope de existencia.
   async function traerProductos(): Promise<Producto[]> {
-    const [p, platos] = await Promise.all([api.productos.listar() as Promise<Producto[]>, esFritura ? api.platos.listar(todayIso()) : Promise.resolve([] as PlatoDia[])]);
-    const lista = p.map((x) => {
+    const [p, platos, mercancias] = await Promise.all([
+      api.productos.listar() as Promise<Producto[]>,
+      esFritura ? api.platos.listar(todayIso()) : Promise.resolve([] as PlatoDia[]),
+      esFritura ? api.piezas.resumen().catch(() => [] as MercanciaResumen[]) : Promise.resolve([] as MercanciaResumen[]),
+    ]);
+    const lista = p.map((original) => {
+      const x = original.mercancia_id ? { ...original, existencia: SIN_TOPE } : original;
       const plato = platos.find((d) => d.producto_id === x.id);
       const conPlato = plato ? { ...x, precio_contenido: plato.precio, existencia: Math.min(plato.quedan, x.existencia) } : x;
       // Sin ITBIS se cobra el precio final, tambien en los productos que se crearon con ITBIS.
       return sinImpuestos ? { ...conPlato, precio_contenido: r2(conPlato.precio_contenido * (1 + (x.itbis_rate ?? 0.18))), itbis_rate: 0 } : conPlato;
     });
     setPlatosHoy(platos);
+    setMercancias(mercancias);
     setProductos(lista);
     return lista;
   }
@@ -698,7 +716,13 @@ export default function Caja() {
                   {/* en el colmado y en Gas Damian se ve el precio final, el que paga el cliente (con ITBIS) */}
                   <span className={`mt-1.5 font-bold text-slate-900 ${soloVentas ? "text-2xl" : "text-base"}`}>{formatMoney(esColmado || soloVentas ? p.precio_contenido * (1 + (p.itbis_rate ?? 0)) : p.precio_contenido)}</span>
                   <span className={`mt-1 text-xs ${p.existencia <= 0 && platosHoy.some((d) => d.producto_id === p.id) ? "font-bold text-red-600" : "text-slate-400"}`}>
-                    {p.existencia <= 0 && platosHoy.some((d) => d.producto_id === p.id) ? "Agotado" : soloVentas ? `Quedan ${p.existencia}` : `Existencia: ${p.existencia}`}
+                    {p.existencia <= 0 && platosHoy.some((d) => d.producto_id === p.id)
+                      ? "Agotado"
+                      : p.mercancia_id && !platosHoy.some((d) => d.producto_id === p.id)
+                        ? estadoPieza(p.mercancia_id)
+                        : soloVentas
+                          ? `Quedan ${p.existencia}`
+                          : `Existencia: ${p.existencia}`}
                   </span>
                 </button>
               ))}

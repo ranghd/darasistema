@@ -18,6 +18,7 @@ import { registerCajaIpc } from "./ipc/caja";
 import { registerGastosIpc } from "./ipc/gastos";
 import { registerBancosIpc } from "./ipc/bancos";
 import { registerPlatosIpc } from "./ipc/platos";
+import { registerPiezasIpc } from "./ipc/piezas";
 import { leerConfigRed, guardarConfigRed, normalizarServidorUrl, type ConfigRed } from "./network/config";
 import { listarIpsLocales } from "./network/localIp";
 import { iniciarServidorHttp, type HandlerRegistry } from "./network/server";
@@ -73,6 +74,7 @@ async function registerAllIpc() {
     registerGastosIpc(db);
     registerBancosIpc(db);
     registerPlatosIpc(db);
+    registerPiezasIpc(db);
 
     ipcMain.handle = handleOriginal;
     iniciarServidorHttp(handlerRegistry, configRed.puerto);

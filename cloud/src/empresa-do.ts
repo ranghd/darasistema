@@ -23,6 +23,7 @@ import { registerCajaIpc } from "../../electron/ipc/caja";
 import { registerGastosIpc } from "../../electron/ipc/gastos";
 import { registerBancosIpc } from "../../electron/ipc/bancos";
 import { registerPlatosIpc } from "../../electron/ipc/platos";
+import { registerPiezasIpc } from "../../electron/ipc/piezas";
 
 export interface InicializarEmpresa {
   empresa: DatosEmpresa;
@@ -54,6 +55,11 @@ const CANALES_CAJA_AUTOR: Record<string, number> = {
   "platos:guardar": 0,
   "platos:quitar": 0,
   "platos:copiar": 0,
+  "mercancias:guardar": 0,
+  "mercancias:quitar": 0,
+  "piezas:comprar": 0,
+  "piezas:terminar": 0,
+  "piezas:quitar": 0,
 };
 const BLOQUEO_MS = 10 * 60 * 1000;
 
@@ -86,6 +92,7 @@ export class Empresa extends DurableObject {
       registerGastosIpc(db);
       registerBancosIpc(db);
       registerPlatosIpc(db);
+      registerPiezasIpc(db);
     });
   }
 
@@ -204,11 +211,11 @@ export class Empresa extends DurableObject {
   vaciar(): Record<string, number> {
     // Primero los detalles y despues lo principal, para respetar las relaciones entre tablas.
     const tablas = [
-      "factura_lineas", "notas_factura", "platos_dia", "cobros", "recibos_cobro", "envase_movimientos", "envases_cliente", "botellas_fiadas", "caja_movimientos", "caja_correcciones",
+      "factura_lineas", "piezas", "notas_factura", "platos_dia", "cobros", "recibos_cobro", "envase_movimientos", "envases_cliente", "botellas_fiadas", "caja_movimientos", "caja_correcciones",
       "pagos_compra", "compra_lineas", "producto_proveedor", "comprobantes_varios", "pagos_gasto", "gastos", "banco_movimientos",
       "facturas", "compras", "caja_sesiones", "cajas",
       "asiento_lineas", "asientos",
-      "proveedores", "productos", "clientes", "ncf_secuencias", "auditoria", "_login_intentos",
+      "proveedores", "productos", "mercancias", "clientes", "ncf_secuencias", "auditoria", "_login_intentos",
     ];
     const borradas: Record<string, number> = {};
     this.db.transaction(() => {

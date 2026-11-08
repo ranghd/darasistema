@@ -90,10 +90,13 @@ export interface Producto {
   codigo_barras?: string | null;
   /** Otros precios (Gas Damian): JSON [{nombre, precio}] con el precio sin ITBIS. */
   precios_extra?: string | null;
+  /** Dara Frituras: mercancia de la que sale (control de piezas). Sus ventas se suman a la pieza abierta. */
+  mercancia_id?: number | null;
 }
 
 // Los codigos NCF salen de una sola lista (Norma General 06-2018 de la DGII).
 export type { TipoComprobanteVarios, TipoNcf, TipoNcfVenta };
+export type { CompraPiezasInput, Mercancia, MercanciaInput, MercanciaResumen, Pieza, ResultadoPieza } from "@shared/types";
 
 export interface NcfSecuencia {
   id: number;

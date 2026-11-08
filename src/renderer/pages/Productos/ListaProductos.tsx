@@ -306,7 +306,7 @@ export default function ListaProductos() {
               <td className="px-4 py-2.5 text-slate-500">{p.itbis_rate ? `${Math.round(p.itbis_rate * 100)}%` : "Exento"}</td>
               <td className="px-4 py-2.5 text-slate-500">{formatMoney(p.costo_contenido)}</td>
               <td className="px-4 py-2.5">
-                <span className={p.existencia <= 5 ? "font-semibold text-red-600" : "text-slate-700"}>{p.existencia}</span>
+                {p.mercancia_id ? <span className="text-xs text-slate-500">Por pieza</span> : <span className={p.existencia <= 5 ? "font-semibold text-red-600" : "text-slate-700"}>{p.existencia}</span>}
               </td>
               {acciones(p)}
             </tr>
@@ -332,7 +332,7 @@ export default function ListaProductos() {
             <td className="px-4 py-2.5 text-slate-500">{formatMoney(p.costo_contenido)}</td>
             <td className="px-4 py-2.5">{p.maneja_envase ? <Badge tone="amber">Fianza {formatMoney(p.fianza_envase)}</Badge> : <span className="text-slate-400">No aplica</span>}</td>
             <td className="px-4 py-2.5">
-              <span className={p.existencia <= 10 ? "font-semibold text-red-600" : "text-slate-700"}>{p.existencia}</span>
+              {p.mercancia_id ? <span className="text-xs text-slate-500">Por pieza</span> : <span className={p.existencia <= 10 ? "font-semibold text-red-600" : "text-slate-700"}>{p.existencia}</span>}
             </td>
             {acciones(p)}
           </tr>

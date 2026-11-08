@@ -103,6 +103,33 @@ CREATE TABLE IF NOT EXISTS platos_dia (
   PRIMARY KEY (fecha, producto_id)
 );
 
+-- Control de piezas (Dara Frituras): la mercancia que se compra entera (una pierna de salami) y se vende por porciones.
+-- Cada pieza guarda lo que costo y cuanto se le quiere ganar; las ventas de sus productos se suman a la pieza abierta
+-- (factura_lineas.pieza_id). Al terminarse se compara lo vendido con lo esperado. El estado sale de las fechas:
+-- sin abierta_en esta cerrada, con abierta_en esta abierta y con terminada_en esta terminada.
+CREATE TABLE IF NOT EXISTS mercancias (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre TEXT NOT NULL,
+  pieza TEXT NOT NULL DEFAULT 'pieza',
+  ganancia_pct REAL NOT NULL DEFAULT 0,
+  minima_pct REAL NOT NULL DEFAULT 0,
+  activo INTEGER NOT NULL DEFAULT 1,
+  creada_en TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS piezas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  mercancia_id INTEGER NOT NULL REFERENCES mercancias(id),
+  costo REAL NOT NULL,
+  ganancia_pct REAL NOT NULL,
+  minima_pct REAL NOT NULL,
+  comprada_en TEXT NOT NULL,
+  abierta_en TEXT,
+  terminada_en TEXT,
+  terminada_por TEXT,
+  creado_por TEXT
+);
+
 -- Notas de credito (B04) y de debito (B03) de las facturas: una fila por nota (una factura puede tener varias).
 CREATE TABLE IF NOT EXISTS notas_factura (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -2,7 +2,7 @@
 // cuando la app corre como pagina web normal (sin Electron), para poder revisar
 // visualmente las pantallas en el navegador integrado durante el desarrollo.
 // La app real siempre usa window.api expuesto por electron/preload.ts.
-import type { BotellaFiadaInput, CategoriaPropia, CambioPlato, MovimientoBotellaFiada, NotaFactura, PlatoDia, PrecioCambiado, ReportePlato, SaldoBotellaFiada,
+import type { BotellaFiadaInput, CategoriaPropia, CambioPlato, CompraPiezasInput, Mercancia, MercanciaInput, MercanciaResumen, MovimientoBotellaFiada, NotaFactura, Pieza, PlatoDia, PrecioCambiado, ReportePlato, SaldoBotellaFiada,
   AsientoConLineas,
   Autor,
   Caja,
@@ -143,6 +143,17 @@ export const mockApi = {
     copiar: async (_data: any): Promise<number> => { warn(); return 0; },
     reporte: async (_desde: string, _hasta: string): Promise<ReportePlato[]> => [],
     cambios: async (_desde: string, _hasta: string): Promise<CambioPlato[]> => [],
+  },
+  piezas: {
+    resumen: async (): Promise<MercanciaResumen[]> => [],
+    historial: async (_desde: string, _hasta: string): Promise<Pieza[]> => [],
+    comprar: async (_data: CompraPiezasInput): Promise<boolean> => { warn(); return true; },
+    terminar: async (_data: { pieza_id: number; autor?: unknown }): Promise<Pieza | null> => { warn(); return null; },
+    quitar: async (_data: { mercancia_id: number; autor?: unknown }): Promise<boolean> => { warn(); return true; },
+  },
+  mercancias: {
+    guardar: async (_data: MercanciaInput): Promise<Mercancia | null> => { warn(); return null; },
+    quitar: async (_data: { id: number; autor?: unknown }): Promise<boolean> => { warn(); return true; },
   },
   notas: {
     listar: async (_desde?: string, _hasta?: string): Promise<NotaFactura[]> => [],

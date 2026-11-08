@@ -107,7 +107,7 @@ const NAV_CAJA_GAS_DAMIAN = [
     section: "Ventas",
     items: [
       { to: "/caja", label: "Punto de venta" },
-      ...(esFritura ? [{ to: "/platos-dia", label: "Platos del dia" }] : []),
+      ...(esFritura ? [{ to: "/platos-dia", label: "Platos del dia" }, { to: "/piezas", label: "Control de piezas" }] : []),
       ...(permiteFiar ? [{ to: "/fiados", label: "Fiados" }] : []),
       { to: "/gastos-caja", label: "Gastos de caja" },
       { to: "/cierre-caja", label: "Cierre de Caja" },
@@ -206,7 +206,7 @@ export default function Layout() {
         ? { ...g, items: [...g.items, { to: "/reportes/precios-cambiados", label: "Precios cambiados" }, { to: "/reportes/platos-dia", label: "Reporte de platos" }] }
         : g
     )
-    .map((g) => (esFritura && adminVentas && !mostrarCaja && g.section === "Inventario" ? { ...g, items: [{ to: "/platos-dia", label: "Platos del dia" }, ...g.items] } : g))
+    .map((g) => (esFritura && adminVentas && !mostrarCaja && g.section === "Inventario" ? { ...g, items: [{ to: "/platos-dia", label: "Platos del dia" }, { to: "/piezas", label: "Control de piezas" }, ...g.items] } : g))
     // Gas Damian Admin: las categorias de la caja, debajo de Productos
     .map((g) =>
       adminVentas && !mostrarCaja && g.section === "Inventario"

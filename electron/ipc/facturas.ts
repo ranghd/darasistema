@@ -3,6 +3,7 @@ import type { DB } from "../db/types";
 import { crearAsiento, fechaHoyRD } from "../db/contabilidad";
 import { validarSesionAbierta } from "./caja";
 import { platoDelDia } from "./platos";
+import { piezaParaVenta } from "./piezas";
 import type { Factura, FacturaDetalle, NotaFactura, NuevaFacturaInput, Producto, TipoNcf } from "../shared/types";
 import { NCF_LABELS, TIPOS_NCF_VENTA, tipoNcfRecibido, type TipoNcfVenta } from "../shared/ncf";
 
@@ -126,7 +127,8 @@ export function registerFacturasIpc(db: DB) {
           const pedidas = input.lineas.filter((x) => x.producto_id === l.producto_id).reduce((s, x) => s + x.cantidad, 0);
           if (pedidas > plato.quedan) throw new Error(plato.quedan > 0 ? `Solo quedan ${plato.quedan} porciones de ${p.nombre}` : `Se acabo ${p.nombre}`);
         }
-        if (p.existencia < l.cantidad) throw new Error(`Existencia insuficiente de ${p.nombre} (disponible: ${p.existencia})`);
+        // Lo que sale de una mercancia con control de piezas (Dara Frituras) no se cuenta por unidades: no se bloquea.
+        if (!p.mercancia_id && p.existencia < l.cantidad) throw new Error(`Existencia insuficiente de ${p.nombre} (disponible: ${p.existencia})`);
         productos.set(l.producto_id, p);
         platos.set(l.producto_id, plato);
       }
@@ -184,9 +186,15 @@ export function registerFacturasIpc(db: DB) {
       const facturaId = Number(infoFactura.lastInsertRowid);
 
       const insertLinea = db.prepare(
-        `INSERT INTO factura_lineas (factura_id, producto_id, modalidad, cantidad, precio_unitario, descuento, itbis, subtotal, prestado, precio_lista, plato_dia)
-         VALUES (@factura_id, @producto_id, @modalidad, @cantidad, @precio_unitario, @descuento, @itbis, @subtotal, @prestado, @precio_lista, @plato_dia)`
+        `INSERT INTO factura_lineas (factura_id, producto_id, modalidad, cantidad, precio_unitario, descuento, itbis, subtotal, prestado, precio_lista, plato_dia, mercancia_id, pieza_id)
+         VALUES (@factura_id, @producto_id, @modalidad, @cantidad, @precio_unitario, @descuento, @itbis, @subtotal, @prestado, @precio_lista, @plato_dia, @mercancia_id, @pieza_id)`
       );
+      // Control de piezas: cada venta se suma a la pieza abierta de su mercancia (la primera venta la abre).
+      const piezaDe = new Map<number, number | null>();
+      const piezaPara = (mercanciaId: number) => {
+        if (!piezaDe.has(mercanciaId)) piezaDe.set(mercanciaId, piezaParaVenta(db, mercanciaId));
+        return piezaDe.get(mercanciaId)!;
+      };
       const updateExistencia = db.prepare(`UPDATE productos SET existencia = existencia - ? WHERE id = ?`);
       const upsertEnvase = db.prepare(
         `INSERT INTO envases_cliente (cliente_id, producto_id, cantidad, fianza_total) VALUES (@cliente_id, @producto_id, @cantidad, @fianza)
@@ -213,6 +221,8 @@ export function registerFacturasIpc(db: DB) {
           prestado: l.prestado && l.producto.maneja_envase ? 1 : 0,
           precio_lista: precioDeLista(platos.get(l.producto_id)?.precio ?? l.producto.precio_contenido, l.producto),
           plato_dia: platos.get(l.producto_id) ? 1 : 0,
+          mercancia_id: l.producto.mercancia_id ?? null,
+          pieza_id: l.producto.mercancia_id ? piezaPara(l.producto.mercancia_id) : null,
         });
         updateExistencia.run(l.cantidad, l.producto_id);
 

@@ -54,6 +54,17 @@ const api = {
     reporte: (desde: string, hasta: string) => invoke("platos:reporte", desde, hasta),
     cambios: (desde: string, hasta: string) => invoke("platos:cambios", desde, hasta),
   },
+  piezas: {
+    resumen: () => invoke("piezas:resumen"),
+    historial: (desde: string, hasta: string) => invoke("piezas:historial", desde, hasta),
+    comprar: (data: any) => invoke("piezas:comprar", data),
+    terminar: (data: any) => invoke("piezas:terminar", data),
+    quitar: (data: any) => invoke("piezas:quitar", data),
+  },
+  mercancias: {
+    guardar: (data: any) => invoke("mercancias:guardar", data),
+    quitar: (data: any) => invoke("mercancias:quitar", data),
+  },
   notas: {
     listar: (desde?: string, hasta?: string) => invoke("notas:listar", desde, hasta),
   },

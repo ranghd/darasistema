@@ -202,6 +202,10 @@ export function migrar(db: DB) {
     `ALTER TABLE factura_lineas ADD COLUMN precio_lista REAL`,
     // Linea vendida como plato del dia: cuenta para las porciones vendidas de ese dia.
     `ALTER TABLE factura_lineas ADD COLUMN plato_dia INTEGER NOT NULL DEFAULT 0`,
+    // Control de piezas (Dara Frituras): el producto sale de una mercancia y cada venta se suma a su pieza abierta.
+    `ALTER TABLE productos ADD COLUMN mercancia_id INTEGER REFERENCES mercancias(id)`,
+    `ALTER TABLE factura_lineas ADD COLUMN mercancia_id INTEGER REFERENCES mercancias(id)`,
+    `ALTER TABLE factura_lineas ADD COLUMN pieza_id INTEGER REFERENCES piezas(id)`,
   ];
   for (const sql of columnas) {
     try {
@@ -233,6 +237,8 @@ export function migrar(db: DB) {
     ["notas-factura-desde-asientos", () => notasDesdeAsientos(db)],
   ];
   db.exec(`CREATE INDEX IF NOT EXISTS ix_cobros_recibo ON cobros(recibo_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS ix_lineas_pieza ON factura_lineas(pieza_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS ix_lineas_mercancia ON factura_lineas(mercancia_id)`);
   for (const [nombre, aplicar] of datos) {
     if (yaAplicada.get(nombre)) continue;
     db.transaction(() => {

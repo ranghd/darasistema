@@ -72,6 +72,8 @@ export interface Producto {
   codigo_barras?: string | null;
   /** Otros precios (Gas Damian): JSON [{nombre, precio}] con el precio sin ITBIS. */
   precios_extra?: string | null;
+  /** Dara Frituras: mercancia de la que sale (control de piezas). Sus ventas se suman a la pieza abierta. */
+  mercancia_id?: number | null;
 }
 
 // Los codigos NCF salen de una sola lista (Norma General 06-2018 de la DGII).
@@ -158,6 +160,80 @@ export interface ReportePlato {
   vendidas: number;
   sobrantes: number;
   dinero: number;
+}
+
+/** Control de piezas (Dara Frituras): mercancia que se compra entera (una pierna de salami) y se vende por porciones. */
+export interface Mercancia {
+  id: number;
+  nombre: string;
+  /** Como se le dice a cada pieza: pierna, libra, paquete... */
+  pieza: string;
+  /** Cuanto se le quiere ganar a cada pieza, en %. */
+  ganancia_pct: number;
+  /** Si la ganancia de una pieza queda por debajo de este %, sale la alerta. */
+  minima_pct: number;
+  activo: number;
+  creada_en: string;
+}
+
+export type ResultadoPieza = "OK" | "BAJO" | "ALERTA";
+
+/** Una pieza comprada: cerrada (sin abrir), abierta (se le suman las ventas) o terminada. */
+export interface Pieza {
+  id: number;
+  mercancia_id: number;
+  mercancia_nombre: string;
+  pieza: string;
+  costo: number;
+  ganancia_pct: number;
+  minima_pct: number;
+  comprada_en: string;
+  abierta_en: string | null;
+  terminada_en: string | null;
+  terminada_por: string | null;
+  estado: "CERRADA" | "ABIERTA" | "TERMINADA";
+  /** Lo que se debia vender para ganar lo esperado (costo + ganancia). */
+  esperado: number;
+  /** Por debajo de esto sale la alerta. */
+  minimo: number;
+  /** Lo vendido de esta pieza (sin las ventas anuladas). */
+  vendido: number;
+  /** Porciones vendidas. */
+  unidades: number;
+  /** Ventas de esta pieza cobradas a un precio distinto al normal. */
+  precios_cambiados: number;
+  /** vendido - esperado: negativo es lo que falta. */
+  diferencia: number;
+  /** Ganancia real sobre el costo, en %. */
+  ganancia_real_pct: number;
+  resultado: ResultadoPieza;
+}
+
+export interface MercanciaResumen extends Mercancia {
+  productos: { id: number; nombre: string }[];
+  abierta: Pieza | null;
+  cerradas: number;
+  costo_cerradas: number;
+  /** Lo vendido sin pieza registrada: se le suma a la proxima pieza que se compre. */
+  sin_pieza: number;
+}
+
+export interface MercanciaInput {
+  id?: number | null;
+  nombre: string;
+  pieza: string;
+  ganancia_pct: number;
+  minima_pct: number;
+  producto_ids: number[];
+  autor?: Autor;
+}
+
+export interface CompraPiezasInput {
+  mercancia_id: number;
+  cantidad: number;
+  costo_total: number;
+  ganancia_pct: number;
+  autor?: Autor;
 }
 
 /** Cambio del menu del dia, de la auditoria. */
