@@ -111,7 +111,7 @@ export default function Caja() {
     const m = mercancias.find((x) => x.id === mercanciaId);
     if (!m) return "Control de piezas";
     if (m.abierta) return `${m.pieza[0].toUpperCase()}${m.pieza.slice(1)}: ${formatMoney(m.abierta.vendido)} de ${formatMoney(m.abierta.esperado)}`;
-    return m.cerradas > 0 ? `${m.cerradas} sin abrir` : `Sin ${m.pieza} registrada`;
+    return m.cerradas > 0 ? `${m.cerradas} sin abrir` : "Sin compra registrada";
   };
   // En el colmado y en Gas Damian las pestanas son las categorias de los productos (Viveres, Bebidas... / Oxigeno, Acetileno...).
   const pestanas = usaGrupos

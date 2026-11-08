@@ -14,6 +14,11 @@ import { sinAcentos } from "./buscar";
 const numero = (texto: string) => Number(texto.replace(",", "."));
 const soloNumeros = (texto: string) => texto.replace(/[^0-9.,]/g, "");
 const r2 = (n: number) => Math.round(n * 100) / 100;
+// Concordancia con la palabra de la pieza: "la pierna abierta", "el paquete abierto".
+const esFem = (palabra: string) => /a$/i.test(palabra.trim());
+const la = (palabra: string) => (esFem(palabra) ? "la" : "el");
+const esta = (palabra: string) => (esFem(palabra) ? "esta" : "este");
+const oa = (palabra: string) => (esFem(palabra) ? "a" : "o");
 const plural = (palabra: string, n: number) => (n === 1 ? palabra : /[aeiou]$/i.test(palabra) ? `${palabra}s` : `${palabra}es`);
 const fechaHora = (valor: string | null) => {
   if (!valor) return "";
@@ -130,7 +135,7 @@ export default function ControlPiezas() {
     const cantidad = numero(compra.cantidad);
     const total = r2(numero(compra.total));
     const m = compra.mercancia;
-    if (!Number.isInteger(cantidad) || cantidad < 1) return setError(`Escribe cuántas ${plural(m.pieza, 2)} compraste`);
+    if (!Number.isInteger(cantidad) || cantidad < 1) return setError(`Escribe cuánt${oa(m.pieza)}s ${plural(m.pieza, 2)} compraste`);
     if (!(total > 0)) return setError("Escribe cuánto pagaste en total");
     if (compra.ganancia.trim() === "" || !(numero(compra.ganancia) >= 0)) return setError("Escribe cuánto le quieres ganar (%)");
     if (compra.deCaja && sesion && total > sesion.resumen.efectivo_esperado + 0.005)
@@ -212,10 +217,10 @@ export default function ControlPiezas() {
           {alertas.map((p) => (
             <div key={p.id} className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800">
               <span className="block font-semibold">
-                Alerta: {p.mercancia_nombre} ({p.pieza} terminada el {fechaHora(p.terminada_en)})
+                Alerta: {p.mercancia_nombre} ({p.pieza} terminad{oa(p.pieza)} el {fechaHora(p.terminada_en)})
               </span>
               <span className="block text-sm">{textoResultado(p)}</span>
-              {p.precios_cambiados > 0 && <span className="block text-xs">En esta {p.pieza} se {p.precios_cambiados === 1 ? "cobró 1 venta" : `cobraron ${p.precios_cambiados} ventas`} a otro precio.</span>}
+              {p.precios_cambiados > 0 && <span className="block text-xs">En {esta(p.pieza)} {p.pieza} se {p.precios_cambiados === 1 ? "cobró 1 venta" : `cobraron ${p.precios_cambiados} ventas`} a otro precio.</span>}
             </div>
           ))}
         </div>
@@ -253,7 +258,7 @@ export default function ControlPiezas() {
                 <div className="mt-3 rounded-lg bg-slate-50 p-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <span className="text-sm font-medium text-slate-700">
-                      {m.pieza[0].toUpperCase() + m.pieza.slice(1)} abierta desde {fechaHora(a.abierta_en)}
+                      {m.pieza[0].toUpperCase() + m.pieza.slice(1)} abiert{oa(m.pieza)} desde {fechaHora(a.abierta_en)}
                     </span>
                     <span className="text-sm text-slate-500">
                       Costó {formatMoney(a.costo)} · {a.unidades} vendidas
@@ -267,18 +272,18 @@ export default function ControlPiezas() {
                       Llevas <b>{formatMoney(a.vendido)}</b> de <b>{formatMoney(a.esperado)}</b>
                     </span>
                     <Button variant="danger" className="py-2.5 text-base" onClick={() => (setError(""), setTerminar(m))}>
-                      Se terminó la {m.pieza}
+                      Se terminó {la(m.pieza)} {m.pieza}
                     </Button>
                   </div>
                   {a.vendido > a.esperado * 1.5 && (
                     <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                      Ya se vendió mucho más de lo esperado. ¿Ya se terminó esta {m.pieza}? Si abriste otra, toca "Se terminó la {m.pieza}" para que la cuenta siga bien.
+                      Ya se vendió mucho más de lo esperado. ¿Ya se terminó {esta(m.pieza)} {m.pieza}? Si abriste otr{oa(m.pieza)}, toca "Se terminó {la(m.pieza)} {m.pieza}" para que la cuenta siga bien.
                     </p>
                   )}
                 </div>
               ) : (
                 <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                  {m.cerradas > 0 ? `No hay ${m.pieza} abierta: la próxima venta abre la siguiente.` : `No hay ${plural(m.pieza, 2)}. Registra la compra para llevar la cuenta.`}
+                  {m.cerradas > 0 ? `No hay ${m.pieza} abiert${oa(m.pieza)}: la próxima venta abre ${la(m.pieza)} siguiente.` : `No hay ${plural(m.pieza, 2)}. Registra la compra para llevar la cuenta.`}
                 </p>
               )}
 
@@ -293,7 +298,7 @@ export default function ControlPiezas() {
                 )}
                 {m.sin_pieza > 0 && (
                   <span className="font-medium text-amber-700">
-                    Se vendió {formatMoney(m.sin_pieza)} sin {m.pieza} registrada: se le suma a la próxima que compres.
+                    Se vendió {formatMoney(m.sin_pieza)} sin compra registrada: se le suma a la próxima compra.
                   </span>
                 )}
               </div>
@@ -371,7 +376,7 @@ export default function ControlPiezas() {
                 })}
                 {productosFiltrados.length === 0 && <p className="px-3 py-4 text-center text-sm text-slate-400">No hay productos con ese nombre. Créalo primero en Productos.</p>}
               </div>
-              <p className="mt-1 text-xs text-slate-500">Cada venta de estos productos se le suma a la {formM.pieza.trim() || "pieza"} abierta, y ya no se bloquea por existencia.</p>
+              <p className="mt-1 text-xs text-slate-500">Cada venta de estos productos se le suma a {la(formM.pieza || "pieza")} {formM.pieza.trim() || "pieza"} abiert{oa(formM.pieza || "pieza")}, y ya no se bloquea por existencia.</p>
             </div>
             {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
             <div className="flex flex-wrap justify-between gap-2 pt-2">
@@ -399,7 +404,7 @@ export default function ControlPiezas() {
         {compra && (
           <form onSubmit={guardarCompra} className="space-y-3">
             <Input
-              label={`Cuántas ${plural(compra.mercancia.pieza, 2)} compraste`}
+              label={`Cuánt${oa(compra.mercancia.pieza)}s ${plural(compra.mercancia.pieza, 2)} compraste`}
               inputMode="numeric"
               autoFocus
               value={compra.cantidad}
@@ -431,13 +436,13 @@ export default function ControlPiezas() {
         )}
       </Modal>
 
-      <Modal open={!!terminar} onClose={() => setTerminar(null)} title={terminar ? `¿Se terminó la ${terminar.pieza} de ${terminar.nombre}?` : ""}>
+      <Modal open={!!terminar} onClose={() => setTerminar(null)} title={terminar ? `¿Se terminó ${la(terminar.pieza)} ${terminar.pieza} de ${terminar.nombre}?` : ""}>
         {terminar?.abierta && (
           <div className="space-y-3">
             <p className="text-base text-slate-700">
               Se cierra con lo vendido hasta ahora: <b>{formatMoney(terminar.abierta.vendido)}</b> de <b>{formatMoney(terminar.abierta.esperado)}</b> esperados.
             </p>
-            <p className="text-sm text-slate-500">La próxima venta de {terminar.nombre} abre la siguiente {terminar.pieza}.</p>
+            <p className="text-sm text-slate-500">La próxima venta de {terminar.nombre} abre {la(terminar.pieza)} siguiente {terminar.pieza}.</p>
             {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" onClick={() => setTerminar(null)}>
@@ -451,7 +456,7 @@ export default function ControlPiezas() {
         )}
       </Modal>
 
-      <Modal open={!!terminada} onClose={() => setTerminada(null)} title={terminada ? `${terminada.mercancia_nombre}: ${terminada.pieza} terminada` : ""}>
+      <Modal open={!!terminada} onClose={() => setTerminada(null)} title={terminada ? `${terminada.mercancia_nombre}: ${terminada.pieza} terminad${oa(terminada.pieza)}` : ""}>
         {terminada && (
           <div className="space-y-3">
             <div className={`rounded-xl px-4 py-4 ${tonoResultado[terminada.resultado]}`}>
