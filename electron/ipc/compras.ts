@@ -3,6 +3,9 @@ import type { DB } from "../db/types";
 import { crearAsiento, cuentaDeBanco } from "../db/contabilidad";
 import { buscarOCrearProveedor, registrarPrecioProveedor } from "../db/proveedores";
 import type { Compra, CompraDetalle, NuevaCompraInput, PagoCompra, Producto } from "../shared/types";
+import { autorValido, calcularResumen, validarSesionAbierta } from "./caja";
+import { ahoraRD } from "../db/contabilidad";
+import { comprarPiezas } from "./piezas";
 
 const CODIGO_CAJA = "1.1.01";
 const CODIGO_CXP = "2.1.01";
@@ -11,6 +14,18 @@ function cuentaIdPorCodigo(db: DB, codigo: string): number {
   const row = db.prepare(`SELECT id FROM cuentas_contables WHERE codigo = ?`).get(codigo) as { id: number } | undefined;
   if (!row) throw new Error(`Cuenta contable ${codigo} no existe`);
   return row.id;
+}
+
+// Cuenta a la que va el costo de las piezas: se venden por porciones y no llevan existencia, asi que
+// van directo al costo de venta de sus productos (o a la primera cuenta de costo si no tienen).
+function cuentaCostoPiezas(db: DB, mercanciaId: number): number {
+  const p = db
+    .prepare(`SELECT cuenta_costo_id FROM productos WHERE mercancia_id = ? AND cuenta_costo_id IS NOT NULL ORDER BY activo DESC, id LIMIT 1`)
+    .get(mercanciaId) as { cuenta_costo_id: number } | undefined;
+  if (p) return p.cuenta_costo_id;
+  const c = db.prepare(`SELECT id FROM cuentas_contables WHERE codigo LIKE '5.%' AND codigo LIKE '%.%.%' ORDER BY codigo LIMIT 1`).get() as { id: number } | undefined;
+  if (!c) throw new Error("No hay cuenta de costo de venta para las piezas");
+  return c.id;
 }
 
 export function registerComprasIpc(db: DB) {
@@ -41,11 +56,26 @@ export function registerComprasIpc(db: DB) {
          JOIN productos p ON p.id = cl.producto_id WHERE cl.compra_id = ?`
       )
       .all(id);
-    return { ...compra, lineas } as CompraDetalle;
+    const piezas = db
+      .prepare(
+        `SELECT m.nombre AS mercancia_nombre, m.pieza, COUNT(*) AS cantidad, SUM(pz.costo) AS subtotal
+         FROM piezas pz JOIN mercancias m ON m.id = pz.mercancia_id WHERE pz.compra_id = ? GROUP BY pz.mercancia_id`
+      )
+      .all(id);
+    return { ...compra, lineas, piezas } as CompraDetalle;
   });
 
   ipcMain.handle("compras:crear", (_e, input: NuevaCompraInput) => {
-    if (!input.lineas || input.lineas.length === 0) throw new Error("La compra debe tener al menos una linea");
+    const piezas = input.piezas ?? [];
+    if ((!input.lineas || input.lineas.length === 0) && piezas.length === 0) throw new Error("La compra debe tener al menos una linea");
+    input.lineas = input.lineas ?? [];
+    // Pagada con el efectivo de la caja abierta: sale del cuadre de esa jornada.
+    const sesionCaja = input.caja_sesion_id && input.condicion_pago === "CONTADO" ? validarSesionAbierta(db, input.caja_sesion_id) : null;
+    const autor = piezas.length > 0 || sesionCaja ? autorValido(input.autor) : null;
+    for (const pz of piezas) {
+      if (!Number.isInteger(Number(pz.cantidad)) || pz.cantidad < 1) throw new Error("La cantidad de piezas debe ser un numero entero mayor a cero");
+      if (!(pz.costo_unitario > 0)) throw new Error("Escribe lo que costo cada pieza");
+    }
     let nombreProveedor = "";
     if (input.proveedor_id) {
       const p = db.prepare(`SELECT nombre FROM proveedores WHERE id = ?`).get(input.proveedor_id) as { nombre: string } | undefined;
@@ -67,7 +97,12 @@ export function registerComprasIpc(db: DB) {
     }
 
     const lineasCalc = input.lineas.map((l) => ({ ...l, producto: productos.get(l.producto_id)!, subtotal: l.cantidad * l.costo_unitario }));
-    const total = lineasCalc.reduce((s, l) => s + l.subtotal, 0);
+    const piezasCalc = piezas.map((pz) => ({ ...pz, subtotal: Math.round(pz.cantidad * pz.costo_unitario * 100) / 100 }));
+    const total = lineasCalc.reduce((s, l) => s + l.subtotal, 0) + piezasCalc.reduce((s, pz) => s + pz.subtotal, 0);
+    if (sesionCaja) {
+      const disponible = calcularResumen(db, sesionCaja).efectivo_esperado;
+      if (total > disponible + 0.005) throw new Error(`No hay suficiente efectivo en la caja para pagar la compra: deberia haber ${disponible.toFixed(2)}`);
+    }
 
     const run = db.transaction(() => {
       const proveedorId = input.proveedor_id ?? buscarOCrearProveedor(db, nombreProveedor);
@@ -112,6 +147,12 @@ export function registerComprasIpc(db: DB) {
         }
       }
 
+      for (const pz of piezasCalc) {
+        comprarPiezas(db, { mercancia_id: pz.mercancia_id, cantidad: pz.cantidad, costo_total: pz.subtotal, ganancia_pct: pz.ganancia_pct }, autor!, compraId);
+        const cuenta = cuentaCostoPiezas(db, pz.mercancia_id);
+        inventarioPorCuenta.set(cuenta, (inventarioPorCuenta.get(cuenta) ?? 0) + pz.subtotal);
+      }
+
       const cuentaContrapartida = input.condicion_pago === "CONTADO" ? CODIGO_CAJA : CODIGO_CXP;
       const lineasAsiento = [];
       for (const [cuentaId, monto] of inventarioPorCuenta) {
@@ -128,6 +169,11 @@ export function registerComprasIpc(db: DB) {
       });
 
       db.prepare(`UPDATE compras SET asiento_id = ? WHERE id = ?`).run(asientoId, compraId);
+      if (sesionCaja) {
+        db.prepare(
+          `INSERT INTO caja_movimientos (sesion_id, tipo, motivo, concepto, monto, usuario_id, usuario_nombre, asiento_id, creado_en) VALUES (?, 'SALIDA', 'COMPRA', ?, ?, ?, ?, ?, ?)`
+        ).run(sesionCaja, `Compra #${maxNumero + 1} a ${nombreProveedor}`, Math.round(total * 100) / 100, autor!.id ?? null, autor!.nombre, asientoId, ahoraRD());
+      }
       return compraId;
     });
 

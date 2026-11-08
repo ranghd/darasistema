@@ -62,8 +62,9 @@ export const CANALES_CAJERO = new Set([
   "categorias:listar",
 ]);
 
-// La caja de Gas Damian tambien lleva el inventario. Solo esa empresa: en las demas sigue siendo de ADMIN.
-const EMPRESAS_CAJA_CON_INVENTARIO = new Set(["gasdamian"]);
+// La caja de Gas Damian y la de la fritura (yerikafr) tambien llevan el inventario. Solo esas empresas:
+// en las demas sigue siendo de ADMIN.
+const EMPRESAS_CAJA_CON_INVENTARIO = new Set(["gasdamian", "yerikafr"]);
 const CANALES_INVENTARIO_CAJA = new Set([
   "categorias:crear",
   "categorias:renombrar",

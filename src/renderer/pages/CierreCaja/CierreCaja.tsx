@@ -241,7 +241,7 @@ export default function CierreCaja() {
                   <td className="px-4 py-2">
                     <Badge tone={m.tipo === "ENTRADA" ? "green" : "amber"}>{m.tipo === "ENTRADA" ? "Entrada" : "Salida"}</Badge>
                   </td>
-                  <td className="px-4 py-2 text-slate-700">{motivos.find((x) => x.codigo === m.motivo)?.nombre ?? m.motivo}</td>
+                  <td className="px-4 py-2 text-slate-700">{m.motivo === "COMPRA" ? "Compra a proveedor" : motivos.find((x) => x.codigo === m.motivo)?.nombre ?? m.motivo}</td>
                   <td className="px-4 py-2 text-slate-500">{m.concepto}</td>
                   <td className="px-4 py-2 font-medium">{formatMoney(m.monto)}</td>
                   <td className="px-4 py-2 text-slate-500">{m.usuario_nombre}</td>

@@ -206,6 +206,8 @@ export function migrar(db: DB) {
     `ALTER TABLE productos ADD COLUMN mercancia_id INTEGER REFERENCES mercancias(id)`,
     `ALTER TABLE factura_lineas ADD COLUMN mercancia_id INTEGER REFERENCES mercancias(id)`,
     `ALTER TABLE factura_lineas ADD COLUMN pieza_id INTEGER REFERENCES piezas(id)`,
+    // Piezas que entraron por una compra a un proveedor (Compras).
+    `ALTER TABLE piezas ADD COLUMN compra_id INTEGER REFERENCES compras(id)`,
   ];
   for (const sql of columnas) {
     try {

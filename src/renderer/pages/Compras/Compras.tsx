@@ -1,19 +1,30 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
-import type { Compra, CompraLineaInput, PagoCompra, Producto, Proveedor, RelacionProductoProveedor } from "../../lib/types";
+import type { Compra, CompraLineaInput, CompraPiezaLinea, MercanciaResumen, PagoCompra, Producto, Proveedor, RelacionProductoProveedor } from "../../lib/types";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 import { ProveedorFormModal } from "../Proveedores/componentes";
 import AvisoBorrador from "../../components/AvisoBorrador";
 import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
 import PagoSuplidorModal, { type DocumentoPorPagar } from "../../components/PagoSuplidor";
+import { useAuth } from "../../lib/auth";
+import { useCaja } from "../../lib/caja";
+import { esFritura, esVariantCaja } from "../../lib/variant";
 
 interface LineaForm extends CompraLineaInput {
   key: number;
   /** El usuario escribio el precio a mano: no se reemplaza al cambiar de proveedor. */
   precioEditado: boolean;
 }
+
+// Dara Frituras: una pieza comprada (pierna de salami, libra de longaniza...) que entra al Control de piezas.
+interface PiezaForm extends CompraPiezaLinea {
+  key: number;
+}
+
+// "pierna" -> "piernas", "libra" -> "libras", "flan" -> "flanes"
+const plural = (palabra: string, n: number) => (n === 1 ? palabra : /[aeiou]$/i.test(palabra) ? `${palabra}s` : `${palabra}es`);
 
 let keySeq = 1;
 
@@ -35,23 +46,59 @@ export default function Compras() {
   const [nuevoProveedor, setNuevoProveedor] = useState(false);
   const [condicionPago, setCondicionPago] = useBorrador<"CONTADO" | "CREDITO">("compra.condicion", "CONTADO");
   const [lineas, setLineas] = useBorrador<LineaForm[]>("compra.lineas", []);
-  keySeq = Math.max(keySeq, ...lineas.map((l) => l.key + 1));
+  const [piezas, setPiezas] = useBorrador<PiezaForm[]>("compra.piezas", []);
+  keySeq = Math.max(keySeq, ...lineas.map((l) => l.key + 1), ...piezas.map((l) => l.key + 1));
+  const [mercancias, setMercancias] = useState<MercanciaResumen[]>([]);
+  // En la caja, la compra de contado sale del efectivo de la jornada (si no, del dinero del negocio).
+  const { usuario } = useAuth();
+  const { sesion, recargar: recargarCaja } = useCaja();
+  const [deCaja, setDeCaja] = useState(esVariantCaja);
+  // Por ahora solo en Dara Frituras (en Gas Damian la compra no toca el efectivo de la caja).
+  const sesionCaja = esFritura ? sesion : null;
+  const [params, setParams] = useSearchParams();
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
   const [pagoCompra, setPagoCompra] = useState<DocumentoPorPagar | null>(null);
 
   async function cargar() {
-    const [c, p, provs, rel] = await Promise.all([api.compras.listar(), api.productos.listar(), api.proveedores.listar(), api.proveedores.relaciones()]);
+    const [c, p, provs, rel, merc] = await Promise.all([
+      api.compras.listar(),
+      api.productos.listar(),
+      api.proveedores.listar(),
+      api.proveedores.relaciones(),
+      esFritura ? api.piezas.resumen() : Promise.resolve([] as MercanciaResumen[]),
+    ]);
     setCompras(c);
+    setMercancias(merc);
     setProductos(p);
     setProveedores(provs.filter((x) => x.activo));
     setRelaciones(rel);
   }
 
   useEffect(() => {
-    cargar();
+    cargar().then(() => {
+      // Desde Control de piezas: "Registrar compra" abre la compra con esa mercancia.
+      const pieza = Number(params.get("pieza"));
+      if (!pieza) return;
+      setParams({}, { replace: true });
+      api.piezas.resumen().then((lista) => {
+        const m = lista.find((x) => x.id === pieza);
+        if (!m) return;
+        setError("");
+        setOpen(true);
+        setPiezas((prev) => (prev.some((x) => x.mercancia_id === m.id) ? prev : [...prev, nuevaPieza(m)]));
+      });
+    });
   }, []);
+
+  function nuevaPieza(m: MercanciaResumen): PiezaForm {
+    return { key: keySeq++, mercancia_id: m.id, cantidad: 1, costo_unitario: 0, ganancia_pct: m.ganancia_pct };
+  }
+
+  function actualizarPieza(key: number, cambios: Partial<PiezaForm>) {
+    setPiezas(piezas.map((l) => (l.key === key ? { ...l, ...cambios } : l)));
+  }
 
   function limpiarCompra() {
     setFecha(todayIso());
@@ -59,12 +106,14 @@ export default function Compras() {
     setNcf("");
     setCondicionPago("CONTADO");
     setLineas([]);
+    setPiezas([]);
+    setDeCaja(esVariantCaja);
     setAvisoRecuperada(false);
   }
 
   // Si habia una compra a medias, "+ Nueva Compra" la retoma en vez de borrarla.
   function abrirNueva() {
-    if (lineas.length === 0) limpiarCompra();
+    if (lineas.length === 0 && piezas.length === 0) limpiarCompra();
     setError("");
     setOpen(true);
   }
@@ -106,12 +155,22 @@ export default function Compras() {
     actualizarLinea(key, { producto_id: p.id, costo_unitario: precioSugerido(p.id, proveedorId), precioEditado: false });
   }
 
-  const total = lineas.reduce((s, l) => s + l.cantidad * l.costo_unitario, 0);
+  const total = lineas.reduce((s, l) => s + l.cantidad * l.costo_unitario, 0) + piezas.reduce((s, l) => s + l.cantidad * l.costo_unitario, 0);
+  const pagaCaja = !!sesionCaja && deCaja && condicionPago === "CONTADO";
 
   async function guardar() {
     setError("");
     if (!proveedorId) return setError("Selecciona el proveedor (o crea uno nuevo)");
-    if (lineas.length === 0) return setError("Agregue al menos un producto");
+    if (lineas.length === 0 && piezas.length === 0) return setError(esFritura ? "Agregue al menos un producto o una pieza" : "Agregue al menos un producto");
+    for (const pz of piezas) {
+      const m = mercancias.find((x) => x.id === pz.mercancia_id);
+      if (!m) return setError("Elige la mercancia de cada pieza");
+      if (!Number.isInteger(pz.cantidad) || pz.cantidad < 1) return setError(`Escribe cuantas piezas de ${m.nombre} compraste (numero entero)`);
+      if (!(pz.costo_unitario > 0)) return setError(`Escribe cuanto costo cada ${m.pieza} de ${m.nombre}`);
+      if (!(pz.ganancia_pct >= 0)) return setError(`Escribe cuanto le quieres ganar a ${m.nombre} (%)`);
+    }
+    if (pagaCaja && sesionCaja && total > sesionCaja.resumen.efectivo_esperado + 0.005)
+      return setError(`En la caja deberia haber ${formatMoney(sesionCaja.resumen.efectivo_esperado)}: no alcanza para pagar ${formatMoney(total)}`);
     setGuardando(true);
     try {
       await api.compras.crear({
@@ -120,7 +179,11 @@ export default function Compras() {
         ncf,
         condicion_pago: condicionPago,
         lineas: lineas.map(({ key, precioEditado, ...rest }) => rest),
+        piezas: piezas.map(({ key, ...rest }) => rest),
+        caja_sesion_id: pagaCaja ? sesionCaja!.id : null,
+        autor: { id: usuario?.id ?? null, nombre: usuario?.nombre ?? "", rol: usuario?.rol },
       });
+      if (pagaCaja) recargarCaja();
       limpiarCompra();
       setOpen(false);
       await cargar();
@@ -176,9 +239,9 @@ export default function Compras() {
 
       <Modal open={open} onClose={() => setOpen(false)} title="Nueva Compra" width="max-w-3xl">
         <div className="space-y-3">
-          {avisoRecuperada && lineas.length > 0 && (
+          {avisoRecuperada && lineas.length + piezas.length > 0 && (
             <AvisoBorrador
-              texto={`Se recupero la compra que estabas registrando (${lineas.length} producto${lineas.length === 1 ? "" : "s"}).`}
+              texto={`Se recupero la compra que estabas registrando (${lineas.length + piezas.length} linea${lineas.length + piezas.length === 1 ? "" : "s"}).`}
               onOcultar={() => setAvisoRecuperada(false)}
               onDescartar={limpiarCompra}
             />
@@ -281,10 +344,32 @@ export default function Compras() {
             ))}
           </div>
 
+          {esFritura && (
+            <PiezasCompra
+              piezas={piezas}
+              mercancias={mercancias}
+              onAgregar={() => mercancias.length > 0 && setPiezas([...piezas, nuevaPieza(mercancias[0])])}
+              onCambiar={actualizarPieza}
+              onQuitar={(key) => setPiezas(piezas.filter((x) => x.key !== key))}
+            />
+          )}
+
           <div className="flex justify-between border-t border-slate-200 pt-3 text-base font-semibold text-slate-900">
             <span>Total</span>
             <span>{formatMoney(total)}</span>
           </div>
+
+          {sesionCaja && condicionPago === "CONTADO" && (
+            <label className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <input type="checkbox" className="mt-0.5" checked={deCaja} onChange={(e) => setDeCaja(e.target.checked)} />
+              <span>
+                Se pago con el dinero de la caja
+                <span className="block text-xs text-slate-500">
+                  {deCaja ? `Sale del efectivo de esta caja (deberia haber ${formatMoney(sesionCaja.resumen.efectivo_esperado)}).` : "No toca el efectivo de la caja: se pago con otro dinero."}
+                </span>
+              </span>
+            </label>
+          )}
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
@@ -358,6 +443,99 @@ function OtrosProveedores({ relaciones, onElegir }: { relaciones: RelacionProduc
           {r.proveedor_nombre} — {formatMoney(r.ultimo_precio ?? r.precio_referencia)}
         </button>
       ))}
+    </div>
+  );
+}
+
+// Dara Frituras: piezas de la compra (salami, longaniza...). Cada una entra al Control de piezas con su costo y
+// lo que se le quiere ganar; las ventas de sus productos se le van sumando.
+function PiezasCompra({
+  piezas,
+  mercancias,
+  onAgregar,
+  onCambiar,
+  onQuitar,
+}: {
+  piezas: PiezaForm[];
+  mercancias: MercanciaResumen[];
+  onAgregar: () => void;
+  onCambiar: (key: number, cambios: Partial<PiezaForm>) => void;
+  onQuitar: (key: number) => void;
+}) {
+  return (
+    <div className="space-y-2 border-t border-slate-200 pt-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-700">Piezas (Control de piezas)</h2>
+          <p className="text-xs text-slate-500">Lo que se compra entero y se vende por porciones: pierna de salami, longaniza, queso...</p>
+        </div>
+        {mercancias.length > 0 && (
+          <Button size="sm" variant="secondary" type="button" onClick={onAgregar}>
+            + Agregar pieza
+          </Button>
+        )}
+      </div>
+      {mercancias.length === 0 && (
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          Para comprar por piezas, primero crea la mercancia en{" "}
+          <Link to="/piezas" className="font-medium text-brand-600 hover:underline">
+            Control de piezas
+          </Link>
+          .
+        </p>
+      )}
+      {piezas.map((l) => {
+        const m = mercancias.find((x) => x.id === l.mercancia_id);
+        const subtotal = l.cantidad * l.costo_unitario;
+        return (
+          <div key={l.key} className="rounded-lg border border-amber-200 bg-amber-50/40 p-3">
+            <div className="grid grid-cols-12 items-end gap-2">
+              <div className="col-span-4">
+                <Select
+                  label="Mercancia"
+                  value={l.mercancia_id}
+                  onChange={(e) => {
+                    const nueva = mercancias.find((x) => x.id === Number(e.target.value));
+                    if (nueva) onCambiar(l.key, { mercancia_id: nueva.id, ganancia_pct: nueva.ganancia_pct });
+                  }}
+                >
+                  {mercancias.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.nombre} (por {x.pieza})
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="col-span-2">
+                <Input label={m ? `Cuantas ${plural(m.pieza, 2)}` : "Cantidad"} type="number" min={1} step={1} value={l.cantidad} onChange={(e) => onCambiar(l.key, { cantidad: Number(e.target.value) })} />
+              </div>
+              <div className="col-span-3">
+                <Input
+                  label={m ? `Precio por ${m.pieza}` : "Precio"}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={l.costo_unitario || ""}
+                  placeholder="0.00"
+                  onChange={(e) => onCambiar(l.key, { costo_unitario: Number(e.target.value) })}
+                />
+              </div>
+              <div className="col-span-2">
+                <Input label="Ganancia %" type="number" min={0} step="1" value={l.ganancia_pct} onChange={(e) => onCambiar(l.key, { ganancia_pct: Number(e.target.value) })} />
+              </div>
+              <div className="col-span-1 pb-2 text-right">
+                <button type="button" className="text-xs text-red-500 hover:underline" onClick={() => onQuitar(l.key)}>
+                  Quitar
+                </button>
+              </div>
+            </div>
+            <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-slate-500">
+              <span>{m && l.costo_unitario > 0 ? `Cada ${m.pieza} se debe vender en ${formatMoney(l.costo_unitario * (1 + l.ganancia_pct / 100))} o mas.` : ""}</span>
+              <span>Subtotal: {formatMoney(subtotal)}</span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -76,6 +76,42 @@ export function piezaParaVenta(db: DB, mercanciaId: number): number | null {
 
 const numeroValido = (n: unknown) => Number.isFinite(Number(n));
 
+// Registra las piezas compradas (desde Control de piezas o desde una compra a un proveedor).
+// El costo se reparte entre las piezas; la ultima se lleva los centavos que sobran.
+export function comprarPiezas(db: DB, data: CompraPiezasInput, autor: Autor, compraId: number | null = null): number[] {
+  const m = db.prepare(`SELECT * FROM mercancias WHERE id = ? AND activo = 1`).get(data.mercancia_id) as Mercancia | undefined;
+  if (!m) throw new Error("Esa mercancia no existe");
+  const cantidad = Number(data.cantidad);
+  const total = r2(Number(data.costo_total));
+  const ganancia = Number(data.ganancia_pct);
+  if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 200) throw new Error(`Escribe cuantas piezas de ${m.nombre} compraste (numero entero)`);
+  if (!(total > 0)) throw new Error(`Escribe cuanto pagaste por ${m.nombre}`);
+  if (!numeroValido(ganancia) || ganancia < 0) throw new Error(`Escribe cuanto le quieres ganar a ${m.nombre} (%)`);
+  // El aviso guarda la misma distancia con la ganancia que tenia la mercancia.
+  const minima = Math.max(-100, Math.min(ganancia, r2(ganancia - (m.ganancia_pct - m.minima_pct))));
+  const ahora = ahoraRD();
+
+  return db.transaction(() => {
+    const cada = Math.floor((total / cantidad) * 100) / 100;
+    const insertar = db.prepare(`INSERT INTO piezas (mercancia_id, costo, ganancia_pct, minima_pct, comprada_en, creado_por, compra_id) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+    const ids: number[] = [];
+    for (let i = 0; i < cantidad; i++) {
+      const costo = i === cantidad - 1 ? r2(total - cada * (cantidad - 1)) : cada;
+      ids.push(Number(insertar.run(m.id, costo, ganancia, minima, ahora, autor.nombre, compraId).lastInsertRowid));
+    }
+    if (!idAbierta(db, m.id)) {
+      const sinPieza = db.prepare(`SELECT COUNT(*) AS n FROM factura_lineas WHERE mercancia_id = ? AND pieza_id IS NULL`).get(m.id) as { n: number };
+      if (sinPieza.n > 0) {
+        db.prepare(`UPDATE piezas SET abierta_en = ? WHERE id = ?`).run(ahora, ids[0]);
+        db.prepare(`UPDATE factura_lineas SET pieza_id = ? WHERE mercancia_id = ? AND pieza_id IS NULL`).run(ids[0], m.id);
+      }
+    }
+    db.prepare(`UPDATE mercancias SET ganancia_pct = ?, minima_pct = ? WHERE id = ?`).run(ganancia, minima, m.id);
+    auditar(db, autor, "COMPRAR_PIEZAS", "mercancia", m.id, { mercancia: m.nombre, cantidad, costo_total: total, ganancia_pct: ganancia, piezas: ids, compra_id: compraId });
+    return ids;
+  })();
+}
+
 export function registerPiezasIpc(db: DB) {
   // Cada mercancia con su pieza abierta, las que quedan sin abrir y lo vendido sin pieza.
   ipcMain.handle("piezas:resumen", (): MercanciaResumen[] => {
@@ -160,38 +196,7 @@ export function registerPiezasIpc(db: DB) {
   // Compra de piezas: el costo total se reparte entre ellas. Si no habia pieza abierta, lo vendido sin pieza
   // se le suma a la primera, que queda abierta.
   ipcMain.handle("piezas:comprar", (_e, data: CompraPiezasInput): boolean => {
-    const autor = autorValido(data.autor);
-    const m = db.prepare(`SELECT * FROM mercancias WHERE id = ? AND activo = 1`).get(data.mercancia_id) as Mercancia | undefined;
-    if (!m) throw new Error("Esa mercancia no existe");
-    const cantidad = Number(data.cantidad);
-    const total = r2(Number(data.costo_total));
-    const ganancia = Number(data.ganancia_pct);
-    if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 200) throw new Error(`Escribe cuantas ${m.pieza} compraste`);
-    if (!(total > 0)) throw new Error("Escribe cuanto pagaste");
-    if (!numeroValido(ganancia) || ganancia < 0) throw new Error("Escribe cuanto le quieres ganar (%)");
-    // El aviso guarda la misma distancia con la ganancia que tenia la mercancia.
-    const minima = Math.max(-100, Math.min(ganancia, r2(ganancia - (m.ganancia_pct - m.minima_pct))));
-    const ahora = ahoraRD();
-
-    db.transaction(() => {
-      const cada = Math.floor((total / cantidad) * 100) / 100;
-      const insertar = db.prepare(`INSERT INTO piezas (mercancia_id, costo, ganancia_pct, minima_pct, comprada_en, creado_por) VALUES (?, ?, ?, ?, ?, ?)`);
-      const ids: number[] = [];
-      for (let i = 0; i < cantidad; i++) {
-        // la ultima se lleva los centavos que sobran del reparto
-        const costo = i === cantidad - 1 ? r2(total - cada * (cantidad - 1)) : cada;
-        ids.push(Number(insertar.run(m.id, costo, ganancia, minima, ahora, autor.nombre).lastInsertRowid));
-      }
-      if (!idAbierta(db, m.id)) {
-        const sinPieza = db.prepare(`SELECT COUNT(*) AS n FROM factura_lineas WHERE mercancia_id = ? AND pieza_id IS NULL`).get(m.id) as { n: number };
-        if (sinPieza.n > 0) {
-          db.prepare(`UPDATE piezas SET abierta_en = ? WHERE id = ?`).run(ahora, ids[0]);
-          db.prepare(`UPDATE factura_lineas SET pieza_id = ? WHERE mercancia_id = ? AND pieza_id IS NULL`).run(ids[0], m.id);
-        }
-      }
-      db.prepare(`UPDATE mercancias SET ganancia_pct = ?, minima_pct = ? WHERE id = ?`).run(ganancia, minima, m.id);
-      auditar(db, autor, "COMPRAR_PIEZAS", "mercancia", m.id, { mercancia: m.nombre, cantidad, costo_total: total, ganancia_pct: ganancia, piezas: ids });
-    })();
+    comprarPiezas(db, data, autorValido(data.autor));
     return true;
   });
 

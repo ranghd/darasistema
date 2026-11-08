@@ -390,6 +390,20 @@ export interface NuevaCompraInput {
   ncf?: string;
   condicion_pago: "CONTADO" | "CREDITO";
   lineas: CompraLineaInput[];
+  /** Dara Frituras: piezas compradas (pierna de salami...), entran al Control de piezas. */
+  piezas?: CompraPiezaLinea[];
+  /** Quien registra la compra (lo pone la nube); hace falta si trae piezas. */
+  autor?: Autor;
+  /** Se pago con el efectivo de esta jornada de caja (solo de contado): sale del cuadre. */
+  caja_sesion_id?: number | null;
+}
+
+export interface CompraPiezaLinea {
+  mercancia_id: number;
+  cantidad: number;
+  /** Lo que costo cada pieza. */
+  costo_unitario: number;
+  ganancia_pct: number;
 }
 
 export interface Compra {
@@ -409,6 +423,8 @@ export interface Compra {
 
 export interface CompraDetalle extends Compra {
   lineas: CompraLinea[];
+  /** Piezas que entraron con esta compra (Dara Frituras). */
+  piezas?: { mercancia_nombre: string; pieza: string; cantidad: number; subtotal: number }[];
 }
 
 export interface Proveedor {
@@ -574,7 +590,8 @@ export interface MovimientoCaja {
   id: number;
   sesion_id: number;
   tipo: "ENTRADA" | "SALIDA";
-  motivo: MotivoMovimientoCaja;
+  /** COMPRA: compra a un proveedor pagada con el efectivo de la caja (se registra en Compras). */
+  motivo: MotivoMovimientoCaja | "COMPRA";
   concepto: string | null;
   monto: number;
   usuario_nombre: string;

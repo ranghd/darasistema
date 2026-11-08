@@ -4,7 +4,7 @@ import type { Cuenta, Producto } from "../../lib/types";
 import { formatMoney } from "../../lib/format";
 import { Badge, Button, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
-import { CATEGORIAS_SUGERIDAS, esColmado, esVariantCaja, GRUPOS_COLMADO, manejaEnvases, sinImpuestos, soloVentas } from "../../lib/variant";
+import { CATEGORIAS_SUGERIDAS, esColmado, esFritura, esVariantCaja, GRUPOS_COLMADO, manejaEnvases, sinImpuestos, soloVentas } from "../../lib/variant";
 import { mensajeDeError } from "../../lib/api";
 import { leerPrecios } from "../../lib/precios";
 import { ProveedoresDeProductoModal } from "../Proveedores/componentes";
@@ -257,7 +257,7 @@ export default function ListaProductos() {
     <div>
       <PageHeader
         title="Productos"
-        subtitle={esColmado ? "Lo que vende el colmado: codigo, precio, ITBIS y existencia" : "Gas, oxigeno y agua purificada: precios, costo y manejo de envases"}
+        subtitle={esColmado ? "Lo que vende el colmado: codigo, precio, ITBIS y existencia" : esFritura ? "Lo que vende la fritura: precio, costo y existencia" : "Gas, oxigeno y agua purificada: precios, costo y manejo de envases"}
         actions={
           <>
             <input
@@ -313,8 +313,8 @@ export default function ListaProductos() {
           ))}
         </Table>
       ) : (
-      <Table columns={["Codigo", "Producto", "Categoria", "Precio", "Costo", "Envase", "Existencia", ""]}>
-        {visibles.length === 0 && <EmptyRow colSpan={8} />}
+      <Table columns={["Codigo", "Producto", "Categoria", "Precio", "Costo", ...(manejaEnvases ? ["Envase"] : []), "Existencia", ""]}>
+        {visibles.length === 0 && <EmptyRow colSpan={manejaEnvases ? 8 : 7} />}
         {visibles.map((p) => (
           <tr key={p.id} className="hover:bg-slate-50">
             <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{p.codigo}</td>
@@ -330,7 +330,7 @@ export default function ListaProductos() {
               {leerPrecios(p).length > 0 && <span className="block text-xs text-slate-400">y {leerPrecios(p).length} precio{leerPrecios(p).length === 1 ? "" : "s"} mas</span>}
             </td>
             <td className="px-4 py-2.5 text-slate-500">{formatMoney(p.costo_contenido)}</td>
-            <td className="px-4 py-2.5">{p.maneja_envase ? <Badge tone="amber">Fianza {formatMoney(p.fianza_envase)}</Badge> : <span className="text-slate-400">No aplica</span>}</td>
+            {manejaEnvases && <td className="px-4 py-2.5">{p.maneja_envase ? <Badge tone="amber">Fianza {formatMoney(p.fianza_envase)}</Badge> : <span className="text-slate-400">No aplica</span>}</td>}
             <td className="px-4 py-2.5">
               {p.mercancia_id ? <span className="text-xs text-slate-500">Por pieza</span> : <span className={p.existencia <= 10 ? "font-semibold text-red-600" : "text-slate-700"}>{p.existencia}</span>}
             </td>
@@ -412,7 +412,7 @@ export default function ListaProductos() {
                 list="categorias-gas-damian"
                 value={form.grupo}
                 onChange={(e) => setForm({ ...form, grupo: e.target.value })}
-                placeholder="Oxigeno, Acetileno, Manometros... o escribe una nueva"
+                placeholder={`${CATEGORIAS_SUGERIDAS.slice(0, 3).join(", ")}... o escribe una nueva`}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
               <datalist id="categorias-gas-damian">

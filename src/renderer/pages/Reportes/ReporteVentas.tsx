@@ -4,6 +4,7 @@ import { formatDate, formatMoney } from "../../lib/format";
 import { descargarCsv, imprimirTabla } from "../../lib/exportar";
 import type { ReporteVentas as Datos } from "../../lib/types";
 import { Card, EmptyRow, PageHeader, StatCard, Table } from "../../components/ui";
+import { manejaEnvases } from "../../lib/variant";
 import { BotonesExportar, Pestanas, RangoFechas, rangoDe } from "../../components/reportes";
 
 type Vista = "RESUMEN" | "PRODUCTO" | "VENDEDOR" | "CLIENTE" | "DIA";
@@ -70,7 +71,7 @@ export default function ReporteVentas() {
       ["Venta sin ITBIS", r.subtotal],
       ["Descuentos dados", r.descuentos],
       ["ITBIS cobrado", r.itbis],
-      ["Fianzas de envases", r.fianzas],
+      ...(manejaEnvases ? [["Fianzas de envases", r.fianzas] as [string, number]] : []),
       ["Total facturado", r.total],
       ["Al contado", r.contado],
       ["A credito", r.credito],
@@ -138,7 +139,7 @@ export default function ReporteVentas() {
             <Fila k="Venta sin ITBIS" v={r.subtotal} />
             <Fila k="Descuentos dados" v={-r.descuentos} />
             <Fila k="ITBIS cobrado" v={r.itbis} />
-            <Fila k="Fianzas de envases" v={r.fianzas} />
+            {manejaEnvases && <Fila k="Fianzas de envases" v={r.fianzas} />}
             <Fila k="Total facturado" v={r.total} fuerte />
             <Fila k="Promedio por factura" v={r.promedio} />
             <p className="pt-1 text-xs text-slate-400">

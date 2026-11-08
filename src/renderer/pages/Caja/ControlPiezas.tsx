@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, mensajeDeError } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { useCaja } from "../../lib/caja";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import type { MercanciaResumen, Pieza, Producto } from "../../lib/types";
 import { Button, Card, Input, Modal, PageHeader } from "../../components/ui";
@@ -13,7 +13,6 @@ import { sinAcentos } from "./buscar";
 
 const numero = (texto: string) => Number(texto.replace(",", "."));
 const soloNumeros = (texto: string) => texto.replace(/[^0-9.,]/g, "");
-const r2 = (n: number) => Math.round(n * 100) / 100;
 // Concordancia con la palabra de la pieza: "la pierna abierta", "el paquete abierto".
 const esFem = (palabra: string) => /a$/i.test(palabra.trim());
 const la = (palabra: string) => (esFem(palabra) ? "la" : "el");
@@ -33,7 +32,6 @@ const haceDias = (dias: number) => {
 };
 
 type FormMercancia = { id: number | null; nombre: string; pieza: string; ganancia: string; minima: string; productos: number[]; buscar: string };
-type FormCompra = { mercancia: MercanciaResumen; cantidad: string; total: string; ganancia: string; deCaja: boolean };
 
 // Texto del resultado de una pieza, el mismo en la alerta, el historial y al terminarla
 // (al terminarla el faltante ya sale grande arriba, asi que no se repite).
@@ -52,13 +50,13 @@ const tonoResultado = { OK: "bg-emerald-50 text-emerald-700", BAJO: "bg-amber-50
 
 export default function ControlPiezas() {
   const { usuario } = useAuth();
-  const { sesion, recargar } = useCaja();
+
   const [mercancias, setMercancias] = useState<MercanciaResumen[]>([]);
   const [historial, setHistorial] = useState<Pieza[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [cargado, setCargado] = useState(false);
   const [formM, setFormM] = useState<FormMercancia | null>(null);
-  const [compra, setCompra] = useState<FormCompra | null>(null);
+  const navigate = useNavigate();
   const [terminar, setTerminar] = useState<MercanciaResumen | null>(null);
   const [terminada, setTerminada] = useState<Pieza | null>(null);
   const [error, setError] = useState("");
@@ -123,44 +121,6 @@ export default function ControlPiezas() {
     }
   }
 
-  function abrirCompra(m: MercanciaResumen) {
-    setError("");
-    setAviso("");
-    setCompra({ mercancia: m, cantidad: "1", total: "", ganancia: String(m.ganancia_pct), deCaja: false });
-  }
-
-  async function guardarCompra(e: React.FormEvent) {
-    e.preventDefault();
-    if (!compra) return;
-    const cantidad = numero(compra.cantidad);
-    const total = r2(numero(compra.total));
-    const m = compra.mercancia;
-    if (!Number.isInteger(cantidad) || cantidad < 1) return setError(`Escribe cuánt${oa(m.pieza)}s ${plural(m.pieza, 2)} compraste`);
-    if (!(total > 0)) return setError("Escribe cuánto pagaste en total");
-    if (compra.ganancia.trim() === "" || !(numero(compra.ganancia) >= 0)) return setError("Escribe cuánto le quieres ganar (%)");
-    if (compra.deCaja && sesion && total > sesion.resumen.efectivo_esperado + 0.005)
-      return setError(`En la caja debería haber ${formatMoney(sesion.resumen.efectivo_esperado)}: no alcanza para sacar ${formatMoney(total)}`);
-    setGuardando(true);
-    setError("");
-    try {
-      await api.piezas.comprar({ mercancia_id: m.id, cantidad, costo_total: total, ganancia_pct: numero(compra.ganancia), autor });
-      if (compra.deCaja && sesion) {
-        try {
-          await api.caja.movimiento({ sesion_id: sesion.id, motivo: "GASTO", monto: total, concepto: `Compra: ${cantidad} ${plural(m.pieza, cantidad)} de ${m.nombre}`, autor });
-          recargar();
-        } catch (err) {
-          setAviso(`La compra quedó guardada, pero no se pudo sacar el dinero de la caja: ${mensajeDeError(err)}. Anótalo en Gastos de caja.`);
-        }
-      }
-      setCompra(null);
-      await cargar();
-    } catch (err) {
-      setError(mensajeDeError(err));
-    } finally {
-      setGuardando(false);
-    }
-  }
-
   async function confirmarTerminar() {
     if (!terminar?.abierta) return;
     setGuardando(true);
@@ -195,7 +155,6 @@ export default function ControlPiezas() {
   }, [productos, formM]);
   const nombreMercancia = (id: number | null | undefined) => mercancias.find((m) => m.id === id)?.nombre;
 
-  const cadaPieza = compra && numero(compra.cantidad) >= 1 && numero(compra.total) > 0 ? r2(numero(compra.total) / Math.floor(numero(compra.cantidad))) : 0;
 
   return (
     <div className="max-w-4xl">
@@ -209,7 +168,7 @@ export default function ControlPiezas() {
         }
       />
 
-      {error && !formM && !compra && !terminar && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && !formM && !terminar && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {aviso && <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{aviso}</p>}
 
       {alertas.length > 0 && (
@@ -251,7 +210,7 @@ export default function ControlPiezas() {
                 <Button variant="secondary" onClick={() => abrirMercancia(m)}>
                   Cambiar
                 </Button>
-                <Button onClick={() => abrirCompra(m)}>Registrar compra</Button>
+                <Button onClick={() => navigate(`/compras?pieza=${m.id}`)}>Registrar compra</Button>
               </div>
 
               {a ? (
@@ -395,42 +354,6 @@ export default function ControlPiezas() {
                   {guardando ? "Guardando..." : "Guardar"}
                 </Button>
               </span>
-            </div>
-          </form>
-        )}
-      </Modal>
-
-      <Modal open={!!compra} onClose={() => setCompra(null)} title={compra ? `Compra de ${compra.mercancia.nombre}` : ""}>
-        {compra && (
-          <form onSubmit={guardarCompra} className="space-y-3">
-            <Input
-              label={`Cuánt${oa(compra.mercancia.pieza)}s ${plural(compra.mercancia.pieza, 2)} compraste`}
-              inputMode="numeric"
-              autoFocus
-              value={compra.cantidad}
-              onChange={(e) => setCompra({ ...compra, cantidad: e.target.value.replace(/[^0-9]/g, "") })}
-            />
-            <Input label="Cuánto pagaste en total (RD$)" inputMode="decimal" value={compra.total} onChange={(e) => setCompra({ ...compra, total: soloNumeros(e.target.value) })} placeholder="Ej. 500" />
-            <Input label="Cuánto le quieres ganar (%)" inputMode="decimal" value={compra.ganancia} onChange={(e) => setCompra({ ...compra, ganancia: soloNumeros(e.target.value) })} />
-            {cadaPieza > 0 && (
-              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                Cada {compra.mercancia.pieza} cuesta {formatMoney(cadaPieza)} y debe dejar {formatMoney(r2(cadaPieza * (1 + numero(compra.ganancia || "0") / 100)))} en ventas.
-              </p>
-            )}
-            {sesion ? (
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input type="checkbox" checked={compra.deCaja} onChange={(e) => setCompra({ ...compra, deCaja: e.target.checked })} />
-                La pagué con dinero de la caja (se anota como gasto de caja)
-              </label>
-            ) : null}
-            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="secondary" onClick={() => setCompra(null)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={guardando}>
-                {guardando ? "Guardando..." : "Guardar compra"}
-              </Button>
             </div>
           </form>
         )}

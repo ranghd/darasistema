@@ -83,7 +83,7 @@ export default function Login({ modoNube = false }: { modoNube?: boolean }) {
               autoFocus={!empresa}
               value={empresa}
               onChange={(e) => setEmpresa(e.target.value)}
-              placeholder="ej. gas-del-norte"
+              placeholder="ej. mi-negocio"
             />
           )}
           <Input

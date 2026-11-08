@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import { formatMoney } from "../../lib/format";
 import { Card, PageHeader, StatCard } from "../../components/ui";
-import { esColmado, esVariantCaja, sinImpuestos } from "../../lib/variant";
+import { esColmado, esFritura, esVariantCaja, manejaEnvases, sinImpuestos } from "../../lib/variant";
 import { useAuth } from "../../lib/auth";
 
 interface DashboardData {
@@ -27,7 +27,7 @@ export default function Dashboard() {
     <div>
       <PageHeader
         title="Panel Principal"
-        subtitle={esColmado ? "Resumen del colmado" : "Resumen del negocio: venta de gas, oxigeno y agua purificada"}
+        subtitle={esColmado ? "Resumen del colmado" : esFritura ? "Resumen de la fritura" : "Resumen del negocio: venta de gas, oxigeno y agua purificada"}
         actions={
           !sinImpuestos && (
             <Link to="/facturas/nueva" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
@@ -41,7 +41,7 @@ export default function Dashboard() {
         <StatCard label="Ventas del mes" value={formatMoney(data?.ventasMes)} tone="blue" />
         <StatCard label="Cuentas por cobrar" value={formatMoney(data?.porCobrar)} tone="amber" />
         <StatCard label="Facturas de hoy" value={String(data?.facturasHoy ?? 0)} />
-        <StatCard label="Envases en la calle" value={String(data?.envasesCirculando ?? 0)} hint="Cilindros y botellones en poder de clientes" />
+        {manejaEnvases && <StatCard label="Envases en la calle" value={String(data?.envasesCirculando ?? 0)} hint="Cilindros y botellones en poder de clientes" />}
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">

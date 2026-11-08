@@ -111,7 +111,7 @@ export default function Categorias() {
         ) : (
           accion && (
             <form onSubmit={guardar} className="space-y-3">
-              <Input label="Nombre de la categoria" required autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Manometros" />
+              <Input label="Nombre de la categoria" required autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={`Ej. ${CATEGORIAS_SUGERIDAS[CATEGORIAS_SUGERIDAS.length - 2]}`} />
               {accion.tipo === "renombrar" && <p className="text-xs text-slate-500">Los productos y las cuentas de esta categoria se pasan solos al nombre nuevo.</p>}
               {accion.tipo === "nueva" && <p className="text-xs text-slate-500">Se crean solas sus cuentas: Ingresos por Venta, Costo de Venta e Inventario de esta categoria.</p>}
               {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}

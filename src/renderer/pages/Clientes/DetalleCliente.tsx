@@ -6,6 +6,7 @@ import { firstDayOfMonthIso, formatDate, formatMoney, todayIso } from "../../lib
 import { descargarCsv, html, imprimirHtml } from "../../lib/exportar";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 import ReciboCobroModal from "../../components/ReciboCobro";
+import { manejaEnvases } from "../../lib/variant";
 
 interface EnvaseSaldo {
   producto_id: number;
@@ -375,7 +376,7 @@ export default function DetalleCliente() {
   const pestanas: [Pestana, string][] = [
     ["HISTORIAL", "Historial"],
     ["PRODUCTOS", `Productos comprados${resumen ? ` (${resumen.productos.length})` : ""}`],
-    ["ENVASES", `Envases${envases.length ? ` (${envases.length})` : ""}`],
+    ...(manejaEnvases ? [["ENVASES", `Envases${envases.length ? ` (${envases.length})` : ""}`] as [Pestana, string]] : []),
   ];
 
   return (

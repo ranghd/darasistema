@@ -21,8 +21,8 @@ export const adminVentas = APP_VARIANT === "puntoventaadmin" || APP_VARIANT === 
 export const sinImpuestos = esFritura;
 // La caja vende fiado (a credito, se cobra despues en Fiados). Gas Damian no fia; Dara Frituras si.
 export const permiteFiar = esFritura;
-// La caja de Gas Damian tambien lleva el inventario: productos, categorias, compras y proveedores.
-export const cajaConInventario = APP_VARIANT === "puntoventa";
+// La caja de Gas Damian y la de Dara Frituras tambien llevan el inventario: productos, categorias, compras y proveedores.
+export const cajaConInventario = APP_VARIANT === "puntoventa" || APP_VARIANT === "fritura";
 // Esas cajas entran solas: la sesion se recuerda 30 dias y al abrir se revisan las actualizaciones.
 export const recuerdaSesion = APP_VARIANT === "puntoventa" || APP_VARIANT === "fritura";
 // Es para un colmado (productos con grupo y codigo de barras, sin envases).

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
-import { esColmado } from "../../lib/variant";
+import { esColmado, esFritura } from "../../lib/variant";
 import { useAuth } from "../../lib/auth";
 import { useCaja } from "../../lib/caja";
 import CajaCerradaAviso from "../../components/CajaCerradaAviso";
@@ -132,7 +132,7 @@ export default function NuevaFactura() {
 
   return (
     <div>
-      <PageHeader title="Nueva Factura" subtitle={esColmado ? "Factura con ITBIS y NCF (para clientes que piden comprobante)" : "Venta de gas, oxigeno o agua purificada con ITBIS y NCF"} />
+      <PageHeader title="Nueva Factura" subtitle={esColmado ? "Factura con ITBIS y NCF (para clientes que piden comprobante)" : esFritura ? "Venta con los datos del cliente" : "Venta de gas, oxigeno o agua purificada con ITBIS y NCF"} />
       {avisoRecuperada && lineas.length > 0 && (
         <AvisoBorrador
           texto={`Se recupero la factura que estabas haciendo (${lineas.length} linea${lineas.length === 1 ? "" : "s"}).`}

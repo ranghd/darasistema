@@ -1,4 +1,4 @@
-import { esFritura } from "../../lib/variant";
+import { esFritura, manejaEnvases } from "../../lib/variant";
 import { api, mensajeDeError } from "../../lib/api";
 import { NOMBRE_RESULTADO, TONO_RESULTADO } from "../../lib/caja";
 import { html, imprimirDocumento } from "../../lib/exportar";
@@ -19,7 +19,7 @@ export function lineasEfectivo(s: SesionCaja): [string, number, "+" | "-" | "="]
     ["Cobros de credito en efectivo", r.cobros.EFECTIVO, "+"],
     ["Entradas de efectivo", r.entradas, "+"],
     ["Salidas de efectivo", r.salidas, "-"],
-    ["Reembolsos de envases", r.reembolsos_envases, "-"],
+    ...(manejaEnvases ? [["Reembolsos de envases", r.reembolsos_envases, "-"] as [string, number, "-"]] : []),
     ["Devoluciones (anulaciones de dias anteriores)", r.devoluciones_efectivo, "-"],
   ];
 }
@@ -56,7 +56,7 @@ export function ResumenCierreVista({ s }: { s: SesionCaja }) {
         <Fila etiqueta="Descuentos" valor={r.ventas.descuentos} />
         {!!cambios?.cantidad && <Fila etiqueta={`Precios cambiados (${cambios.cantidad})`} valor={cambios.rebaja} />}
         <Fila etiqueta="Impuestos (ITBIS)" valor={r.ventas.itbis} />
-        <Fila etiqueta="Depositos de envases" valor={r.ventas.fianzas} />
+        {manejaEnvases && <Fila etiqueta="Depositos de envases" valor={r.ventas.fianzas} />}
       </div>
 
       <div className="rounded-xl border border-slate-200 p-4">

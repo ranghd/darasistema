@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, mensajeDeError } from "../../lib/api";
 import { NOMBRE_METODO, NOMBRE_RESULTADO, TONO_RESULTADO, useCaja } from "../../lib/caja";
 import { descargarCsv } from "../../lib/exportar";
+import { manejaEnvases } from "../../lib/variant";
 import { firstDayOfMonthIso, formatMoney, todayIso } from "../../lib/format";
 import type { Caja, DetalleCierre, FiltrosCierres, ListaCierres } from "../../lib/types";
 import type { AvisoImpresion } from "../../lib/ticket";
@@ -243,7 +244,7 @@ export default function CierresCaja() {
               ["Efectivo", t.efectivo, "ventas + cobros"],
               ["Tarjetas", t.tarjeta, ""],
               ["Transferencias", t.transferencia, ""],
-              ["Devoluciones", t.devoluciones, "anuladas + envases"],
+              ["Devoluciones", t.devoluciones, manejaEnvases ? "anuladas + envases" : "anuladas"],
               ["Entradas de efectivo", t.entradas, ""],
               ["Salidas de efectivo", t.salidas, ""],
               ["Sobrantes", t.sobrantes, ""],

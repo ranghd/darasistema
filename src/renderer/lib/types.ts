@@ -1,4 +1,5 @@
 import type { TipoComprobanteVarios, TipoNcf, TipoNcfVenta } from "@shared/ncf";
+import type { CompraPiezaLinea } from "@shared/types";
 
 export type TipoCuenta = "ACTIVO" | "PASIVO" | "PATRIMONIO" | "INGRESOS" | "GASTOS" | "COSTOS";
 export type Naturaleza = "DEUDORA" | "ACREEDORA";
@@ -96,7 +97,7 @@ export interface Producto {
 
 // Los codigos NCF salen de una sola lista (Norma General 06-2018 de la DGII).
 export type { TipoComprobanteVarios, TipoNcf, TipoNcfVenta };
-export type { CompraPiezasInput, Mercancia, MercanciaInput, MercanciaResumen, Pieza, ResultadoPieza } from "@shared/types";
+export type { CompraPiezaLinea, CompraPiezasInput, Mercancia, MercanciaInput, MercanciaResumen, Pieza, ResultadoPieza } from "@shared/types";
 
 export interface NcfSecuencia {
   id: number;
@@ -335,6 +336,11 @@ export interface NuevaCompraInput {
   ncf?: string;
   condicion_pago: "CONTADO" | "CREDITO";
   lineas: CompraLineaInput[];
+  /** Dara Frituras: piezas compradas (pierna de salami...), entran al Control de piezas. */
+  piezas?: CompraPiezaLinea[];
+  autor?: Autor;
+  /** Se pago con el efectivo de esta jornada de caja: sale del cuadre. */
+  caja_sesion_id?: number | null;
 }
 
 export interface Compra {
@@ -354,6 +360,7 @@ export interface Compra {
 
 export interface CompraDetalle extends Compra {
   lineas: CompraLinea[];
+  piezas?: { mercancia_nombre: string; pieza: string; cantidad: number; subtotal: number }[];
 }
 
 export interface Proveedor {
@@ -549,7 +556,7 @@ export interface MovimientoCaja {
   id: number;
   sesion_id: number;
   tipo: "ENTRADA" | "SALIDA";
-  motivo: MotivoMovimientoCaja;
+  motivo: MotivoMovimientoCaja | "COMPRA";
   concepto: string | null;
   monto: number;
   usuario_nombre: string;
