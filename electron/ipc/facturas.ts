@@ -119,7 +119,7 @@ export function registerFacturasIpc(db: DB) {
     for (const l of input.lineas) {
       if (!productos.has(l.producto_id)) {
         const p = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(l.producto_id) as Producto | undefined;
-        if (!p) throw new Error(`Producto ${l.producto_id} no existe`);
+        if (!p || p.borrado) throw new Error(`Producto ${l.producto_id} no existe`);
         // Lo que sale de una mercancia con control de piezas (Dara Frituras) no se cuenta por unidades: no se bloquea.
         if (!p.mercancia_id && p.existencia < l.cantidad) throw new Error(`Existencia insuficiente de ${p.nombre} (disponible: ${p.existencia})`);
         productos.set(l.producto_id, p);

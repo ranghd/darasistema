@@ -63,6 +63,7 @@ export default function ListaProductos() {
   const esAdmin = usuario?.rol === "ADMIN";
   const [verInactivos, setVerInactivos] = useState(false);
   const [aBorrar, setABorrar] = useState<Producto | null>(null);
+  const [aBorrarDefinitivo, setABorrarDefinitivo] = useState<Producto | null>(null);
   const [borrando, setBorrando] = useState(false);
   const [aviso, setAviso] = useState("");
   const [editActivo, setEditActivo] = useState(1);
@@ -206,13 +207,28 @@ export default function ListaProductos() {
       setAviso(
         r.borrado
           ? `Se borro ${aBorrar.nombre}.`
-          : `${aBorrar.nombre} ya tiene ventas, compras o envases, asi que se desactivo para no perder ese historial: ya no sale para vender. Puedes verlo con "Ver inactivos".`
+          : `${aBorrar.nombre} ya tiene ventas, compras o envases, asi que se desactivo para no perder ese historial: ya no sale para vender. En "Ver inactivos" lo puedes reactivar o borrar definitivamente.`
       );
       await cargar();
     } catch (err) {
       setAviso(mensajeDeError(err));
     } finally {
       setABorrar(null);
+      setBorrando(false);
+    }
+  }
+
+  async function borrarDefinitivo() {
+    if (!aBorrarDefinitivo) return;
+    setBorrando(true);
+    try {
+      await api.productos.eliminar(aBorrarDefinitivo.id, { definitivo: true, autor: { id: usuario?.id ?? null, nombre: usuario?.nombre ?? "", rol: usuario?.rol } });
+      setAviso(`Se borro ${aBorrarDefinitivo.nombre} definitivamente.`);
+      await cargar();
+    } catch (err) {
+      setAviso(mensajeDeError(err));
+    } finally {
+      setABorrarDefinitivo(null);
       setBorrando(false);
     }
   }
@@ -242,6 +258,11 @@ export default function ListaProductos() {
       {!p.activo && (
         <button className="ml-3 text-xs font-medium text-brand-600 hover:underline" onClick={() => reactivar(p)}>
           Reactivar
+        </button>
+      )}
+      {esAdmin && !p.activo && (
+        <button className="ml-3 text-xs font-medium text-red-600 hover:underline" onClick={() => setABorrarDefinitivo(p)}>
+          Borrar definitivamente
         </button>
       )}
     </td>
@@ -339,6 +360,24 @@ export default function ListaProductos() {
         ))}
       </Table>
       )}
+
+      <Modal open={!!aBorrarDefinitivo} onClose={() => setABorrarDefinitivo(null)} title="Borrar definitivamente">
+        <p className="text-sm text-slate-600">
+          Vas a borrar <b className="text-slate-900">{aBorrarDefinitivo?.nombre}</b> para siempre: no se puede deshacer y ya no saldra en ninguna lista. Las facturas y compras viejas siguen
+          mostrando su nombre.
+        </p>
+        {!!aBorrarDefinitivo?.existencia && (
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Todavia tiene {aBorrarDefinitivo.existencia} en existencia: saldran del inventario.</p>
+        )}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => setABorrarDefinitivo(null)}>
+            Cancelar
+          </Button>
+          <Button type="button" variant="danger" onClick={borrarDefinitivo} disabled={borrando}>
+            {borrando ? "Borrando..." : "Borrar definitivamente"}
+          </Button>
+        </div>
+      </Modal>
 
       <Modal open={!!aBorrar} onClose={() => setABorrar(null)} title="Borrar producto">
         <p className="text-sm text-slate-600">

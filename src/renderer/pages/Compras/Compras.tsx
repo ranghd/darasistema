@@ -71,7 +71,9 @@ export default function Compras() {
     ]);
     setCompras(c);
     setMercancias(merc);
-    setProductos(p);
+    const activos = p.filter((x) => x.activo);
+    setProductos(activos);
+    setLineas((prev) => prev.filter((l) => activos.some((x) => x.id === l.producto_id)));
     setProveedores(provs.filter((x) => x.activo));
     setRelaciones(rel);
   }

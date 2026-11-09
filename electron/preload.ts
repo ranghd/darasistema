@@ -30,7 +30,7 @@ const api = {
     listar: () => invoke("productos:listar"),
     crear: (data: any) => invoke("productos:crear", data),
     actualizar: (id: number, data: any) => invoke("productos:actualizar", id, data),
-    eliminar: (id: number) => invoke("productos:eliminar", id),
+    eliminar: (id: number, data?: { definitivo?: boolean; autor?: unknown }) => invoke("productos:eliminar", id, data),
   },
   categorias: {
     listar: () => invoke("categorias:listar"),

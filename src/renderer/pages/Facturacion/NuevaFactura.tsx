@@ -56,8 +56,9 @@ export default function NuevaFactura() {
   useEffect(() => {
     api.clientes.listar().then(setClientes as any);
     api.productos.listar().then((p) => {
-      setProductos(p as Producto[]);
-      setLineas((prev) => prev.filter((l) => (p as Producto[]).some((x) => x.id === l.producto_id)));
+      const activos = (p as Producto[]).filter((x) => x.activo);
+      setProductos(activos);
+      setLineas((prev) => prev.filter((l) => activos.some((x) => x.id === l.producto_id)));
     });
   }, []);
 

@@ -91,7 +91,7 @@ export function registerComprasIpc(db: DB) {
       if (l.cantidad <= 0) throw new Error("La cantidad debe ser mayor a cero");
       if (!productos.has(l.producto_id)) {
         const p = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(l.producto_id) as Producto | undefined;
-        if (!p) throw new Error(`Producto ${l.producto_id} no existe`);
+        if (!p || p.borrado) throw new Error(`Producto ${l.producto_id} no existe`);
         productos.set(l.producto_id, p);
       }
     }

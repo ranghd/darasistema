@@ -48,6 +48,8 @@ const CANALES_CAJA_AUTOR: Record<string, number> = {
   "caja:movimiento": 0,
   // la compra puede traer piezas o salir del efectivo de la caja: queda a nombre de quien la registra
   "compras:crear": 0,
+  // borrar un producto definitivamente queda en la auditoria a nombre de quien lo hizo
+  "productos:eliminar": 1,
   "caja:misCierres": 0,
   "caja:detalle": 1,
   "cajas:crear": 0,

@@ -52,6 +52,8 @@ export type CategoriaProducto = "GAS" | "OXIGENO" | "AGUA" | "OTRO";
 
 export interface Producto {
   id: number;
+  /** Borrado definitivamente: solo existe para el historial (no sale en listas). */
+  borrado?: number;
   codigo: string;
   nombre: string;
   categoria: CategoriaProducto;

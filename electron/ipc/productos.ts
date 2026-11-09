@@ -1,13 +1,19 @@
 import { ipcMain } from "electron";
 import type { DB } from "../db/types";
-import type { CategoriaPropia, Producto } from "../shared/types";
+import type { Autor, CategoriaPropia, Producto } from "../shared/types";
+import { auditar } from "./caja";
 import { asegurarCuenta, crearAsiento, fechaHoyRD, registrarAjusteInventario } from "../db/contabilidad";
 
 // El codigo del producto no se puede repetir.
 function codigoLibre(db: DB, codigo: string | undefined | null, id?: number): string | null {
   const limpio = String(codigo ?? "").trim();
   if (!limpio) return null;
-  const otro = db.prepare(`SELECT id, nombre FROM productos WHERE lower(codigo) = lower(?) AND id != ?`).get(limpio, id ?? -1) as { id: number; nombre: string } | undefined;
+  const otro = db.prepare(`SELECT id, nombre, borrado FROM productos WHERE lower(codigo) = lower(?) AND id != ?`).get(limpio, id ?? -1) as { id: number; nombre: string; borrado: number } | undefined;
+  // Un producto borrado definitivamente le cede su codigo al nuevo (el viejo queda con una marca, solo para el historial).
+  if (otro?.borrado) {
+    db.prepare(`UPDATE productos SET codigo = codigo || '-B' || id WHERE id = ?`).run(otro.id);
+    return limpio;
+  }
   if (otro) throw new Error(`El codigo ${limpio} ya lo tiene "${otro.nombre}"`);
   return limpio;
 }
@@ -93,7 +99,7 @@ function moverInventario(db: DB, nombre: string, desde: number | null | undefine
 
 // Pone cada producto en las cuentas de su categoria (los que ya tenian categoria antes de este cambio).
 function alinearProductos(db: DB) {
-  const productos = db.prepare(`SELECT * FROM productos WHERE grupo IS NOT NULL AND grupo != ''`).all() as Producto[];
+  const productos = db.prepare(`SELECT * FROM productos WHERE grupo IS NOT NULL AND grupo != '' AND borrado = 0`).all() as Producto[];
   for (const p of productos) {
     const c = cuentasDeCategoria(db, p.grupo!);
     if (p.cuenta_ingreso_id === c.ingreso && p.cuenta_costo_id === c.costo && p.cuenta_inventario_id === c.inventario) continue;
@@ -127,7 +133,7 @@ export function registerProductosIpc(db: DB) {
     const lista = db
       .prepare(
         `SELECT c.nombre, (SELECT COUNT(*) FROM productos p WHERE p.grupo = c.nombre COLLATE NOCASE AND p.activo = 1) AS productos
-         FROM (SELECT nombre FROM categorias_producto UNION SELECT grupo FROM productos WHERE grupo IS NOT NULL AND grupo != '') c
+         FROM (SELECT nombre FROM categorias_producto UNION SELECT grupo FROM productos WHERE grupo IS NOT NULL AND grupo != '' AND borrado = 0) c
          ORDER BY c.nombre COLLATE NOCASE`
       )
       .all() as CategoriaPropia[];
@@ -174,7 +180,7 @@ export function registerProductosIpc(db: DB) {
   })());
 
   ipcMain.handle("productos:listar", () => {
-    return db.prepare(`SELECT * FROM productos ORDER BY categoria, nombre`).all() as Producto[];
+    return db.prepare(`SELECT * FROM productos WHERE borrado = 0 ORDER BY categoria, nombre`).all() as Producto[];
   });
 
   ipcMain.handle("productos:crear", (_e, data: Partial<Producto> & { cuentas_por_categoria?: boolean }) => db.transaction(() => {
@@ -208,22 +214,32 @@ export function registerProductosIpc(db: DB) {
     return creado;
   })());
 
-  // Borra el producto. Si ya se vendio, se compro o tiene envases o botellas fiadas, no se puede borrar
-  // sin romper ese historial: se desactiva (deja de salir para vender). Si se borra, su existencia
-  // sale tambien de la contabilidad del inventario.
-  ipcMain.handle("productos:eliminar", (_e, id: number): { borrado: boolean } => db.transaction(() => {
+  // Borra el producto. Si ya se vendio, se compro o tiene envases o botellas fiadas, se desactiva (deja de
+  // salir para vender). Un producto inactivo se puede borrar definitivamente (definitivo: true): deja de salir
+  // en todas partes, y si tiene historial la fila se queda solo para que las facturas viejas conserven su
+  // nombre. Al borrarlo, su existencia sale tambien de la contabilidad del inventario.
+  ipcMain.handle("productos:eliminar", (_e, id: number, data?: { definitivo?: boolean; autor?: Autor }): { borrado: boolean } => db.transaction(() => {
     const producto = db.prepare(`SELECT * FROM productos WHERE id = ?`).get(id) as Producto | undefined;
-    if (!producto) throw new Error("Producto no encontrado");
-    const usado = ["factura_lineas", "compra_lineas", "envases_cliente", "envase_movimientos", "botellas_fiadas"].some((tabla) =>
+    if (!producto || producto.borrado) throw new Error("Producto no encontrado");
+    const usado = ["factura_lineas", "compra_lineas", "envases_cliente", "envase_movimientos", "botellas_fiadas", "platos_dia"].some((tabla) =>
       db.prepare(`SELECT 1 FROM ${tabla} WHERE producto_id = ? LIMIT 1`).get(id)
     );
-    if (usado) {
+    const definitivo = !!data?.definitivo;
+    if (definitivo) {
+      if (producto.activo) throw new Error("Primero hay que desactivar el producto");
+      const envases = (db.prepare(`SELECT COALESCE(SUM(cantidad), 0) AS n FROM envases_cliente WHERE producto_id = ?`).get(id) as { n: number }).n;
+      const prestados = (db.prepare(`SELECT COALESCE(SUM(CASE WHEN tipo = 'FIADO' THEN cantidad ELSE -cantidad END), 0) AS n FROM botellas_fiadas WHERE producto_id = ?`).get(id) as { n: number }).n;
+      if (envases !== 0 || prestados > 0) throw new Error(`No se puede borrar ${producto.nombre}: hay clientes que todavia tienen envases o cilindros de este producto`);
+    }
+    if (usado && !definitivo) {
       db.prepare(`UPDATE productos SET activo = 0 WHERE id = ?`).run(id);
       return { borrado: false };
     }
     registrarAjusteInventario(db, producto.cuenta_inventario_id, -producto.existencia * producto.costo_contenido, `Producto borrado: ${producto.nombre}`);
     db.prepare(`DELETE FROM producto_proveedor WHERE producto_id = ?`).run(id);
-    db.prepare(`DELETE FROM productos WHERE id = ?`).run(id);
+    if (usado) db.prepare(`UPDATE productos SET borrado = 1, activo = 0, existencia = 0, mercancia_id = NULL, codigo_barras = NULL WHERE id = ?`).run(id);
+    else db.prepare(`DELETE FROM productos WHERE id = ?`).run(id);
+    if (definitivo && data?.autor?.nombre) auditar(db, data.autor, "BORRAR_PRODUCTO", "producto", id, { nombre: producto.nombre, codigo: producto.codigo, existencia: producto.existencia, con_historial: usado });
     return { borrado: true };
   })());
 

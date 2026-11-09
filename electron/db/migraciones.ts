@@ -208,6 +208,8 @@ export function migrar(db: DB) {
     `ALTER TABLE factura_lineas ADD COLUMN pieza_id INTEGER REFERENCES piezas(id)`,
     // Piezas que entraron por una compra a un proveedor (Compras).
     `ALTER TABLE piezas ADD COLUMN compra_id INTEGER REFERENCES compras(id)`,
+    // Producto borrado definitivamente que ya tenia ventas o compras: no sale en ningun lado, pero las facturas viejas conservan su nombre.
+    `ALTER TABLE productos ADD COLUMN borrado INTEGER NOT NULL DEFAULT 0`,
   ];
   for (const sql of columnas) {
     try {
