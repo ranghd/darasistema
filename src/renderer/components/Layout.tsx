@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { isPreviewMode } from "../lib/api";
-import { adminVentas, cajaConInventario, EDICION, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, permiteFiar, sinImpuestos, soloVentas } from "../lib/variant";
+import { adminVentas, cajaConInventario, EDICION, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, permiteFiar, sinImpuestos, soloVentas, usaNomina } from "../lib/variant";
 import { useAuth } from "../lib/auth";
 import ConnectionBanner from "./ConnectionBanner";
 import Logo from "./Logo";
@@ -45,6 +45,7 @@ const NAV_COMPLETO = [
     items: [
       { to: "/gastos", label: "Gastos (facturas de suplidores)" },
       { to: "/cuentas-por-pagar", label: "Cuentas por Pagar" },
+      ...(usaNomina ? [{ to: "/nomina", label: "Nomina (pagar empleados)" }] : []),
       { to: "/bancos", label: "Bancos y conciliacion" },
     ],
   },

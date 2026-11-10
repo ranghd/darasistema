@@ -7,7 +7,7 @@ import CierreCaja from "./pages/CierreCaja/CierreCaja";
 import CierresCaja from "./pages/CierreCaja/CierresCaja";
 import GastosCaja from "./pages/CierreCaja/GastosCaja";
 import FiadosCaja from "./pages/Caja/FiadosCaja";
-import { adminVentas, cajaConInventario, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, permiteFiar, recuerdaSesion, sinImpuestos, soloVentas } from "./lib/variant";
+import { adminVentas, cajaConInventario, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, permiteFiar, recuerdaSesion, sinImpuestos, soloVentas, usaNomina } from "./lib/variant";
 import Layout from "./components/Layout";
 import Login from "./pages/Login/Login";
 import ConfigurarConexion from "./pages/Configuracion/ConfigurarConexion";
@@ -36,6 +36,7 @@ import ReporteItbis from "./pages/Reportes/ReporteItbis";
 import ReporteVentas from "./pages/Reportes/ReporteVentas";
 import CuentasPorPagar from "./pages/Reportes/CuentasPorPagar";
 import Gastos from "./pages/Gastos/Gastos";
+import Nomina from "./pages/Nomina/Nomina";
 import Conciliacion from "./pages/Bancos/Conciliacion";
 import Configuracion from "./pages/Configuracion/Configuracion";
 import Comprobantes from "./pages/Comprobantes/Comprobantes";
@@ -78,6 +79,7 @@ const RUTAS_ADMIN_EXTRA = [
   { path: "/reportes/itbis", element: <ReporteItbis /> },
   { path: "/reportes/ventas", element: <ReporteVentas /> },
   { path: "/gastos", element: <Gastos /> },
+  ...(usaNomina ? [{ path: "/nomina", element: <Nomina /> }] : []),
   { path: "/cuentas-por-pagar", element: <CuentasPorPagar /> },
   { path: "/bancos", element: <Conciliacion /> },
   { path: "/comprobantes", element: <Comprobantes /> },

@@ -2,7 +2,7 @@
 // cuando la app corre como pagina web normal (sin Electron), para poder revisar
 // visualmente las pantallas en el navegador integrado durante el desarrollo.
 // La app real siempre usa window.api expuesto por electron/preload.ts.
-import type { BotellaFiadaInput, CategoriaPropia, CambioPlato, CompraPiezasInput, Mercancia, MercanciaInput, MercanciaResumen, MovimientoBotellaFiada, NotaFactura, Pieza, PlatoDia, PrecioCambiado, ReportePlato, SaldoBotellaFiada,
+import type { Empleado, EmpleadoInput, Nomina, NominaDetalle, NuevaNominaInput, BotellaFiadaInput, CategoriaPropia, CambioPlato, CompraPiezasInput, Mercancia, MercanciaInput, MercanciaResumen, MovimientoBotellaFiada, NotaFactura, Pieza, PlatoDia, PrecioCambiado, ReportePlato, SaldoBotellaFiada,
   AsientoConLineas,
   Autor,
   Caja,
@@ -150,6 +150,18 @@ export const mockApi = {
     comprar: async (_data: CompraPiezasInput): Promise<boolean> => { warn(); return true; },
     terminar: async (_data: { pieza_id: number; autor?: unknown }): Promise<Pieza | null> => { warn(); return null; },
     quitar: async (_data: { mercancia_id: number; autor?: unknown }): Promise<boolean> => { warn(); return true; },
+  },
+  empleados: {
+    listar: async (): Promise<Empleado[]> => [],
+    guardar: async (_data: EmpleadoInput): Promise<Empleado> => { warn(); throw new Error("No disponible en vista previa"); },
+    eliminar: async (_id: number): Promise<{ borrado: boolean }> => { warn(); return { borrado: true }; },
+  },
+  nomina: {
+    listar: async (_filtros?: { desde?: string; hasta?: string; empleado_id?: number }): Promise<Nomina[]> => [],
+    obtener: async (_id: number): Promise<NominaDetalle | undefined> => undefined,
+    ultimosPagos: async (): Promise<{ empleado_id: number; hasta: string; fecha: string }[]> => [],
+    pagar: async (_data: NuevaNominaInput): Promise<NominaDetalle> => { warn(); throw new Error("No disponible en vista previa"); },
+    anular: async (_data: { id: number; motivo: string; autor?: unknown }): Promise<NominaDetalle> => { warn(); throw new Error("No disponible en vista previa"); },
   },
   mercancias: {
     guardar: async (_data: MercanciaInput): Promise<Mercancia | null> => { warn(); return null; },

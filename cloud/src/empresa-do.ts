@@ -24,6 +24,7 @@ import { registerGastosIpc } from "../../electron/ipc/gastos";
 import { registerBancosIpc } from "../../electron/ipc/bancos";
 import { registerPlatosIpc } from "../../electron/ipc/platos";
 import { registerPiezasIpc } from "../../electron/ipc/piezas";
+import { registerNominaIpc } from "../../electron/ipc/nomina";
 
 export interface InicializarEmpresa {
   empresa: DatosEmpresa;
@@ -64,6 +65,9 @@ const CANALES_CAJA_AUTOR: Record<string, number> = {
   "piezas:comprar": 0,
   "piezas:terminar": 0,
   "piezas:quitar": 0,
+  // la nomina queda a nombre de quien paga
+  "nomina:pagar": 0,
+  "nomina:anular": 0,
 };
 const BLOQUEO_MS = 10 * 60 * 1000;
 
@@ -97,6 +101,7 @@ export class Empresa extends DurableObject {
       registerBancosIpc(db);
       registerPlatosIpc(db);
       registerPiezasIpc(db);
+      registerNominaIpc(db);
     });
   }
 

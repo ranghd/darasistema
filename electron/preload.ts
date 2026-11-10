@@ -61,6 +61,18 @@ const api = {
     terminar: (data: any) => invoke("piezas:terminar", data),
     quitar: (data: any) => invoke("piezas:quitar", data),
   },
+  empleados: {
+    listar: () => invoke("empleados:listar"),
+    guardar: (data: any) => invoke("empleados:guardar", data),
+    eliminar: (id: number) => invoke("empleados:eliminar", id),
+  },
+  nomina: {
+    listar: (filtros?: any) => invoke("nomina:listar", filtros),
+    obtener: (id: number) => invoke("nomina:obtener", id),
+    ultimosPagos: () => invoke("nomina:ultimosPagos"),
+    pagar: (data: any) => invoke("nomina:pagar", data),
+    anular: (data: any) => invoke("nomina:anular", data),
+  },
   mercancias: {
     guardar: (data: any) => invoke("mercancias:guardar", data),
     quitar: (data: any) => invoke("mercancias:quitar", data),

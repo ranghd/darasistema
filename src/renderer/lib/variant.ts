@@ -25,6 +25,8 @@ export const permiteFiar = esFritura;
 export const cajaConInventario = APP_VARIANT === "puntoventa" || APP_VARIANT === "fritura";
 // Esas cajas entran solas: la sesion se recuerda 30 dias y al abrir se revisan las actualizaciones.
 export const recuerdaSesion = APP_VARIANT === "puntoventa" || APP_VARIANT === "fritura";
+// Panel de nomina para pagar a los empleados (por ahora solo el programa del dueno de Dara Frituras).
+export const usaNomina = APP_VARIANT === "frituraadmin";
 // Es para un colmado (productos con grupo y codigo de barras, sin envases).
 export const esColmado = APP_VARIANT === "colmado" || APP_VARIANT === "cajacolmado";
 // Abre, opera y cierra la caja en esta computadora.

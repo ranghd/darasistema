@@ -458,4 +458,54 @@ CREATE TABLE IF NOT EXISTS banco_movimientos (
   importado_en TEXT NOT NULL DEFAULT (datetime('now','localtime')),
   UNIQUE (banco_id, huella)
 );
+
+-- Nomina: los empleados y cada pago de sueldos (por semana, quincena o mes).
+CREATE TABLE IF NOT EXISTS empleados (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre TEXT NOT NULL,
+  cedula TEXT,
+  cargo TEXT,
+  telefono TEXT,
+  frecuencia TEXT NOT NULL CHECK (frecuencia IN ('SEMANAL','QUINCENAL','MENSUAL')) DEFAULT 'SEMANAL',
+  sueldo REAL NOT NULL DEFAULT 0,
+  fecha_ingreso TEXT,
+  notas TEXT,
+  activo INTEGER NOT NULL DEFAULT 1,
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS nominas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  numero INTEGER NOT NULL UNIQUE,
+  fecha TEXT NOT NULL,
+  desde TEXT NOT NULL,
+  hasta TEXT NOT NULL,
+  frecuencia TEXT NOT NULL,
+  total_sueldos REAL NOT NULL DEFAULT 0,
+  total_extras REAL NOT NULL DEFAULT 0,
+  total_descuentos REAL NOT NULL DEFAULT 0,
+  total_neto REAL NOT NULL DEFAULT 0,
+  metodo TEXT NOT NULL CHECK (metodo IN ('EFECTIVO','TRANSFERENCIA','CHEQUE')),
+  banco_id INTEGER REFERENCES bancos(id),
+  referencia TEXT,
+  caja_sesion_id INTEGER REFERENCES caja_sesiones(id),
+  estado TEXT NOT NULL CHECK (estado IN ('PAGADA','ANULADA')) DEFAULT 'PAGADA',
+  notas TEXT,
+  asiento_id INTEGER REFERENCES asientos(id),
+  creado_por TEXT,
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS nomina_lineas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nomina_id INTEGER NOT NULL REFERENCES nominas(id),
+  empleado_id INTEGER NOT NULL REFERENCES empleados(id),
+  empleado_nombre TEXT NOT NULL,
+  cargo TEXT,
+  sueldo REAL NOT NULL DEFAULT 0,
+  extras REAL NOT NULL DEFAULT 0,
+  descuentos REAL NOT NULL DEFAULT 0,
+  neto REAL NOT NULL,
+  nota TEXT
+);
 `;

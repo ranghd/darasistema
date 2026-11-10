@@ -593,7 +593,7 @@ export interface MovimientoCaja {
   sesion_id: number;
   tipo: "ENTRADA" | "SALIDA";
   /** COMPRA: compra a un proveedor pagada con el efectivo de la caja (se registra en Compras). */
-  motivo: MotivoMovimientoCaja | "COMPRA";
+  motivo: MotivoMovimientoCaja | "COMPRA" | "NOMINA";
   concepto: string | null;
   monto: number;
   usuario_nombre: string;
@@ -1048,4 +1048,103 @@ export interface CategoriaPropia {
   cuenta_ingreso?: string | null;
   cuenta_costo?: string | null;
   cuenta_inventario?: string | null;
+}
+
+// ---------- Nomina ----------
+export type FrecuenciaPago = "SEMANAL" | "QUINCENAL" | "MENSUAL";
+
+export interface Empleado {
+  id: number;
+  nombre: string;
+  cedula: string | null;
+  cargo: string | null;
+  telefono: string | null;
+  frecuencia: FrecuenciaPago;
+  /** Lo que gana en cada pago (por semana, quincena o mes segun su frecuencia). */
+  sueldo: number;
+  fecha_ingreso: string | null;
+  notas: string | null;
+  activo: number;
+  /** Cuantas veces se le ha pagado. */
+  pagos?: number;
+}
+
+export interface EmpleadoInput {
+  id?: number;
+  nombre: string;
+  cedula?: string | null;
+  cargo?: string | null;
+  telefono?: string | null;
+  frecuencia: FrecuenciaPago;
+  sueldo: number;
+  fecha_ingreso?: string | null;
+  notas?: string | null;
+  activo?: number;
+}
+
+export interface NominaLineaInput {
+  empleado_id: number;
+  sueldo: number;
+  /** Horas extras, bonos, propinas... */
+  extras: number;
+  /** Adelantos, faltas, prestamos... */
+  descuentos: number;
+  nota?: string;
+}
+
+export interface NuevaNominaInput {
+  /** Dia que se paga. */
+  fecha: string;
+  /** Periodo que se paga. */
+  desde: string;
+  hasta: string;
+  frecuencia: FrecuenciaPago;
+  metodo: "EFECTIVO" | "TRANSFERENCIA" | "CHEQUE";
+  banco_id?: number | null;
+  referencia?: string;
+  /** Si se paga con el dinero de una caja abierta, sale de su efectivo. */
+  caja_sesion_id?: number | null;
+  notas?: string;
+  lineas: NominaLineaInput[];
+  autor?: Autor;
+}
+
+export interface NominaLinea {
+  id: number;
+  nomina_id: number;
+  empleado_id: number;
+  empleado_nombre: string;
+  cargo: string | null;
+  sueldo: number;
+  extras: number;
+  descuentos: number;
+  neto: number;
+  nota: string | null;
+}
+
+export interface Nomina {
+  id: number;
+  numero: number;
+  fecha: string;
+  desde: string;
+  hasta: string;
+  frecuencia: FrecuenciaPago;
+  total_sueldos: number;
+  total_extras: number;
+  total_descuentos: number;
+  total_neto: number;
+  metodo: "EFECTIVO" | "TRANSFERENCIA" | "CHEQUE";
+  banco_id: number | null;
+  banco_nombre?: string | null;
+  referencia: string | null;
+  caja_sesion_id: number | null;
+  estado: "PAGADA" | "ANULADA";
+  notas: string | null;
+  asiento_id: number | null;
+  creado_por: string | null;
+  empleados?: number;
+}
+
+export interface NominaDetalle extends Nomina {
+  lineas: NominaLinea[];
 }
