@@ -1,4 +1,4 @@
-import { soloVentas } from "../../lib/variant";
+import { sinImpuestos, soloVentas } from "../../lib/variant";
 import { imprimirFacturaCarta } from "../../lib/facturaCarta";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -268,7 +268,7 @@ export default function DetalleFactura() {
         </div>
       </div>
 
-      <Table columns={["Producto", "Modalidad", "Cantidad", "Precio", "Descuento", "ITBIS", "Subtotal"]}>
+      <Table columns={["Producto", "Modalidad", "Cantidad", "Precio", "Descuento", ...(sinImpuestos ? [] : ["ITBIS"]), "Subtotal"]}>
         {factura.lineas.map((l) => (
           <tr key={l.id}>
             <td className="px-4 py-2.5 font-medium text-slate-800">{l.producto_nombre}</td>
@@ -276,7 +276,7 @@ export default function DetalleFactura() {
             <td className="px-4 py-2.5">{l.cantidad}</td>
             <td className="px-4 py-2.5">{formatMoney(l.precio_unitario)}</td>
             <td className="px-4 py-2.5">{formatMoney(l.descuento)}</td>
-            <td className="px-4 py-2.5">{formatMoney(l.itbis)}</td>
+            {!sinImpuestos && <td className="px-4 py-2.5">{formatMoney(l.itbis)}</td>}
             <td className="px-4 py-2.5">{formatMoney(l.subtotal)}</td>
           </tr>
         ))}
@@ -288,10 +288,12 @@ export default function DetalleFactura() {
             <span>Subtotal</span>
             <span>{formatMoney(factura.subtotal)}</span>
           </div>
-          <div className="flex justify-between text-slate-600">
-            <span>ITBIS</span>
-            <span>{formatMoney(factura.itbis)}</span>
-          </div>
+          {!sinImpuestos && (
+            <div className="flex justify-between text-slate-600">
+              <span>ITBIS</span>
+              <span>{formatMoney(factura.itbis)}</span>
+            </div>
+          )}
           {factura.fianza_total > 0 && (
             <div className="flex justify-between text-slate-600">
               <span>Fianza por envases</span>

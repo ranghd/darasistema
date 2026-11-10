@@ -6,7 +6,7 @@ import { firstDayOfMonthIso, formatDate, formatMoney, todayIso } from "../../lib
 import { descargarCsv, html, imprimirHtml } from "../../lib/exportar";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 import ReciboCobroModal from "../../components/ReciboCobro";
-import { manejaEnvases } from "../../lib/variant";
+import { manejaEnvases, sinImpuestos } from "../../lib/variant";
 
 interface EnvaseSaldo {
   producto_id: number;
@@ -46,7 +46,7 @@ function htmlFactura(f: FacturaHistorial, empresa: CompanyConfig | null): string
     .map(
       (l) => `<tr><td>${html(l.producto_nombre)}${l.modalidad === "LLENO" ? " (lleno)" : ""}</td><td class="r">${l.cantidad}</td>
         <td class="r">${formatMoney(l.precio_unitario)}</td><td class="r">${formatMoney(l.descuento)}</td>
-        <td class="r">${formatMoney(l.itbis)}</td><td class="r">${formatMoney(l.subtotal)}</td></tr>`
+        ${sinImpuestos ? "" : `<td class="r">${formatMoney(l.itbis)}</td>`}<td class="r">${formatMoney(l.subtotal)}</td></tr>`
     )
     .join("");
   const cobros = f.cobros.length
@@ -59,12 +59,12 @@ function htmlFactura(f: FacturaHistorial, empresa: CompanyConfig | null): string
     </div>
     <p>Cliente: <b>${html(f.cliente_nombre)}</b> · ${f.condicion_pago === "CONTADO" ? "Contado" : "Credito"} · Metodo: ${html(metodoDe(f))} ·
       Estado: ${f.estado}${f.creado_por ? ` · Atendido por: ${html(f.creado_por)}` : ""}</p>
-    <table><thead><tr><th>Producto</th><th class="r">Cant.</th><th class="r">Precio</th><th class="r">Desc.</th><th class="r">ITBIS</th><th class="r">Subtotal</th></tr></thead>
+    <table><thead><tr><th>Producto</th><th class="r">Cant.</th><th class="r">Precio</th><th class="r">Desc.</th>${sinImpuestos ? "" : '<th class="r">ITBIS</th>'}<th class="r">Subtotal</th></tr></thead>
       <tbody>${filas}</tbody></table>
     <div class="totales">
       <div><span>Subtotal</span><span>${formatMoney(f.subtotal + descuento)}</span></div>
       <div><span>Descuento</span><span>${formatMoney(descuento)}</span></div>
-      <div><span>ITBIS</span><span>${formatMoney(f.itbis)}</span></div>
+      ${sinImpuestos ? "" : `<div><span>ITBIS</span><span>${formatMoney(f.itbis)}</span></div>`}
       ${f.fianza_total ? `<div><span>Fianza envases</span><span>${formatMoney(f.fianza_total)}</span></div>` : ""}
       <div class="fuerte"><span>Total</span><span>${formatMoney(f.total)}</span></div>
     </div>
@@ -91,7 +91,7 @@ function exportarCsv(cliente: Cliente, facturas: FacturaHistorial[]) {
         l.cantidad,
         l.precio_unitario.toFixed(2),
         (l.descuento ?? 0).toFixed(2),
-        l.itbis.toFixed(2),
+        ...(sinImpuestos ? [] : [l.itbis.toFixed(2)]),
         l.subtotal.toFixed(2),
         f.total.toFixed(2),
       ]);
@@ -99,7 +99,7 @@ function exportarCsv(cliente: Cliente, facturas: FacturaHistorial[]) {
   }
   descargarCsv(
     `historial-${cliente.codigo}-${todayIso()}.csv`,
-    ["Fecha", "Factura", "NCF", "Estado", "Condicion", "Metodo de pago", "Usuario", "Producto", "Modalidad", "Cantidad", "Precio", "Descuento", "ITBIS", "Subtotal linea", "Total factura"],
+    ["Fecha", "Factura", "NCF", "Estado", "Condicion", "Metodo de pago", "Usuario", "Producto", "Modalidad", "Cantidad", "Precio", "Descuento", ...(sinImpuestos ? [] : ["ITBIS"]), "Subtotal linea", "Total factura"],
     filas
   );
 }
@@ -146,7 +146,7 @@ function DetalleCompra({ f }: { f: FacturaHistorial }) {
       </div>
 
       <div className="mt-3">
-        <Table columns={["Producto", "Modalidad", "Cant.", "Precio", "Descuento", "ITBIS", "Subtotal"]}>
+        <Table columns={["Producto", "Modalidad", "Cant.", "Precio", "Descuento", ...(sinImpuestos ? [] : ["ITBIS"]), "Subtotal"]}>
           {f.lineas.map((l) => (
             <tr key={l.id}>
               <td className="px-4 py-2 font-medium text-slate-800">{l.producto_nombre}</td>
@@ -154,7 +154,7 @@ function DetalleCompra({ f }: { f: FacturaHistorial }) {
               <td className="px-4 py-2">{l.cantidad}</td>
               <td className="px-4 py-2">{formatMoney(l.precio_unitario)}</td>
               <td className="px-4 py-2">{formatMoney(l.descuento)}</td>
-              <td className="px-4 py-2">{formatMoney(l.itbis)}</td>
+              {!sinImpuestos && <td className="px-4 py-2">{formatMoney(l.itbis)}</td>}
               <td className="px-4 py-2">{formatMoney(l.subtotal)}</td>
             </tr>
           ))}
@@ -185,10 +185,12 @@ function DetalleCompra({ f }: { f: FacturaHistorial }) {
             <span>Descuento</span>
             <span>{formatMoney(descuento)}</span>
           </div>
-          <div className="flex justify-between text-slate-600">
-            <span>ITBIS</span>
-            <span>{formatMoney(f.itbis)}</span>
-          </div>
+          {!sinImpuestos && (
+            <div className="flex justify-between text-slate-600">
+              <span>ITBIS</span>
+              <span>{formatMoney(f.itbis)}</span>
+            </div>
+          )}
           {f.fianza_total > 0 && (
             <div className="flex justify-between text-slate-600">
               <span>Fianza por envases</span>
@@ -555,8 +557,8 @@ export default function DetalleCliente() {
             </p>
           )}
 
-          <Table columns={["", "Fecha", "Factura", "Productos", "Desc.", "ITBIS", "Total", "Metodo", "Estado", "Usuario"]}>
-            {filas.length === 0 && <EmptyRow colSpan={10} label={cargando ? "Cargando..." : hayFiltros ? "Ninguna compra coincide con los filtros" : "Este cliente todavia no tiene compras"} />}
+          <Table columns={["", "Fecha", "Factura", "Productos", "Desc.", ...(sinImpuestos ? [] : ["ITBIS"]), "Total", "Metodo", "Estado", "Usuario"]}>
+            {filas.length === 0 && <EmptyRow colSpan={sinImpuestos ? 9 : 10} label={cargando ? "Cargando..." : hayFiltros ? "Ninguna compra coincide con los filtros" : "Este cliente todavia no tiene compras"} />}
             {filas.map((f) => (
               <tr key={f.id} onClick={() => setDetalle([f])} className={`cursor-pointer align-top hover:bg-slate-50 ${seleccion.has(f.id) ? "bg-brand-50/60" : ""}`}>
                 <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -575,7 +577,7 @@ export default function DetalleCliente() {
                   ))}
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-xs">{descuentoDe(f) ? formatMoney(descuentoDe(f)) : "-"}</td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-xs">{formatMoney(f.itbis)}</td>
+                {!sinImpuestos && <td className="whitespace-nowrap px-4 py-2.5 text-xs">{formatMoney(f.itbis)}</td>}
                 <td className="whitespace-nowrap px-4 py-2.5 font-semibold text-slate-900">{formatMoney(f.total)}</td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-xs">{metodoDe(f)}</td>
                 <td className="px-4 py-2.5">
@@ -605,7 +607,7 @@ export default function DetalleCliente() {
       )}
 
       {pestana === "PRODUCTOS" && (
-        <Table columns={["Producto", "Veces comprado", "Cantidad total", "Monto (sin ITBIS)", "Ultima compra", ""]}>
+        <Table columns={["Producto", "Veces comprado", "Cantidad total", sinImpuestos ? "Monto" : "Monto (sin ITBIS)", "Ultima compra", ""]}>
           {(resumen?.productos.length ?? 0) === 0 && <EmptyRow colSpan={6} label="Todavia no ha comprado productos" />}
           {resumen?.productos.map((p) => (
             <tr key={p.producto_id} className="hover:bg-slate-50">

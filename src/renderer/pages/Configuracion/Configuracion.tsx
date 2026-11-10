@@ -3,7 +3,7 @@ import { api, mensajeDeError } from "../../lib/api";
 import type { CompanyConfig, NcfSecuencia, RolUsuario, TipoNcf, Usuario } from "../../lib/types";
 import { formatDate } from "../../lib/format";
 import { NCF_LABELS, TODOS_LOS_TIPOS_NCF, VERSION_CODIGOS_NCF } from "../../lib/ncf";
-import { esVariantCaja, soloVentas } from "../../lib/variant";
+import { esVariantCaja, sinImpuestos, soloVentas } from "../../lib/variant";
 import { PIE_FACTURA } from "../../lib/facturaCarta";
 import { useAuth } from "../../lib/auth";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
@@ -169,7 +169,7 @@ export default function Configuracion() {
     <div>
       <PageHeader
         title="Configuracion"
-        subtitle={esVariantCaja ? "Conexion de esta caja con el servidor" : "Datos de la empresa, tasa de ITBIS y secuencias de NCF"}
+        subtitle={esVariantCaja ? "Conexion de esta caja con el servidor" : sinImpuestos ? "Datos de la empresa y usuarios" : "Datos de la empresa, tasa de ITBIS y secuencias de NCF"}
       />
 
       {!esVariantCaja && (
@@ -181,13 +181,15 @@ export default function Configuracion() {
               <Input label="RNC" value={config.rnc ?? ""} onChange={(e) => setConfig({ ...config, rnc: e.target.value })} />
               <Input label="Direccion" value={config.direccion ?? ""} onChange={(e) => setConfig({ ...config, direccion: e.target.value })} />
               <Input label="Telefono" value={config.telefono ?? ""} onChange={(e) => setConfig({ ...config, telefono: e.target.value })} />
-              <Input
-                label="Tasa de ITBIS (%)"
-                type="number"
-                step="0.01"
-                value={config.itbis_rate * 100}
-                onChange={(e) => setConfig({ ...config, itbis_rate: Number(e.target.value) / 100 })}
-              />
+              {!sinImpuestos && (
+                <Input
+                  label="Tasa de ITBIS (%)"
+                  type="number"
+                  step="0.01"
+                  value={config.itbis_rate * 100}
+                  onChange={(e) => setConfig({ ...config, itbis_rate: Number(e.target.value) / 100 })}
+                />
+              )}
               {soloVentas && (
                 // Gas Damian: lo que sale al final de la factura en hoja carta
                 <label className="block text-sm">

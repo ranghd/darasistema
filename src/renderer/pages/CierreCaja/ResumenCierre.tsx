@@ -1,4 +1,4 @@
-import { esFritura, manejaEnvases } from "../../lib/variant";
+import { esFritura, manejaEnvases, sinImpuestos } from "../../lib/variant";
 import { api, mensajeDeError } from "../../lib/api";
 import { NOMBRE_RESULTADO, TONO_RESULTADO } from "../../lib/caja";
 import { html, imprimirDocumento } from "../../lib/exportar";
@@ -55,7 +55,7 @@ export function ResumenCierreVista({ s }: { s: SesionCaja }) {
         <Fila etiqueta="Facturas anuladas" valor={`${r.anuladas.cantidad} (${formatMoney(r.anuladas.total)})`} />
         <Fila etiqueta="Descuentos" valor={r.ventas.descuentos} />
         {!!cambios?.cantidad && <Fila etiqueta={`Precios cambiados (${cambios.cantidad})`} valor={cambios.rebaja} />}
-        <Fila etiqueta="Impuestos (ITBIS)" valor={r.ventas.itbis} />
+        {!sinImpuestos && <Fila etiqueta="Impuestos (ITBIS)" valor={r.ventas.itbis} />}
         {manejaEnvases && <Fila etiqueta="Depositos de envases" valor={r.ventas.fianzas} />}
       </div>
 
@@ -150,7 +150,7 @@ function htmlComprobante(s: SesionCaja, empresa: string, anchoMm: number | null)
     ${v.CHEQUE ? fila("Cheque", m(v.CHEQUE)) : ""}
     ${fila("Credito", m(v.CREDITO))}
     ${fila("Descuentos", m(r.ventas.descuentos))}
-    ${fila("ITBIS", m(r.ventas.itbis))}
+    ${sinImpuestos ? "" : fila("ITBIS", m(r.ventas.itbis))}
     ${fila("TOTAL VENDIDO", m(r.ventas.total_general), true)}
     ${r.cobros.total ? fila("Cobros de credito", m(r.cobros.total)) : ""}
     <div class="l"></div>

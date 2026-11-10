@@ -65,7 +65,7 @@ const RUTAS_COMUNES = [
 
 // Rutas adicionales solo para administradores (no cajeros, no la variante Caja).
 const RUTAS_ADMIN_EXTRA = [
-  { path: "/notas", element: <NotasFactura /> },
+  ...(sinImpuestos ? [] : [{ path: "/notas", element: <NotasFactura /> }]),
   { path: "/compras", element: <Compras /> },
   { path: "/cierres-caja", element: <CierresCaja /> },
   { path: "/proveedores", element: <Proveedores /> },
@@ -76,7 +76,7 @@ const RUTAS_ADMIN_EXTRA = [
   { path: "/contabilidad/balance-comprobacion", element: <BalanceComprobacion /> },
   { path: "/reportes/resultados", element: <EstadoResultados /> },
   { path: "/reportes/balance-general", element: <BalanceGeneral /> },
-  { path: "/reportes/itbis", element: <ReporteItbis /> },
+  ...(sinImpuestos ? [] : [{ path: "/reportes/itbis", element: <ReporteItbis /> }]),
   { path: "/reportes/ventas", element: <ReporteVentas /> },
   { path: "/gastos", element: <Gastos /> },
   ...(usaNomina ? [{ path: "/nomina", element: <Nomina /> }] : []),

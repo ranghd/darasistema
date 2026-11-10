@@ -198,7 +198,7 @@ export default function Layout() {
     .filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN")
     .map((g) => ({ ...g, items: g.items.filter((i) => manejaEnvases || (i.to !== "/envases" && i.to !== "/botellas-fiadas")) }))
     // Sin registrar no hay NCF: las ventas se hacen en la caja
-    .map((g) => ({ ...g, items: g.items.filter((i) => !sinImpuestos || i.to !== "/facturas/nueva") }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => !sinImpuestos || !["/facturas/nueva", "/reportes/itbis", "/notas"].includes(i.to)) }))
     // Gas Damian Admin: el menu de Darasistema con los cilindros prestados
     .map((g) => (adminVentas && manejaEnvases && g.section === "Clientes" ? { ...g, items: [...g.items, { to: "/botellas-fiadas", label: "Cilindros prestados" }] } : g))
     // Dara Frituras Admin: lo que la caja vendio por debajo o por encima del precio

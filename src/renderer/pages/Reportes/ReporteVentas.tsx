@@ -4,10 +4,11 @@ import { formatDate, formatMoney } from "../../lib/format";
 import { descargarCsv, imprimirTabla } from "../../lib/exportar";
 import type { ReporteVentas as Datos } from "../../lib/types";
 import { Card, EmptyRow, PageHeader, StatCard, Table } from "../../components/ui";
-import { manejaEnvases } from "../../lib/variant";
+import { manejaEnvases, sinImpuestos } from "../../lib/variant";
 import { BotonesExportar, Pestanas, RangoFechas, rangoDe } from "../../components/reportes";
 
 type Vista = "RESUMEN" | "PRODUCTO" | "VENDEDOR" | "CLIENTE" | "DIA";
+const SIN_ITBIS = sinImpuestos ? "Venta" : "Venta (sin ITBIS)";
 const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(1)}%` : "-");
 
 export default function ReporteVentas() {
@@ -32,16 +33,16 @@ export default function ReporteVentas() {
     if (vista === "PRODUCTO")
       return {
         titulo: "Ventas por producto",
-        enc: ["Codigo", "Producto", "Cantidad", "Venta (sin ITBIS)", "ITBIS", "Costo estimado", "Ganancia", "% de la venta"],
-        der: [2, 3, 4, 5, 6, 7],
-        filas: datos.porProducto.map((p) => [p.codigo, p.nombre, p.cantidad, p.venta, p.itbis, p.costo, p.ganancia, pct(p.venta, r.subtotal)]),
-        impresas: datos.porProducto.map((p) => [p.codigo, p.nombre, p.cantidad, formatMoney(p.venta), formatMoney(p.itbis), formatMoney(p.costo), formatMoney(p.ganancia), pct(p.venta, r.subtotal)]),
-        pie: ["", "TOTAL", datos.porProducto.reduce((s, p) => s + p.cantidad, 0), formatMoney(r.subtotal), formatMoney(r.itbis), formatMoney(r.costo), formatMoney(r.ganancia), "100%"],
+        enc: ["Codigo", "Producto", "Cantidad", SIN_ITBIS, ...(sinImpuestos ? [] : ["ITBIS"]), "Costo estimado", "Ganancia", "% de la venta"],
+        der: sinImpuestos ? [2, 3, 4, 5, 6] : [2, 3, 4, 5, 6, 7],
+        filas: datos.porProducto.map((p) => [p.codigo, p.nombre, p.cantidad, p.venta, ...(sinImpuestos ? [] : [p.itbis]), p.costo, p.ganancia, pct(p.venta, r.subtotal)]),
+        impresas: datos.porProducto.map((p) => [p.codigo, p.nombre, p.cantidad, formatMoney(p.venta), ...(sinImpuestos ? [] : [formatMoney(p.itbis)]), formatMoney(p.costo), formatMoney(p.ganancia), pct(p.venta, r.subtotal)]),
+        pie: ["", "TOTAL", datos.porProducto.reduce((s, p) => s + p.cantidad, 0), formatMoney(r.subtotal), ...(sinImpuestos ? [] : [formatMoney(r.itbis)]), formatMoney(r.costo), formatMoney(r.ganancia), "100%"],
       };
     if (vista === "VENDEDOR")
       return {
         titulo: "Ventas por vendedor",
-        enc: ["Vendedor", "Facturas", "Venta (sin ITBIS)", "Total facturado", "Promedio por factura", "% del total"],
+        enc: ["Vendedor", "Facturas", SIN_ITBIS, "Total facturado", "Promedio por factura", "% del total"],
         der: [1, 2, 3, 4, 5],
         filas: datos.porVendedor.map((v) => [v.vendedor, v.facturas, v.subtotal, v.total, v.promedio, pct(v.total, r.total)]),
         impresas: datos.porVendedor.map((v) => [v.vendedor, v.facturas, formatMoney(v.subtotal), formatMoney(v.total), formatMoney(v.promedio), pct(v.total, r.total)]),
@@ -50,7 +51,7 @@ export default function ReporteVentas() {
     if (vista === "CLIENTE")
       return {
         titulo: "Ventas por cliente",
-        enc: ["Cliente", "Facturas", "Venta (sin ITBIS)", "Total facturado", "% del total"],
+        enc: ["Cliente", "Facturas", SIN_ITBIS, "Total facturado", "% del total"],
         der: [1, 2, 3, 4],
         filas: datos.porCliente.map((c) => [c.nombre, c.facturas, c.subtotal, c.total, pct(c.total, r.total)]),
         impresas: datos.porCliente.map((c) => [c.nombre, c.facturas, formatMoney(c.subtotal), formatMoney(c.total), pct(c.total, r.total)]),
@@ -59,18 +60,18 @@ export default function ReporteVentas() {
     if (vista === "DIA")
       return {
         titulo: "Ventas por dia",
-        enc: ["Fecha", "Facturas", "Venta (sin ITBIS)", "ITBIS", "Total"],
-        der: [1, 2, 3, 4],
-        filas: datos.porDia.map((d) => [d.fecha, d.facturas, d.subtotal, d.itbis, d.total]),
-        impresas: datos.porDia.map((d) => [formatDate(d.fecha), d.facturas, formatMoney(d.subtotal), formatMoney(d.itbis), formatMoney(d.total)]),
-        pie: ["TOTAL", r.facturas, formatMoney(r.subtotal), formatMoney(r.itbis), formatMoney(r.total)],
+        enc: ["Fecha", "Facturas", SIN_ITBIS, ...(sinImpuestos ? [] : ["ITBIS"]), "Total"],
+        der: sinImpuestos ? [1, 2, 3] : [1, 2, 3, 4],
+        filas: datos.porDia.map((d) => [d.fecha, d.facturas, d.subtotal, ...(sinImpuestos ? [] : [d.itbis]), d.total]),
+        impresas: datos.porDia.map((d) => [formatDate(d.fecha), d.facturas, formatMoney(d.subtotal), ...(sinImpuestos ? [] : [formatMoney(d.itbis)]), formatMoney(d.total)]),
+        pie: ["TOTAL", r.facturas, formatMoney(r.subtotal), ...(sinImpuestos ? [] : [formatMoney(r.itbis)]), formatMoney(r.total)],
       };
     const filasResumen: [string, number | string][] = [
       ["Facturas emitidas", r.facturas],
       ["Clientes atendidos", r.clientes],
-      ["Venta sin ITBIS", r.subtotal],
+      [sinImpuestos ? "Venta" : "Venta sin ITBIS", r.subtotal],
       ["Descuentos dados", r.descuentos],
-      ["ITBIS cobrado", r.itbis],
+      ...(sinImpuestos ? [] : [["ITBIS cobrado", r.itbis] as [string, number]]),
       ...(manejaEnvases ? [["Fianzas de envases", r.fianzas] as [string, number]] : []),
       ["Total facturado", r.total],
       ["Al contado", r.contado],
@@ -112,7 +113,7 @@ export default function ReporteVentas() {
       {r && (
         <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard label="Total facturado" value={formatMoney(r.total)} tone="blue" hint={`${r.facturas} facturas · ${r.clientes} clientes`} />
-          <StatCard label="Venta sin ITBIS" value={formatMoney(r.subtotal)} hint={`ITBIS: ${formatMoney(r.itbis)}`} />
+          <StatCard label={sinImpuestos ? "Venta" : "Venta sin ITBIS"} value={formatMoney(r.subtotal)} hint={sinImpuestos ? undefined : `ITBIS: ${formatMoney(r.itbis)}`} />
           <StatCard label="Ganancia estimada" value={formatMoney(r.ganancia)} tone="green" hint={`Margen ${pct(r.ganancia, r.subtotal)}`} />
           <StatCard label="A credito" value={formatMoney(r.credito)} tone="amber" hint={`Al contado: ${formatMoney(r.contado)}`} />
         </div>
@@ -136,9 +137,9 @@ export default function ReporteVentas() {
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           <Card className="space-y-2 p-5 text-sm">
             <h3 className="mb-1 font-semibold text-slate-700">Ventas</h3>
-            <Fila k="Venta sin ITBIS" v={r.subtotal} />
+            <Fila k={sinImpuestos ? "Venta" : "Venta sin ITBIS"} v={r.subtotal} />
             <Fila k="Descuentos dados" v={-r.descuentos} />
-            <Fila k="ITBIS cobrado" v={r.itbis} />
+            {!sinImpuestos && <Fila k="ITBIS cobrado" v={r.itbis} />}
             {manejaEnvases && <Fila k="Fianzas de envases" v={r.fianzas} />}
             <Fila k="Total facturado" v={r.total} fuerte />
             <Fila k="Promedio por factura" v={r.promedio} />
@@ -157,7 +158,7 @@ export default function ReporteVentas() {
           </Card>
           <Card className="space-y-2 p-5 text-sm">
             <h3 className="mb-1 font-semibold text-slate-700">Ganancia</h3>
-            <Fila k="Venta sin ITBIS" v={r.subtotal} />
+            <Fila k={sinImpuestos ? "Venta" : "Venta sin ITBIS"} v={r.subtotal} />
             <Fila k="Costo de lo vendido" v={-r.costo} />
             <Fila k="Ganancia estimada" v={r.ganancia} fuerte />
             <p className="pt-1 text-xs text-slate-400">El costo se calcula con el costo promedio actual de cada producto.</p>
@@ -166,8 +167,8 @@ export default function ReporteVentas() {
       )}
 
       {datos && vista === "PRODUCTO" && (
-        <Table columns={["Producto", "Cantidad", "Venta (sin ITBIS)", "ITBIS", "Costo", "Ganancia", "% de la venta"]}>
-          {datos.porProducto.length === 0 && <EmptyRow colSpan={7} label="No hubo ventas en este periodo" />}
+        <Table columns={["Producto", "Cantidad", SIN_ITBIS, ...(sinImpuestos ? [] : ["ITBIS"]), "Costo", "Ganancia", "% de la venta"]}>
+          {datos.porProducto.length === 0 && <EmptyRow colSpan={sinImpuestos ? 6 : 7} label="No hubo ventas en este periodo" />}
           {datos.porProducto.map((p) => (
             <tr key={p.producto_id}>
               <td className="px-4 py-2">
@@ -175,7 +176,7 @@ export default function ReporteVentas() {
               </td>
               <td className="px-4 py-2 text-right">{p.cantidad}</td>
               <td className="px-4 py-2 text-right font-medium">{formatMoney(p.venta)}</td>
-              <td className="px-4 py-2 text-right text-slate-500">{formatMoney(p.itbis)}</td>
+              {!sinImpuestos && <td className="px-4 py-2 text-right text-slate-500">{formatMoney(p.itbis)}</td>}
               <td className="px-4 py-2 text-right text-slate-500">{formatMoney(p.costo)}</td>
               <td className="px-4 py-2 text-right font-semibold text-emerald-600">{formatMoney(p.ganancia)}</td>
               <td className="px-4 py-2">
@@ -187,7 +188,7 @@ export default function ReporteVentas() {
       )}
 
       {datos && vista === "VENDEDOR" && (
-        <Table columns={["Vendedor", "Facturas", "Venta (sin ITBIS)", "Total facturado", "Promedio", "% del total"]}>
+        <Table columns={["Vendedor", "Facturas", SIN_ITBIS, "Total facturado", "Promedio", "% del total"]}>
           {datos.porVendedor.length === 0 && <EmptyRow colSpan={6} label="No hubo ventas en este periodo" />}
           {datos.porVendedor.map((v) => (
             <tr key={v.vendedor}>
@@ -205,7 +206,7 @@ export default function ReporteVentas() {
       )}
 
       {datos && vista === "CLIENTE" && (
-        <Table columns={["Cliente", "Facturas", "Venta (sin ITBIS)", "Total facturado", "% del total"]}>
+        <Table columns={["Cliente", "Facturas", SIN_ITBIS, "Total facturado", "% del total"]}>
           {datos.porCliente.length === 0 && <EmptyRow colSpan={5} label="No hubo ventas en este periodo" />}
           {datos.porCliente.map((c) => (
             <tr key={c.cliente_id}>
@@ -222,14 +223,14 @@ export default function ReporteVentas() {
       )}
 
       {datos && vista === "DIA" && (
-        <Table columns={["Fecha", "Facturas", "Venta (sin ITBIS)", "ITBIS", "Total"]}>
-          {datos.porDia.length === 0 && <EmptyRow colSpan={5} label="No hubo ventas en este periodo" />}
+        <Table columns={["Fecha", "Facturas", SIN_ITBIS, ...(sinImpuestos ? [] : ["ITBIS"]), "Total"]}>
+          {datos.porDia.length === 0 && <EmptyRow colSpan={sinImpuestos ? 4 : 5} label="No hubo ventas en este periodo" />}
           {datos.porDia.map((d) => (
             <tr key={d.fecha}>
               <td className="px-4 py-2">{formatDate(d.fecha)}</td>
               <td className="px-4 py-2 text-right">{d.facturas}</td>
               <td className="px-4 py-2 text-right">{formatMoney(d.subtotal)}</td>
-              <td className="px-4 py-2 text-right text-slate-500">{formatMoney(d.itbis)}</td>
+              {!sinImpuestos && <td className="px-4 py-2 text-right text-slate-500">{formatMoney(d.itbis)}</td>}
               <td className="px-4 py-2 text-right font-semibold">{formatMoney(d.total)}</td>
             </tr>
           ))}

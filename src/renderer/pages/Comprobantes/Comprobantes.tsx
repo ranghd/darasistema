@@ -3,6 +3,7 @@ import { api } from "../../lib/api";
 import type { ComprobanteVarios, Cuenta, TipoComprobanteVarios } from "../../lib/types";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { Badge, Button, Card, EmptyRow, Input, PageHeader, Select, Table } from "../../components/ui";
+import { sinImpuestos } from "../../lib/variant";
 import { NCF_LABELS, TIPO_COMPROBANTE_INGRESO, TIPOS_COMPROBANTE_VARIOS, TIPOS_NCF, VERSION_CODIGOS_NCF } from "../../lib/ncf";
 
 const TEXTOS: Record<TipoComprobanteVarios, { descripcion: string; concepto: string; contraparte: string }> = {
@@ -111,7 +112,7 @@ export default function Comprobantes() {
               <option value="CAJA">Caja</option>
               <option value="BANCO">Banco</option>
             </Select>
-            {tab === TIPO_COMPROBANTE_INGRESO && (
+            {tab === TIPO_COMPROBANTE_INGRESO && !sinImpuestos && (
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input type="checkbox" checked={aplicaItbis} onChange={(e) => setAplicaItbis(e.target.checked)} />
                 Aplica ITBIS sobre este monto

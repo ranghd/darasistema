@@ -6,6 +6,7 @@ import { descargarCsv, imprimirTabla } from "../../lib/exportar";
 import { TIPOS_DGII_606, type Banco, type Gasto, type ProveedorConResumen, type ResumenGastoTipo, type TipoGasto } from "../../lib/types";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
 import { BotonesExportar, RangoFechas, rangoDe } from "../../components/reportes";
+import { sinImpuestos } from "../../lib/variant";
 import PagoSuplidorModal, { type DocumentoPorPagar } from "../../components/PagoSuplidor";
 
 const num = (t: string) => Number(String(t).replace(/,/g, "")) || 0;
@@ -64,17 +65,17 @@ export default function Gastos() {
   const totalResumen = resumen.reduce((s, x) => s + x.total, 0);
 
   function exportar(imprimir: boolean) {
-    const enc = ["No.", "Fecha", "Suplidor", "RNC", "NCF", "Tipo de gasto", "Tipo DGII (606)", "Concepto", "Monto", "ITBIS", "Total", "Condicion", "Estado", "Debe"];
-    const filas = gastos.map((g) => [g.numero, g.fecha, g.suplidor, g.rnc ?? "", g.ncf ?? "", g.tipo_nombre ?? "", nombreDgii(g.tipo_dgii), g.concepto ?? "", g.subtotal, g.itbis, g.total, g.condicion_pago === "CONTADO" ? "Contado" : "Credito", nombreEstado(g.estado), g.saldo ?? 0]);
+    const enc = ["No.", "Fecha", "Suplidor", "RNC", "NCF", "Tipo de gasto", "Tipo DGII (606)", "Concepto", "Monto", ...(sinImpuestos ? [] : ["ITBIS"]), "Total", "Condicion", "Estado", "Debe"];
+    const filas = gastos.map((g) => [g.numero, g.fecha, g.suplidor, g.rnc ?? "", g.ncf ?? "", g.tipo_nombre ?? "", nombreDgii(g.tipo_dgii), g.concepto ?? "", g.subtotal, ...(sinImpuestos ? [] : [g.itbis]), g.total, g.condicion_pago === "CONTADO" ? "Contado" : "Credito", nombreEstado(g.estado), g.saldo ?? 0]);
     if (!imprimir) return descargarCsv(`gastos-${rango.desde}-a-${rango.hasta}.csv`, enc, filas);
     imprimirTabla({
       titulo: "Gastos y facturas de suplidores",
       subtitulo: `Del ${formatDate(rango.desde)} al ${formatDate(rango.hasta)}`,
       empresa,
-      encabezados: ["No.", "Fecha", "Suplidor", "NCF", "Tipo", "DGII", "Monto", "ITBIS", "Total", "Estado"],
-      derecha: [6, 7, 8],
-      filas: gastos.map((g) => [g.numero, formatDate(g.fecha), g.suplidor, g.ncf ?? "", g.tipo_nombre ?? "", g.tipo_dgii ?? "", formatMoney(g.subtotal), formatMoney(g.itbis), formatMoney(g.total), nombreEstado(g.estado)]),
-      pie: ["", "", "", "", "", "TOTAL", formatMoney(validos.reduce((s, g) => s + g.subtotal, 0)), formatMoney(itbis), formatMoney(total), ""],
+      encabezados: ["No.", "Fecha", "Suplidor", "NCF", "Tipo", "DGII", "Monto", ...(sinImpuestos ? [] : ["ITBIS"]), "Total", "Estado"],
+      derecha: sinImpuestos ? [6, 7] : [6, 7, 8],
+      filas: gastos.map((g) => [g.numero, formatDate(g.fecha), g.suplidor, g.ncf ?? "", g.tipo_nombre ?? "", g.tipo_dgii ?? "", formatMoney(g.subtotal), ...(sinImpuestos ? [] : [formatMoney(g.itbis)]), formatMoney(g.total), nombreEstado(g.estado)]),
+      pie: ["", "", "", "", "", "TOTAL", formatMoney(validos.reduce((s, g) => s + g.subtotal, 0)), ...(sinImpuestos ? [] : [formatMoney(itbis)]), formatMoney(total), ""],
       resumen: resumen.map((x) => [x.nombre, formatMoney(x.total)]),
     });
   }
@@ -118,7 +119,7 @@ export default function Gastos() {
           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Total gastado</p>
           <p className="mt-1.5 text-2xl font-semibold text-slate-900">{formatMoney(total)}</p>
           <p className="mt-1 text-xs text-slate-400">
-            {validos.length} facturas · ITBIS pagado {formatMoney(itbis)}
+            {validos.length} facturas{sinImpuestos ? "" : ` · ITBIS pagado ${formatMoney(itbis)}`}
           </p>
           <p className="mt-4 text-xs font-medium uppercase tracking-wide text-slate-400">Por pagar de estas facturas</p>
           <p className={`mt-1 text-xl font-semibold ${porPagar > 0 ? "text-amber-600" : "text-slate-900"}`}>{formatMoney(porPagar)}</p>
@@ -166,7 +167,7 @@ export default function Gastos() {
             </td>
             <td className="px-4 py-2 text-right font-semibold">
               {formatMoney(g.total)}
-              {g.itbis > 0 && <span className="block text-xs font-normal text-slate-400">ITBIS {formatMoney(g.itbis)}</span>}
+              {!sinImpuestos && g.itbis > 0 && <span className="block text-xs font-normal text-slate-400">ITBIS {formatMoney(g.itbis)}</span>}
             </td>
             <td className="px-4 py-2">
               <Badge tone={tonoEstado(g.estado)}>{nombreEstado(g.estado)}</Badge>
@@ -317,13 +318,13 @@ function NuevoGastoModal({ open, tipos, onClose, onGuardado, onTiposCambiados }:
         </label>
         <Input label="Concepto (que se compro o que se hizo)" value={f.concepto} onChange={(e) => set("concepto", e.target.value)} placeholder="Ej. Cambio de frenos camion placa L123456" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Input label="Monto sin ITBIS (RD$)" inputMode="decimal" value={f.subtotal} onChange={(e) => set("subtotal", e.target.value)} required />
-          <div>
+          <Input label={sinImpuestos ? "Monto (RD$)" : "Monto sin ITBIS (RD$)"} inputMode="decimal" value={f.subtotal} onChange={(e) => set("subtotal", e.target.value)} required />
+          {!sinImpuestos && <div>
             <Input label="ITBIS (RD$)" inputMode="decimal" value={f.itbis} onChange={(e) => set("itbis", e.target.value)} placeholder="0.00" />
             <button type="button" className="mt-1 text-xs font-medium text-brand-600 hover:underline" onClick={() => set("itbis", String(r2(num(f.subtotal) * 0.18)))}>
               Calcular 18%
             </button>
-          </div>
+          </div>}
           <div className="rounded-lg bg-slate-50 px-3 py-2">
             <span className="block text-sm font-medium text-slate-700">Total</span>
             <span className="text-xl font-semibold">{formatMoney(total)}</span>
