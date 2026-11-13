@@ -44,7 +44,7 @@ const colorDe = (grupo: string) => COLORES_CATEGORIA[[...grupo].reduce((s, c) =>
 // Sin tope de existencia (productos con control de piezas: no se cuentan por unidades).
 const SIN_TOPE = 1_000_000;
 
-// FIADO (solo Dara Frituras; Gas Damian no fia): la venta queda a credito y se cobra despues en Fiados.
+// FIADO (Gas Damian y Dara Frituras): la venta queda a credito y se cobra despues en Fiados.
 type Metodo = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "FIADO";
 
 const METODOS: { valor: Metodo; nombre: string; tecla: string }[] = [
