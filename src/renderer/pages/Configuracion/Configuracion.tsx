@@ -249,9 +249,10 @@ export default function Configuracion() {
             </div>
           )}
 
+          {!usaEcf && (
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-700">{usaEcf ? "Secuencias B (comprobantes de papel: notas, compras y gastos)" : "Secuencias de NCF"}</h2>
+              <h2 className="text-sm font-semibold text-slate-700">Secuencias de NCF</h2>
               <Button size="sm" onClick={() => setOpen(true)}>
                 + Nueva secuencia
               </Button>
@@ -276,6 +277,7 @@ export default function Configuracion() {
               })}
             </Table>
           </div>
+          )}
           </div>
         </div>
       )}
