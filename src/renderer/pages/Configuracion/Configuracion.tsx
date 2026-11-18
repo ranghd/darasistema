@@ -220,6 +220,7 @@ export default function Configuracion() {
             </form>
           </Card>
 
+          <div>
           {usaEcf && rangosE.length > 0 && (
             <div className="mb-5">
               <h2 className="mb-1 text-sm font-semibold text-slate-700">Secuencias de comprobantes electrónicos (E)</h2>
@@ -230,7 +231,9 @@ export default function Configuracion() {
                   const pocos = !agotada && (r.disponibles <= 20 || r.porcentajeUso >= 80);
                   return (
                     <tr key={`${r.prefijo}-${r.desde}`}>
-                      <td className="px-4 py-2 text-xs">{r.prefijo} - {r.nombre}</td>
+                      <td className="px-4 py-2 text-xs">
+                        <span className="font-semibold">{r.prefijo}</span> - {r.nombre}
+                      </td>
                       <td className="px-4 py-2 text-xs text-slate-500">
                         {r.desde} - {r.hasta}
                       </td>
@@ -272,6 +275,7 @@ export default function Configuracion() {
                 );
               })}
             </Table>
+          </div>
           </div>
         </div>
       )}
