@@ -7,7 +7,8 @@ import { formatMoney } from "./format";
 import { NCF_LABELS } from "./ncf";
 import { PIE_FACTURA, imprimirFacturaCarta, prestadosPendientes } from "./facturaCarta";
 import { avisoDeResultado, type AvisoImpresion } from "./ticket";
-import type { Cliente, Cobro, CompanyConfig, FacturaDetalle, SaldoBotellaFiada, TipoNcf } from "./types";
+import type { Cliente, Cobro, CompanyConfig, EcfDocumento, FacturaDetalle, SaldoBotellaFiada, TipoNcf } from "./types";
+import { bloqueEcf, tituloEcf } from "./ecfRecibo";
 import { esFritura } from "./variant";
 import logoGasDamian from "../assets/logoTicketGasDamian";
 import { logoTicketFritura } from "../assets/logoFrituraLaDuarte";
@@ -43,11 +44,12 @@ export function htmlReciboGasDamian(
   cobros: Cobro[],
   prestados: SaldoBotellaFiada[],
   anchoMm: number,
-  pago?: PagoEfectivo | null
+  pago?: PagoEfectivo | null,
+  ecf?: EcfDocumento | null
 ): string {
   const angosto = anchoMm <= 58;
   const tipo = (f.ncf?.slice(0, 3) ?? "") as TipoNcf;
-  const titulo = NCF_LABELS[tipo]?.split(" - ")[1] ?? "Recibo de venta";
+  const titulo = tituloEcf(f.ncf) ?? NCF_LABELS[tipo]?.split(" - ")[1] ?? "Recibo de venta";
   const fiscal = !!f.ncf;
   const descuento = f.lineas.reduce((s, l) => s + (l.descuento ?? 0), 0);
   const cobrado = cobros.reduce((s, c) => s + c.monto, 0);
@@ -118,6 +120,7 @@ export function htmlReciboGasDamian(
     ${f.estado === "ANULADA" ? `<div class="c b" style="margin-top: 4px">*** FACTURA ANULADA ***</div>` : ""}
     ${debe ? `<div style="margin-top: 3px">Cilindros prestados por devolver: ${debe}</div>` : ""}
     ${prestadosAhora || f.condicion_pago === "CREDITO" ? `<div style="margin-top: 14px">Recibido por: ______________________</div>` : ""}
+    ${bloqueEcf(ecf, angosto ? 32 : 40)}
     <div class="c b" style="margin-top: 8px">!!GRACIAS POR PREFERIRNOS!!</div>
     <div class="c nota">${html(empresa?.pie_factura || PIE_FACTURA)}</div>
   </body></html>`;
@@ -136,7 +139,8 @@ export async function imprimirFacturaGasDamian(facturaId: number, pago?: PagoEfe
     ]);
     const cliente = ((await api.clientes.obtener(f.cliente_id)) as Cliente | undefined) ?? null;
     const prestados = await prestadosPendientes(cliente);
-    return avisoDeResultado(await api.impresion.imprimirTicket(htmlReciboGasDamian(f, empresa, cliente, cobros, prestados, cfg.anchoMm, pago)));
+    const ecf = await api.ecf.obtener(facturaId).catch(() => null);
+    return avisoDeResultado(await api.impresion.imprimirTicket(htmlReciboGasDamian(f, empresa, cliente, cobros, prestados, cfg.anchoMm, pago, ecf)));
   } catch (err) {
     return { ok: false, texto: `No se imprimio: ${mensajeDeError(err, "error desconocido")}` };
   }

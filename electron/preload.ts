@@ -73,6 +73,15 @@ const api = {
     pagar: (data: any) => invoke("nomina:pagar", data),
     anular: (data: any) => invoke("nomina:anular", data),
   },
+  ecf: {
+    estado: () => invoke("ecf:estado"),
+    obtener: (facturaId: number) => invoke("ecf:obtener", facturaId),
+    emitir: (facturaId: number) => invoke("ecf:emitir", facturaId),
+    consultar: (facturaId: number) => invoke("ecf:consultar", facturaId),
+    reenviar: (facturaId: number, clase?: string) => invoke("ecf:reenviar", facturaId, clase),
+    registrarManual: (data: any) => invoke("ecf:registrarManual", data),
+    pendientes: () => invoke("ecf:pendientes"),
+  },
   mercancias: {
     guardar: (data: any) => invoke("mercancias:guardar", data),
     quitar: (data: any) => invoke("mercancias:quitar", data),

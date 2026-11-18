@@ -303,6 +303,35 @@ export interface NuevaFacturaInput {
   caja_sesion_id?: number | null;
   /** Nombre escrito en la caja para una venta a Consumidor Final (sale en la factura). */
   nombre_cliente?: string | null;
+  /** Solo lo pone la nube segun la configuracion de la empresa (nunca la pantalla): la factura espera su e-NCF. */
+  ncf_diferido?: boolean;
+  ecf_modo?: "prueba" | "real";
+}
+
+// Comprobante electronico (e-CF) de una factura: lo que respondio el proveedor.
+export type EstadoEcfDocumento = "PENDIENTE" | "ENVIANDO" | "INCIERTO" | "ACEPTADO" | "EN_PROCESO" | "RECHAZADO" | "PROFORMA" | "ERROR";
+export interface EcfDocumento {
+  id: number;
+  factura_id: number;
+  clase: "FACTURA" | "NOTA_CREDITO";
+  tipo: string;
+  modo: "prueba" | "real";
+  estado: EstadoEcfDocumento;
+  ncf: string | null;
+  id_proveedor: number | null;
+  track_id: string | null;
+  qr_link: string | null;
+  pdf_url: string | null;
+  xml_path: string | null;
+  codigo_seguridad: string | null;
+  fecha_firma: string | null;
+  mensaje: string | null;
+  intentos: number;
+  creado_en: string;
+  actualizado_en: string;
+}
+export interface EcfEstado {
+  modo: "apagado" | "prueba" | "real";
 }
 
 export interface FiltrosHistorial {

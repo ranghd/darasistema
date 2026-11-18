@@ -20,6 +20,7 @@ import { registerBancosIpc } from "./ipc/bancos";
 import { registerPlatosIpc } from "./ipc/platos";
 import { registerPiezasIpc } from "./ipc/piezas";
 import { registerNominaIpc } from "./ipc/nomina";
+import { registerEcfIpc } from "./ipc/ecf";
 import { leerConfigRed, guardarConfigRed, normalizarServidorUrl, type ConfigRed } from "./network/config";
 import { listarIpsLocales } from "./network/localIp";
 import { iniciarServidorHttp, type HandlerRegistry } from "./network/server";
@@ -77,6 +78,7 @@ async function registerAllIpc() {
     registerPlatosIpc(db);
     registerPiezasIpc(db);
     registerNominaIpc(db);
+    registerEcfIpc(db); // sin nube la factura electronica esta apagada (ecf:estado)
 
     ipcMain.handle = handleOriginal;
     iniciarServidorHttp(handlerRegistry, configRed.puerto);

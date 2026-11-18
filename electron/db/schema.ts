@@ -146,6 +146,32 @@ CREATE TABLE IF NOT EXISTS notas_factura (
   creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
+-- Factura electronica (e-CF): lo que el proveedor (ef2) respondio por cada factura o nota de credito.
+-- Una fila por factura y clase: un reintento actualiza la misma fila, asi nunca se emiten dos comprobantes.
+-- PENDIENTE: aun no se envia. ENVIANDO: la peticion salio y no hay respuesta todavia. INCIERTO: salio y no se supo
+-- si llego (no se reenvia sola: primero se revisa en el portal de ef2). ERROR: el proveedor no la tomo (se puede reenviar).
+CREATE TABLE IF NOT EXISTS ecf_documentos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  factura_id INTEGER NOT NULL REFERENCES facturas(id),
+  clase TEXT NOT NULL CHECK (clase IN ('FACTURA','NOTA_CREDITO')) DEFAULT 'FACTURA',
+  tipo TEXT NOT NULL,
+  modo TEXT NOT NULL CHECK (modo IN ('prueba','real')),
+  estado TEXT NOT NULL CHECK (estado IN ('PENDIENTE','ENVIANDO','INCIERTO','ACEPTADO','EN_PROCESO','RECHAZADO','PROFORMA','ERROR')) DEFAULT 'PENDIENTE',
+  ncf TEXT,
+  id_proveedor INTEGER,
+  track_id TEXT,
+  qr_link TEXT,
+  pdf_url TEXT,
+  xml_path TEXT,
+  codigo_seguridad TEXT,
+  fecha_firma TEXT,
+  mensaje TEXT,
+  intentos INTEGER NOT NULL DEFAULT 0,
+  creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  actualizado_en TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+  UNIQUE (factura_id, clase)
+);
+
 CREATE TABLE IF NOT EXISTS comprobantes_varios (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tipo TEXT NOT NULL CHECK (tipo IN (${listaSql(TIPOS_COMPROBANTE_VARIOS)})),

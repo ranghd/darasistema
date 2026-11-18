@@ -40,6 +40,13 @@ function tomarSiguienteNcf(db: DB, tipo: TipoNcf): string {
   return `${sec.prefijo}${String(sec.actual).padStart(8, "0")}`;
 }
 
+// La factura se hizo con comprobante electronico (tiene su fila en ecf_documentos).
+function esElectronica(db: DB, facturaId: number): boolean {
+  return !!db.prepare(`SELECT 1 FROM ecf_documentos WHERE factura_id = ? AND clase = 'FACTURA'`).get(facturaId);
+}
+
+const MSG_NOTA_ELECTRONICA = "Esta factura es electronica: por ahora sus notas de debito o credito se emiten desde el portal de ef2.";
+
 // Para documentos que no deben bloquear el flujo si no hay secuencia configurada
 // (ej. Nota de Credito al anular, que es deseable pero no obligatoria en el demo).
 function intentarTomarSiguienteNcf(db: DB, tipo: TipoNcf): string | null {
@@ -108,6 +115,13 @@ export function registerFacturasIpc(db: DB) {
     if (!input.lineas || input.lineas.length === 0) throw new Error("La factura debe tener al menos una linea");
     const tipoNcf = tipoNcfRecibido(input.tipo_ncf, input.codigos_ncf) as TipoNcfVenta;
     if (!TIPOS_NCF_VENTA.includes(tipoNcf)) throw new Error(`Tipo de comprobante no valido para una factura: ${input.tipo_ncf}. Use ${TIPOS_NCF_VENTA.map((t) => NCF_LABELS[t]).join(", ")}.`);
+    // Factura electronica: el numero (e-NCF) lo asigna el proveedor al emitirla, no esta secuencia local.
+    // Solo la nube lo activa (ncf_diferido + ecf_modo salen de la configuracion de la empresa, no de la pantalla).
+    const diferido = input.ncf_diferido === true && !input.sin_comprobante;
+    if (diferido) {
+      if (tipoNcf !== "B01" && tipoNcf !== "B02") throw new Error("En facturacion electronica solo se hacen Credito Fiscal y Consumo por ahora");
+      if (input.ecf_modo !== "prueba" && input.ecf_modo !== "real") throw new Error("Modo de facturacion electronica no valido");
+    }
     const cajaSesionId = validarSesionAbierta(db, input.caja_sesion_id);
     if (input.lineas.some((l) => l.prestado)) {
       const cli = db.prepare(`SELECT codigo FROM clientes WHERE id = ?`).get(input.cliente_id) as { codigo: string } | undefined;
@@ -148,7 +162,7 @@ export function registerFacturasIpc(db: DB) {
     const total = subtotal + itbisTotal + fianzaTotal;
 
     const run = db.transaction(() => {
-      const ncf = input.sin_comprobante ? null : tomarSiguienteNcf(db, tipoNcf);
+      const ncf = input.sin_comprobante || diferido ? null : tomarSiguienteNcf(db, tipoNcf);
       const maxNumero = (db.prepare(`SELECT COALESCE(MAX(numero), 0) as m FROM facturas`).get() as { m: number }).m;
       const documento = ncf ?? `#${maxNumero + 1}`;
 
@@ -176,6 +190,14 @@ export function registerFacturasIpc(db: DB) {
           nombre_cliente: input.nombre_cliente?.trim() || null,
         });
       const facturaId = Number(infoFactura.lastInsertRowid);
+      // Queda anotado de una vez que esta factura espera su comprobante electronico (31 = credito fiscal, 32 = consumo).
+      if (diferido) {
+        db.prepare(`INSERT INTO ecf_documentos (factura_id, clase, tipo, modo, estado) VALUES (?, 'FACTURA', ?, ?, 'PENDIENTE')`).run(
+          facturaId,
+          tipoNcf === "B01" ? "31" : "32",
+          input.ecf_modo
+        );
+      }
 
       const insertLinea = db.prepare(
         `INSERT INTO factura_lineas (factura_id, producto_id, modalidad, cantidad, precio_unitario, descuento, itbis, subtotal, prestado, precio_lista, plato_dia, mercancia_id, pieza_id)
@@ -297,7 +319,8 @@ export function registerFacturasIpc(db: DB) {
         }
       }
 
-      const notaCreditoNcf = intentarTomarSiguienteNcf(db, "B04");
+      // Una factura electronica se anula con una nota de credito electronica (la emite la nube despues): no se gasta un B04.
+      const notaCreditoNcf = esElectronica(db, id) ? null : intentarTomarSiguienteNcf(db, "B04");
       let asientoAnulacion: number | null = null;
 
       if (factura.asiento_id) {
@@ -342,6 +365,7 @@ export function registerFacturasIpc(db: DB) {
       const factura = db.prepare(`SELECT * FROM facturas WHERE id = ?`).get(input.factura_id) as Factura | undefined;
       if (!factura) throw new Error("Factura no encontrada");
       if (factura.estado === "ANULADA") throw new Error("No se puede agregar una Nota de Debito a una factura anulada");
+      if (esElectronica(db, input.factura_id)) throw new Error(MSG_NOTA_ELECTRONICA);
       if (input.monto <= 0) throw new Error("El monto debe ser mayor a cero");
 
       const config = db.prepare(`SELECT * FROM company_config WHERE id = 1`).get() as { itbis_rate: number };
@@ -384,6 +408,7 @@ export function registerFacturasIpc(db: DB) {
       const factura = db.prepare(`SELECT * FROM facturas WHERE id = ?`).get(input.factura_id) as Factura | undefined;
       if (!factura) throw new Error("Factura no encontrada");
       if (factura.estado === "ANULADA") throw new Error("No se puede agregar una Nota de Credito a una factura anulada");
+      if (esElectronica(db, input.factura_id)) throw new Error(MSG_NOTA_ELECTRONICA);
       if (input.monto <= 0) throw new Error("El monto debe ser mayor a cero");
       if (input.monto > factura.subtotal) throw new Error(`El monto no puede ser mayor al subtotal de la factura (${factura.subtotal.toFixed(2)})`);
 

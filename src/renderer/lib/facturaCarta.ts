@@ -5,7 +5,8 @@ import { api, mensajeDeError } from "./api";
 import { html } from "./exportar";
 import { formatDate, formatMoney } from "./format";
 import { NCF_LABELS } from "./ncf";
-import type { Cliente, CompanyConfig, FacturaDetalle, SaldoBotellaFiada, TipoNcf } from "./types";
+import type { Cliente, CompanyConfig, EcfDocumento, FacturaDetalle, SaldoBotellaFiada, TipoNcf } from "./types";
+import { bloqueEcf, tituloEcf } from "./ecfRecibo";
 import type { AvisoImpresion } from "./ticket";
 import { esFritura } from "./variant";
 import logoGasDamian from "../assets/gas-damian.png?inline";
@@ -16,9 +17,9 @@ export const PIE_FACTURA = esFritura ? "Gracias por su compra" : "Gracias por su
 
 const METODOS: Record<string, string> = { EFECTIVO: "Efectivo", TRANSFERENCIA: "Transferencia", TARJETA: "Tarjeta", CHEQUE: "Cheque" };
 
-export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | null, cliente: Cliente | null, prestados: SaldoBotellaFiada[] = []): string {
+export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | null, cliente: Cliente | null, prestados: SaldoBotellaFiada[] = [], ecf?: EcfDocumento | null): string {
   const tipo = (f.ncf?.slice(0, 3) ?? "") as TipoNcf;
-  const titulo = NCF_LABELS[tipo]?.split(" - ")[1] ?? "Recibo de venta";
+  const titulo = tituloEcf(f.ncf) ?? NCF_LABELS[tipo]?.split(" - ")[1] ?? "Recibo de venta";
   const fiscal = !!f.ncf;
   const descuento = f.lineas.reduce((s, l) => s + (l.descuento ?? 0), 0);
   const filas = f.lineas
@@ -115,6 +116,7 @@ export function htmlFacturaCarta(f: FacturaDetalle, empresa: CompanyConfig | nul
         <div class="campo">Cedula:</div>
       </div>
     </div>
+    <div style="width: 52mm; margin: 6mm auto 0; font-size: 12px">${bloqueEcf(ecf, 36)}</div>
     <div class="pie">${html(empresa?.pie_factura || PIE_FACTURA)}</div>
   </body></html>`;
 }
@@ -163,12 +165,13 @@ export async function imprimirFacturaCarta(facturaId: number): Promise<AvisoImpr
     const [f, empresa] = await Promise.all([api.facturas.obtener(facturaId) as Promise<FacturaDetalle>, api.config.obtener() as Promise<CompanyConfig>]);
     const cliente = ((await api.clientes.obtener(f.cliente_id)) as Cliente | undefined) ?? null;
     const prestados = await prestadosPendientes(cliente);
+    const ecf = await api.ecf.obtener(facturaId).catch(() => null);
     const marco = document.createElement("iframe");
     marco.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
     document.body.appendChild(marco);
     const doc = marco.contentDocument!;
     doc.open();
-    doc.write(htmlFacturaCarta(f, empresa, cliente, prestados));
+    doc.write(htmlFacturaCarta(f, empresa, cliente, prestados, ecf));
     doc.close();
     await new Promise((r) => setTimeout(r, 250));
     marco.contentWindow!.focus();

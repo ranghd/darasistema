@@ -2,16 +2,23 @@ import { sinImpuestos } from "../../lib/variant";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 import type { Factura } from "../../lib/types";
 import { formatDate, formatMoney } from "../../lib/format";
 import { Badge, Button, EmptyRow, PageHeader, Table } from "../../components/ui";
 
 export default function ListaFacturas() {
   const [facturas, setFacturas] = useState<Factura[]>([]);
+  const { usuario } = useAuth();
+
+  // Facturas electronicas que no quedaron emitidas (solo lo ve el administrador; en otras empresas viene vacio).
+  const [sinEmitir, setSinEmitir] = useState<{ factura_id: number; factura_numero: number; estado: string }[]>([]);
 
   useEffect(() => {
     api.facturas.listar().then(setFacturas as any);
-  }, []);
+    // solo el administrador puede pedirlo (a la caja la nube le diria que no y saldria como error de conexion)
+    if (usuario?.rol === "ADMIN") api.ecf.pendientes().then((p) => setSinEmitir(p as any)).catch(() => {});
+  }, [usuario?.rol]);
 
   return (
     <div>
@@ -26,6 +33,24 @@ export default function ListaFacturas() {
           )
         }
       />
+
+      {sinEmitir.length > 0 && (
+        <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <b>
+            {sinEmitir.length} factura{sinEmitir.length === 1 ? "" : "s"} sin comprobante electrónico.
+          </b>{" "}
+          Entra a cada una para resolverla:{" "}
+          {sinEmitir.slice(0, 8).map((x, i) => (
+            <span key={x.factura_id}>
+              {i > 0 && ", "}
+              <Link className="underline" to={`/facturas/${x.factura_id}`}>
+                #{x.factura_numero}
+              </Link>
+            </span>
+          ))}
+          {sinEmitir.length > 8 && "…"}
+        </div>
+      )}
 
       <Table columns={["Num.", "NCF", "Fecha", "Cliente", "Condicion", "Total", "Estado", ""]}>
         {facturas.length === 0 && <EmptyRow colSpan={8} />}

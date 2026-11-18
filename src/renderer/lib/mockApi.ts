@@ -2,7 +2,7 @@
 // cuando la app corre como pagina web normal (sin Electron), para poder revisar
 // visualmente las pantallas en el navegador integrado durante el desarrollo.
 // La app real siempre usa window.api expuesto por electron/preload.ts.
-import type { Empleado, EmpleadoInput, Nomina, NominaDetalle, NuevaNominaInput, BotellaFiadaInput, CategoriaPropia, CambioPlato, CompraPiezasInput, Mercancia, MercanciaInput, MercanciaResumen, MovimientoBotellaFiada, NotaFactura, Pieza, PlatoDia, PrecioCambiado, ReportePlato, SaldoBotellaFiada,
+import type { EcfDocumento, EcfEstado, Empleado, EmpleadoInput, Nomina, NominaDetalle, NuevaNominaInput, BotellaFiadaInput, CategoriaPropia, CambioPlato, CompraPiezasInput, Mercancia, MercanciaInput, MercanciaResumen, MovimientoBotellaFiada, NotaFactura, Pieza, PlatoDia, PrecioCambiado, ReportePlato, SaldoBotellaFiada,
   AsientoConLineas,
   Autor,
   Caja,
@@ -162,6 +162,15 @@ export const mockApi = {
     ultimosPagos: async (): Promise<{ empleado_id: number; hasta: string; fecha: string }[]> => [],
     pagar: async (_data: NuevaNominaInput): Promise<NominaDetalle> => { warn(); throw new Error("No disponible en vista previa"); },
     anular: async (_data: { id: number; motivo: string; autor?: unknown }): Promise<NominaDetalle> => { warn(); throw new Error("No disponible en vista previa"); },
+  },
+  ecf: {
+    estado: async (): Promise<EcfEstado> => ({ modo: "apagado" }),
+    obtener: async (_facturaId: number): Promise<EcfDocumento | null> => null,
+    emitir: async (_facturaId: number): Promise<EcfDocumento> => { warn(); throw new Error("No disponible en vista previa"); },
+    consultar: async (_facturaId: number): Promise<EcfDocumento | null> => null,
+    reenviar: async (_facturaId: number, _clase?: string): Promise<EcfDocumento> => { warn(); throw new Error("No disponible en vista previa"); },
+    registrarManual: async (_data: { factura_id: number; ncf: string }): Promise<EcfDocumento> => { warn(); throw new Error("No disponible en vista previa"); },
+    pendientes: async (): Promise<(EcfDocumento & { factura_numero: number; factura_fecha: string; factura_total: number })[]> => [],
   },
   mercancias: {
     guardar: async (_data: MercanciaInput): Promise<Mercancia | null> => { warn(); return null; },

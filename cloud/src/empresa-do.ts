@@ -25,6 +25,8 @@ import { registerBancosIpc } from "../../electron/ipc/bancos";
 import { registerPlatosIpc } from "../../electron/ipc/platos";
 import { registerPiezasIpc } from "../../electron/ipc/piezas";
 import { registerNominaIpc } from "../../electron/ipc/nomina";
+import { registerEcfIpc, type ServicioEcf } from "../../electron/ipc/ecf";
+import type { ConfigEcf } from "../../electron/shared/ecf";
 
 export interface InicializarEmpresa {
   empresa: DatosEmpresa;
@@ -102,7 +104,85 @@ export class Empresa extends DurableObject {
       registerPlatosIpc(db);
       registerPiezasIpc(db);
       registerNominaIpc(db);
+      registerEcfIpc(db, this.servicioEcf());
     });
+  }
+
+  // ---------- facturacion electronica (ef2) ----------
+  // La configuracion (modo apagado / prueba / real y los datos del emisor) vive en _meta: la pone el administrador de Darasistema.
+  // El token de ef2 NO esta aqui ni en el codigo: es un secreto de Cloudflare (EF2_TOKENS) con una clave por empresa.
+  ecfConfig(): ConfigEcf & { token_clave?: string } {
+    const fila = this.db.prepare(`SELECT valor FROM _meta WHERE clave = 'ecf_config'`).get() as { valor: string } | undefined;
+    try {
+      const c = fila ? JSON.parse(fila.valor) : {};
+      return { ...c, modo: c.modo === "prueba" || c.modo === "real" ? c.modo : "apagado" };
+    } catch {
+      return { modo: "apagado" };
+    }
+  }
+
+  ecfConfigurar(cambios: Partial<ConfigEcf> & { token_clave?: string }): ConfigEcf & { token_clave?: string; token_cargado: boolean } {
+    const permitidos = ["modo", "token_clave", "razon_social", "nombre_comercial", "direccion", "correo", "telefono", "municipio", "provincia", "vencimiento_31", "tope_consumo_sin_comprador"];
+    const nuevo: Record<string, unknown> = { ...this.ecfConfig() };
+    for (const [k, v] of Object.entries(cambios ?? {})) if (permitidos.includes(k)) nuevo[k] = v;
+    if (!["apagado", "prueba", "real"].includes(String(nuevo.modo))) throw new Error("El modo debe ser apagado, prueba o real");
+    if (nuevo.modo !== "apagado" && !this.tokenEcf(nuevo.token_clave as string | undefined)) {
+      throw new Error("Este servidor no tiene el token de ef2 para esa empresa (secreto EF2_TOKENS)");
+    }
+    this.db.prepare(`INSERT INTO _meta (clave, valor) VALUES ('ecf_config', @v) ON CONFLICT(clave) DO UPDATE SET valor = @v`).run({ v: JSON.stringify(nuevo) });
+    const c = this.ecfConfig();
+    return { ...c, token_cargado: !!this.tokenEcf(c.token_clave) };
+  }
+
+  // Prueba de conexion con ef2 desde la nube (no emite nada): pide la lista de tipos de comprobante. Sirve para saber
+  // si el token vale y si ef2 acepta las peticiones que salen de Cloudflare (podria tener una lista de IP permitidas).
+  async ecfProbar(): Promise<{ http: number; ok: boolean; tipos: string[]; mensaje: string | null }> {
+    const { http, cuerpo } = await this.servicioEcf().llamar("GET", "/ecf_secuencia_api.php?resource=tipos_ecf");
+    const tipos = Array.isArray(cuerpo?.data) ? cuerpo.data.map((t: any) => String(t?.prefijo ?? "")).filter(Boolean) : [];
+    return { http, ok: http === 200 && tipos.length > 0, tipos, mensaje: http === 200 ? null : String(cuerpo?.message ?? cuerpo?.error ?? "sin detalle").slice(0, 200) };
+  }
+
+  private tokenEcf(clave?: string): string | null {
+    if (!clave) return null;
+    try {
+      const tokens = JSON.parse(((this.env as any)?.EF2_TOKENS as string | undefined) ?? "{}");
+      const t = tokens?.[clave];
+      return typeof t === "string" && t.startsWith("tok_") ? t : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private servicioEcf(): ServicioEcf {
+    return {
+      config: () => this.ecfConfig(),
+      llamar: async (metodo, ruta, cuerpo) => {
+        const token = this.tokenEcf(this.ecfConfig().token_clave);
+        if (!token) throw new Error("Falta el token de ef2 en el servidor");
+        const base = ((this.env as any)?.EF2_BASE as string | undefined) ?? "https://master.ef2.do/api2";
+        const control = new AbortController();
+        // ef2 emite de forma sincrona con la DGII: puede tardar. Se espera hasta casi 2 minutos.
+        const corte = setTimeout(() => control.abort(), 115_000);
+        try {
+          const r = await fetch(base + ruta, {
+            method: metodo,
+            headers: { Authorization: `Bearer ${token}`, Accept: "application/json", ...(cuerpo !== undefined ? { "Content-Type": "application/json" } : {}) },
+            body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
+            signal: control.signal,
+          });
+          const texto = await r.text();
+          let json: any = null;
+          try {
+            json = JSON.parse(texto);
+          } catch {
+            json = { success: false, message: texto.slice(0, 300) };
+          }
+          return { http: r.status, cuerpo: json };
+        } finally {
+          clearTimeout(corte);
+        }
+      },
+    };
   }
 
   private prepararEsquema() {
@@ -190,6 +270,12 @@ export class Empresa extends DurableObject {
       const u = uid ? (this.db.prepare(`SELECT nombre FROM usuarios WHERE id = ?`).get(uid) as { nombre: string } | undefined) : undefined;
       lista[0] = { ...(lista[0] as object), creado_por: u?.nombre ?? null };
     }
+    if (canal === "facturas:crear" && lista[0] && typeof lista[0] === "object") {
+      // Con facturacion electronica encendida el numero lo da el proveedor; lo que mande la pantalla no cuenta.
+      const modo = this.ecfConfig().modo;
+      const { ncf_diferido: _a, ecf_modo: _b, ...limpio } = lista[0] as Record<string, unknown>;
+      lista[0] = modo === "apagado" ? limpio : { ...limpio, ncf_diferido: true, ecf_modo: modo };
+    }
     const posAutor = CANALES_CAJA_AUTOR[canal];
     if (posAutor !== undefined) {
       const u = uid ? (this.db.prepare(`SELECT id, nombre, rol FROM usuarios WHERE id = ?`).get(uid) as { id: number; nombre: string; rol: Rol } | undefined) : undefined;
@@ -198,7 +284,30 @@ export class Empresa extends DurableObject {
       const base = lista[posAutor] && typeof lista[posAutor] === "object" ? (lista[posAutor] as object) : {};
       lista[posAutor] = { ...base, autor: { id: u.id, nombre: u.nombre, rol: u.rol } };
     }
-    return await handler({}, ...lista);
+    let resultado = await handler({}, ...lista);
+    // Con la facturacion electronica encendida la factura se emite aqui mismo, al crearla: asi no depende de que la
+    // caja (aunque sea una version vieja) pida el comprobante, y la respuesta ya trae el e-NCF. Si ef2 falla, la venta
+    // NO se pierde: queda anotado en ecf_documentos para reintentar (la caja nueva muestra el aviso y un boton).
+    if (canal === "facturas:crear" && resultado?.id && this.ecfConfig().modo !== "apagado") {
+      try {
+        await this.handlers["ecf:emitir"]({}, resultado.id);
+      } catch (err: any) {
+        this.db
+          .prepare(`UPDATE ecf_documentos SET estado = 'ERROR', mensaje = ? WHERE factura_id = ? AND clase = 'FACTURA' AND estado = 'PENDIENTE'`)
+          .run(String(err?.message ?? "No se pudo emitir el comprobante electronico").slice(0, 300), resultado.id);
+      }
+      resultado = this.db.prepare(`SELECT * FROM facturas WHERE id = ?`).get(resultado.id) ?? resultado;
+    }
+    // Anular una factura electronica en modo real: la nota de credito electronica sale sola. Si ef2 falla,
+    // la anulacion en el sistema ya quedo hecha y la nota queda pendiente para reenviarla (no se pierde).
+    if (canal === "facturas:anular" && typeof lista[0] === "number" && this.ecfConfig().modo === "real") {
+      try {
+        await this.handlers["ecf:anularFactura"]({}, lista[0], typeof lista[1] === "string" ? lista[1] : undefined);
+      } catch {
+        /* queda anotado en ecf_documentos */
+      }
+    }
+    return resultado;
   }
 
   // Deja la empresa como recien creada para empezar a usarla de verdad: borra ventas, clientes,
@@ -222,7 +331,7 @@ export class Empresa extends DurableObject {
     const tablas = [
       "factura_lineas", "piezas", "notas_factura", "platos_dia", "cobros", "recibos_cobro", "envase_movimientos", "envases_cliente", "botellas_fiadas", "caja_movimientos", "caja_correcciones",
       "pagos_compra", "compra_lineas", "producto_proveedor", "comprobantes_varios", "pagos_gasto", "gastos", "banco_movimientos",
-      "facturas", "compras", "caja_sesiones", "cajas",
+      "ecf_documentos", "facturas", "compras", "caja_sesiones", "cajas",
       "asiento_lineas", "asientos",
       "proveedores", "productos", "mercancias", "clientes", "ncf_secuencias", "auditoria", "_login_intentos",
     ];

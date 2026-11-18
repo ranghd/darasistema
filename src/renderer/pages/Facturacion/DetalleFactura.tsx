@@ -5,6 +5,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import type { AsientoConLineas, Banco, Cobro, CompanyConfig, Cuenta, FacturaDetalle } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
+import PanelEcf from "./PanelEcf";
 import { esVariantCaja } from "../../lib/variant";
 import { imprimirReciboFactura } from "../../lib/ticket";
 import { imprimirFacturaGasDamian } from "../../lib/reciboGasDamian";
@@ -209,12 +210,12 @@ export default function DetalleFactura() {
               </Button>
             )}
             {factura.estado === "PENDIENTE" && factura.condicion_pago === "CREDITO" && <Button onClick={abrirCobro}>Registrar cobro</Button>}
-            {factura.estado !== "ANULADA" && (
+            {factura.estado !== "ANULADA" && !factura.ncf?.startsWith("E") && (
               <Button variant="secondary" onClick={abrirDebito}>
                 Nota de Debito
               </Button>
             )}
-            {factura.estado !== "ANULADA" && (
+            {factura.estado !== "ANULADA" && !factura.ncf?.startsWith("E") && (
               <Button variant="secondary" onClick={abrirCredito}>
                 Nota de Credito
               </Button>
@@ -237,6 +238,8 @@ export default function DetalleFactura() {
           {!avisoImpresion.ok && " Puedes revisar la impresora en Configuracion → Impresora de facturas."}
         </p>
       )}
+
+      <PanelEcf facturaId={factura.id} esAdmin={usuario?.rol === "ADMIN"} onCambio={cargar} />
 
       <div className="mb-5 flex items-center gap-3 print:hidden">
         <Badge tone={factura.estado === "PAGADA" ? "green" : factura.estado === "ANULADA" ? "red" : "amber"}>{factura.estado}</Badge>

@@ -60,6 +60,11 @@ export const CANALES_CAJERO = new Set([
   "fiados:fiar",
   "fiados:devolver",
   "categorias:listar",
+  // factura electronica: la caja la emite al cobrar y ve su estado (reenviar y registrar a mano son del administrador)
+  "ecf:estado",
+  "ecf:obtener",
+  "ecf:emitir",
+  "ecf:consultar",
 ]);
 
 // La caja de Gas Damian y la de la fritura (yerikafr) tambien llevan el inventario. Solo esas empresas:

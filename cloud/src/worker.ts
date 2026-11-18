@@ -10,6 +10,8 @@ interface Env {
   REGISTRO: DurableObjectNamespace<Registro>;
   TOKEN_SECRET: string;
   ADMIN_KEY: string;
+  // Tokens de ef2 (facturacion electronica) por empresa, en JSON: {"gasdamian":"tok_..."}. Secreto: nunca va en el codigo.
+  EF2_TOKENS?: string;
 }
 
 class ErrorHttp extends Error {
@@ -133,6 +135,29 @@ async function enrutar(req: Request, env: Env): Promise<Response> {
     const codigo = normalizarCodigo(decodeURIComponent(datos[1]));
     if (!(await registro(env).existe(codigo))) throw new ErrorHttp(404, "Empresa no encontrada");
     return json({ resultado: await empresa(env, codigo).datosEmpresa(await leerJson(req)) });
+  }
+  const ecfProbar = ruta.match(/^\/admin\/empresas\/([^/]+)\/ecf\/probar$/);
+  if (ecfProbar && req.method === "GET") {
+    await exigirAdmin(req, env);
+    const codigo = normalizarCodigo(decodeURIComponent(ecfProbar[1]));
+    if (!(await registro(env).existe(codigo))) throw new ErrorHttp(404, "Empresa no encontrada");
+    try {
+      return json({ resultado: await empresa(env, codigo).ecfProbar() });
+    } catch (err: any) {
+      throw new ErrorHttp(400, err?.message ?? "No se pudo probar la conexion con ef2");
+    }
+  }
+  const ecf = ruta.match(/^\/admin\/empresas\/([^/]+)\/ecf$/);
+  if (ecf && (req.method === "GET" || req.method === "PUT")) {
+    await exigirAdmin(req, env);
+    const codigo = normalizarCodigo(decodeURIComponent(ecf[1]));
+    if (!(await registro(env).existe(codigo))) throw new ErrorHttp(404, "Empresa no encontrada");
+    if (req.method === "GET") return json({ resultado: await empresa(env, codigo).ecfConfig() });
+    try {
+      return json({ resultado: await empresa(env, codigo).ecfConfigurar(await leerJson(req)) });
+    } catch (err: any) {
+      throw new ErrorHttp(400, err?.message ?? "No se pudo guardar la configuracion");
+    }
   }
   const vaciar = ruta.match(/^\/admin\/empresas\/([^/]+)\/vaciar$/);
   if (vaciar && req.method === "POST") {
