@@ -3,12 +3,16 @@ import type { DB } from "../db/types";
 import { fechaHoyRD } from "../db/contabilidad";
 import { auditar } from "./caja";
 import { construirPayloadEcf, leerRespuestaEcf, type ClienteEcf, type ConfigEcf, type LineaEcf, type RespuestaEcf, type TipoEcf } from "../shared/ecf";
-import type { EcfDocumento, EcfEstado, EcfPrueba, EcfSinEmitir } from "../shared/types";
+import type { EcfAjustes, EcfDocumento, EcfEstado, EcfPrueba, EcfSinEmitir } from "../shared/types";
 
 // Lo que la nube le presta a estos handlers: la configuracion de la empresa y la llamada al proveedor.
 // (La base no guarda el token ni se habla con ef2 desde las computadoras de caja: todo pasa por la nube.)
 export interface ServicioEcf {
   config(): ConfigEcf;
+  /** Cambia el modo (apagado / prueba / real). Falla con un mensaje claro si falta algo (token, etc.). */
+  cambiarModo(modo: ConfigEcf["modo"]): ConfigEcf;
+  /** Que esta listo y que falta para poder encender la factura electronica. */
+  ajustes(): { tokenCargado: boolean; correo: string | null; razonSocial: string | null };
   llamar(metodo: "GET" | "POST", ruta: string, cuerpo?: unknown): Promise<{ http: number; cuerpo: any }>;
 }
 
@@ -212,6 +216,32 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
     if (http === 200 && estado.startsWith("acept")) marcar(db, doc.id, "ACEPTADO", null);
     else if (http === 200 && estado.startsWith("rechaz")) marcar(db, doc.id, "RECHAZADO", "La DGII rechazo el comprobante");
     return documento(db, facturaId, "FACTURA");
+  });
+
+  // ---------- Solo administrador: ver y cambiar el modo desde la pantalla ----------
+
+  ipcMain.handle("ecf:ajustes", (): EcfAjustes => {
+    const s = exigirServicio();
+    const a = s.ajustes();
+    const falta: string[] = [];
+    if (!a.tokenCargado) falta.push("la clave de ef2 en el servidor");
+    if (!a.correo) falta.push("el correo del negocio");
+    if (!a.razonSocial) falta.push("el nombre del negocio ante la DGII");
+    return { modo: s.config().modo, falta, listo: falta.length === 0 };
+  });
+
+  ipcMain.handle("ecf:cambiarModo", (_e, datos: { modo: string; autor?: { id?: number | null; nombre?: string } }): EcfAjustes => {
+    const s = exigirServicio();
+    if (datos?.modo !== "apagado" && datos?.modo !== "prueba" && datos?.modo !== "real") throw new Error("El modo debe ser apagado, prueba o real");
+    const antes = s.config().modo;
+    if (datos.modo !== "apagado") {
+      const a = s.ajustes();
+      if (!a.tokenCargado || !a.correo || !a.razonSocial) throw new Error("Todavia no se puede encender: falta configurar la factura electronica. Avisa a Darasistema.");
+    }
+    s.cambiarModo(datos.modo);
+    auditar(db, { id: datos.autor?.id ?? null, nombre: datos.autor?.nombre ?? "Administrador" }, "ECF_CAMBIAR_MODO", "ecf", null, { de: antes, a: datos.modo });
+    const a = s.ajustes();
+    return { modo: datos.modo, falta: [], listo: a.tokenCargado };
   });
 
   // ---------- Panel de factura electronica de la caja (pensado para quien no es de computadoras) ----------

@@ -276,6 +276,14 @@ export interface EcfEstado {
   modo: "apagado" | "prueba" | "real";
 }
 
+
+// Pantalla del administrador: modo actual y que falta para poder encenderla.
+export interface EcfAjustes {
+  modo: "apagado" | "prueba" | "real";
+  falta: string[];
+  listo: boolean;
+}
+
 // Panel de factura electronica de la caja.
 export interface EcfPrueba {
   ok: boolean;

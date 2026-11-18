@@ -3,8 +3,9 @@ import { Link } from "react-router-dom";
 import { api, mensajeDeError } from "../../lib/api";
 import { formatDate, formatMoney } from "../../lib/format";
 import { avisoDeResultado, type AvisoImpresion } from "../../lib/ticket";
-import type { EcfEstado, EcfPrueba, EcfSinEmitir } from "../../lib/types";
-import { Button, Card, PageHeader } from "../../components/ui";
+import type { EcfAjustes, EcfEstado, EcfPrueba, EcfSinEmitir } from "../../lib/types";
+import { useAuth } from "../../lib/auth";
+import { Button, Card, Modal, PageHeader } from "../../components/ui";
 
 // Panel sencillo de la factura electronica para quien atiende la caja: se ve si todo esta bien,
 // se puede hacer una prueba (sin tocar inventario ni dinero) y se reintenta lo que no salio.
@@ -26,7 +27,19 @@ function htmlRecibo(numero: string | null, anchoMm: number): string {
     <div style="margin-top:6px">Si ves este papel, la impresora y la conexión funcionan.</div></body></html>`;
 }
 
+const MODOS = [
+  { id: "apagado", titulo: "Apagada", texto: "Se factura como siempre.", color: "border-slate-400 bg-slate-50 text-slate-800" },
+  { id: "prueba", titulo: "Prueba", texto: "Las ventas salen normales y se manda una factura de práctica.", color: "border-amber-400 bg-amber-50 text-amber-900" },
+  { id: "real", titulo: "Real", texto: "Cada venta sale como factura electrónica ante la DGII.", color: "border-emerald-500 bg-emerald-50 text-emerald-900" },
+] as const;
+
 export default function FacturaElectronica() {
+  const { usuario } = useAuth();
+  const esAdmin = usuario?.rol === "ADMIN";
+  const [ajustes, setAjustes] = useState<EcfAjustes | null>(null);
+  const [confirmarReal, setConfirmarReal] = useState(false);
+  const [cambiando, setCambiando] = useState(false);
+  const [errorModo, setErrorModo] = useState("");
   const [estado, setEstado] = useState<EcfEstado | null>(null);
   const [sinEmitir, setSinEmitir] = useState<EcfSinEmitir[]>([]);
   const [probando, setProbando] = useState(false);
@@ -38,6 +51,23 @@ export default function FacturaElectronica() {
   async function cargar() {
     setEstado((await api.ecf.estado().catch(() => ({ modo: "apagado" }))) as EcfEstado);
     setSinEmitir((await api.ecf.sinEmitir().catch(() => [])) as EcfSinEmitir[]);
+    // solo el administrador puede pedirlo (a la caja la nube le diria que no y saldria como error de conexion)
+    if (esAdmin) setAjustes((await api.ecf.ajustes().catch(() => null)) as EcfAjustes | null);
+  }
+
+  async function cambiarModo(modo: string) {
+    setCambiando(true);
+    setErrorModo("");
+    try {
+      await api.ecf.cambiarModo({ modo });
+      setConfirmarReal(false);
+    } catch (e) {
+      setErrorModo(mensajeDeError(e, "No se pudo cambiar el modo"));
+      setConfirmarReal(false);
+    } finally {
+      setCambiando(false);
+      await cargar();
+    }
   }
   useEffect(() => {
     cargar();
@@ -108,6 +138,54 @@ export default function FacturaElectronica() {
           </div>
         </div>
       </Card>
+
+      {esAdmin && (
+        <Card className="mb-5 p-5">
+          <h2 className="text-lg font-semibold text-slate-800">Modo de la factura electrónica</h2>
+          <p className="mb-4 text-slate-600">Solo el administrador ve esto. Toca la opción que quieres usar.</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {MODOS.map((m) => {
+              const activo = modo === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  disabled={cambiando || activo || (m.id !== "apagado" && ajustes?.listo === false)}
+                  onClick={() => (m.id === "real" ? setConfirmarReal(true) : cambiarModo(m.id))}
+                  className={`rounded-xl border-2 p-4 text-left transition disabled:cursor-default ${activo ? m.color : "border-slate-200 bg-white text-slate-700 hover:border-slate-400 disabled:opacity-50"}`}
+                >
+                  <span className="block text-lg font-bold">
+                    {m.titulo}
+                    {activo ? " ✔" : ""}
+                  </span>
+                  <span className="block text-sm">{m.texto}</span>
+                </button>
+              );
+            })}
+          </div>
+          {ajustes && ajustes.falta.length > 0 && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-amber-800">Todavía no se puede encender: falta {ajustes.falta.join(", ")}. Avisa a Darasistema.</p>}
+          {errorModo && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-red-700">{errorModo}</p>}
+        </Card>
+      )}
+
+      <Modal open={confirmarReal} onClose={() => setConfirmarReal(false)} title="Pasar a factura electrónica real">
+        <p className="text-slate-700">
+          Desde este momento <b>cada venta saldrá como factura electrónica real</b> ante la DGII y gastará un número de la secuencia autorizada.
+        </p>
+        <ul className="my-3 list-disc space-y-1 pl-5 text-sm text-slate-600">
+          <li>Antes, todas las cajas deben tener la versión 1.0.51 o más nueva.</li>
+          <li>Haz primero una prueba en la caja y revisa que salió bien.</li>
+          <li>Se puede volver a Prueba o a Apagada cuando quieras.</li>
+        </ul>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setConfirmarReal(false)}>
+            Cancelar
+          </Button>
+          <Button variant="danger" disabled={cambiando} onClick={() => cambiarModo("real")}>
+            {cambiando ? "Cambiando..." : "Sí, pasar a real"}
+          </Button>
+        </div>
+      </Modal>
 
       <Card className="mb-5 p-5">
         <h2 className="text-lg font-semibold text-slate-800">Hacer una prueba</h2>

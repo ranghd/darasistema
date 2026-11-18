@@ -374,7 +374,8 @@ export default function Caja() {
       const pago = metodoPago === "EFECTIVO" ? { recibido: montoRecibido, devuelta } : null;
       setVenta({
         id: factura.id,
-        ncf: ecf?.ncf ?? factura.ncf,
+        // en modo prueba el numero de la proforma (PRO...) no es el de la factura: sale el NCF de siempre
+        ncf: ecf?.modo === "real" ? ecf.ncf ?? factura.ncf : factura.ncf,
         ecf,
         ecfError,
         total: factura.total,
@@ -408,7 +409,7 @@ export default function Caja() {
     setReenviandoEcf(true);
     try {
       const ecf = await api.ecf.emitir(venta.id);
-      setVenta({ ...venta, ecf, ecfError: "", ncf: ecf.ncf ?? venta.ncf });
+      setVenta({ ...venta, ecf, ecfError: "", ncf: ecf.modo === "real" ? ecf.ncf ?? venta.ncf : venta.ncf });
     } catch (e) {
       setVenta({ ...venta, ecfError: mensajeDeError(e, "No se pudo emitir el comprobante electronico") });
     } finally {

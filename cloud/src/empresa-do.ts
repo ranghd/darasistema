@@ -70,6 +70,8 @@ const CANALES_CAJA_AUTOR: Record<string, number> = {
   // la nomina queda a nombre de quien paga
   "nomina:pagar": 0,
   "nomina:anular": 0,
+  // cambiar el modo de la factura electronica queda a nombre de quien lo hizo
+  "ecf:cambiarModo": 0,
 };
 const BLOQUEO_MS = 10 * 60 * 1000;
 
@@ -156,6 +158,11 @@ export class Empresa extends DurableObject {
   private servicioEcf(): ServicioEcf {
     return {
       config: () => this.ecfConfig(),
+      cambiarModo: (modo) => this.ecfConfigurar({ modo }),
+      ajustes: () => {
+        const c = this.ecfConfig();
+        return { tokenCargado: !!this.tokenEcf(c.token_clave), correo: c.correo?.trim() || null, razonSocial: (c.razon_social || c.nombre_comercial)?.trim() || null };
+      },
       llamar: async (metodo, ruta, cuerpo) => {
         const token = this.tokenEcf(this.ecfConfig().token_clave);
         if (!token) throw new Error("Falta el token de ef2 en el servidor");

@@ -82,6 +82,8 @@ const api = {
     registrarManual: (data: any) => invoke("ecf:registrarManual", data),
     pendientes: () => invoke("ecf:pendientes"),
     probar: () => invoke("ecf:probar"),
+    ajustes: () => invoke("ecf:ajustes"),
+    cambiarModo: (data: any) => invoke("ecf:cambiarModo", data),
     sinEmitir: () => invoke("ecf:sinEmitir"),
     reintentarTodas: () => invoke("ecf:reintentarTodas"),
   },
