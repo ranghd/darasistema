@@ -8,6 +8,7 @@ const TITULOS: Record<string, string> = {
   E31: "Factura de Crédito Fiscal Electrónica",
   E32: "Factura de Consumo Electrónica",
   E34: "Nota de Crédito Electrónica",
+  E45: "Comprobante Gubernamental Electrónico",
 };
 
 /** "E320000000001" -> "Factura de Consumo Electrónica" (null si no es un e-NCF). */

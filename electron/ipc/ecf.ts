@@ -184,7 +184,7 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
     if (!doc) throw new Error("Esta factura no es electronica");
     if (ESTADOS_LISTOS.includes(doc.estado)) throw new Error("Esta factura ya tiene su comprobante");
     const ncf = String(datos.ncf ?? "").trim().toUpperCase();
-    if (!/^E(31|32)\d{10}$/.test(ncf)) throw new Error("El e-NCF debe verse asi: E320000000123 (la letra E, el tipo y 10 numeros)");
+    if (!/^E(31|32|45)\d{10}$/.test(ncf)) throw new Error("El e-NCF debe verse asi: E320000000123 (la letra E, el tipo y 10 numeros)");
     guardarRespuesta(
       db,
       doc.id,

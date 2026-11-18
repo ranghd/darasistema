@@ -124,7 +124,7 @@ export class Empresa extends DurableObject {
   }
 
   ecfConfigurar(cambios: Partial<ConfigEcf> & { token_clave?: string }): ConfigEcf & { token_clave?: string; token_cargado: boolean } {
-    const permitidos = ["modo", "token_clave", "razon_social", "nombre_comercial", "direccion", "correo", "telefono", "municipio", "provincia", "vencimiento_31", "tope_consumo_sin_comprador"];
+    const permitidos = ["modo", "token_clave", "razon_social", "nombre_comercial", "direccion", "correo", "telefono", "municipio", "provincia", "vencimiento_31", "vencimiento_45", "tope_consumo_sin_comprador"];
     const nuevo: Record<string, unknown> = { ...this.ecfConfig() };
     for (const [k, v] of Object.entries(cambios ?? {})) if (permitidos.includes(k)) nuevo[k] = v;
     if (!["apagado", "prueba", "real"].includes(String(nuevo.modo))) throw new Error("El modo debe ser apagado, prueba o real");

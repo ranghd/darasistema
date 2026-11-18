@@ -121,9 +121,10 @@ export function registerFacturasIpc(db: DB) {
     // - real: la factura espera su e-NCF (ncf_diferido) y no gasta un numero B.
     // - prueba: la venta sigue saliendo con su NCF B de siempre (es la factura valida) y ademas se manda una proforma de practica.
     const modoEcf = input.ecf_modo === "prueba" || input.ecf_modo === "real" ? input.ecf_modo : null;
-    const esB01B02 = tipoNcf === "B01" || tipoNcf === "B02";
+    // B01 -> e-CF 31, B02 -> 32, B15 (gubernamental) -> 45. Los demas tipos siguen con su NCF B.
+    const esB01B02 = tipoNcf === "B01" || tipoNcf === "B02" || tipoNcf === "B15";
     const diferido = modoEcf === "real" && input.ncf_diferido === true && !input.sin_comprobante;
-    if (diferido && !esB01B02) throw new Error("En facturacion electronica solo se hacen Credito Fiscal y Consumo por ahora");
+    if (diferido && !esB01B02) throw new Error("En facturacion electronica solo se hacen Credito Fiscal, Consumo y Gubernamental por ahora");
     const registrarEcf = !!modoEcf && !input.sin_comprobante && esB01B02 && (modoEcf === "prueba" || diferido);
     const cajaSesionId = validarSesionAbierta(db, input.caja_sesion_id);
     if (input.lineas.some((l) => l.prestado)) {
@@ -197,7 +198,7 @@ export function registerFacturasIpc(db: DB) {
       if (registrarEcf) {
         db.prepare(`INSERT INTO ecf_documentos (factura_id, clase, tipo, modo, estado) VALUES (?, 'FACTURA', ?, ?, 'PENDIENTE')`).run(
           facturaId,
-          tipoNcf === "B01" ? "31" : "32",
+          tipoNcf === "B01" ? "31" : tipoNcf === "B15" ? "45" : "32",
           input.ecf_modo
         );
       }

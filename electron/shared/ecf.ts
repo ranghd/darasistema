@@ -7,7 +7,8 @@
 // Con el modo "prueba" se manda como proforma (tipo 00): ef2 la guarda pero NO la manda a la DGII.
 
 export type ModoEcf = "apagado" | "prueba" | "real";
-export type TipoEcf = "31" | "32" | "34";
+// 31 credito fiscal (B01), 32 consumo (B02), 45 gubernamental (B15), 34 nota de credito.
+export type TipoEcf = "31" | "32" | "34" | "45";
 
 export interface ConfigEcf {
   modo: ModoEcf;
@@ -21,6 +22,8 @@ export interface ConfigEcf {
   provincia?: string;
   // dd-mm-aaaa: hasta cuando vale el rango autorizado de cada tipo (el e-CF 31 lo exige).
   vencimiento_31?: string;
+  // idem para el gubernamental (e-CF 45)
+  vencimiento_45?: string;
   // Una venta de consumo por este monto o mas exige identificar al comprador (norma de la DGII).
   tope_consumo_sin_comprador?: number;
 }
@@ -170,6 +173,7 @@ export function construirPayloadEcf(e: EntradaPayload): { ECF: unknown } {
   };
   if (tipo === "34" && e.referencia) idDoc.IndicadorNotaCredito = e.referencia.dias_desde_original > 30 ? "1" : "0";
   if (tipo === "31" && !e.proforma) idDoc.FechaVencimientoSecuencia = config.vencimiento_31 ?? "31-12-2027";
+  if (tipo === "45" && !e.proforma) idDoc.FechaVencimientoSecuencia = config.vencimiento_45 ?? "31-12-2027";
   if (credito) {
     idDoc.FechaLimitePago = fechaEcf(sumarDias(factura.fecha, 30));
     idDoc.TerminoPago = "30 dias";
@@ -195,8 +199,9 @@ export function construirPayloadEcf(e: EntradaPayload): { ECF: unknown } {
   const rncComprador = soloDigitos(cliente.rnc_cedula);
   const rncValido = rncComprador.length === 9 || rncComprador.length === 11;
   const tope = config.tope_consumo_sin_comprador ?? TOPE_CONSUMO_SIN_COMPRADOR;
-  if (tipo === "31" || (tipo === "34" && e.referencia?.ncf_modificado.startsWith("E31"))) {
-    if (!rncValido) throw new Error("El credito fiscal necesita el RNC del cliente (9 numeros de empresa u 11 de cedula)");
+  const originalConRnc = tipo === "34" && (e.referencia?.ncf_modificado.startsWith("E31") || e.referencia?.ncf_modificado.startsWith("E45"));
+  if (tipo === "31" || tipo === "45" || originalConRnc) {
+    if (!rncValido) throw new Error(`${tipo === "45" ? "El comprobante gubernamental" : "El credito fiscal"} necesita el RNC del cliente (9 numeros de empresa u 11 de cedula)`);
   } else if (tipo === "32" && !rncValido && montoTotal >= tope) {
     throw new Error(`Una venta de ${m2(montoTotal)} o mas necesita el RNC o cedula del cliente`);
   }

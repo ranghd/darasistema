@@ -12,7 +12,7 @@ import type { Cliente, EcfDocumento, MercanciaResumen, ModalidadLinea, Producto,
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
 import { NCF_LABELS, TIPOS_NCF_VENTA, VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Modal } from "../../components/ui";
-import { esColmado, esFritura, manejaEnvases, permiteFiar, sinImpuestos, soloVentas, usaGrupos } from "../../lib/variant";
+import { esColmado, esFritura, manejaEnvases, permiteFiar, sinImpuestos, soloVentas, usaEcf, usaGrupos } from "../../lib/variant";
 import { imprimirFacturaGasDamian } from "../../lib/reciboGasDamian";
 import TablaFactura from "./TablaFactura";
 import { leerBusqueda, sinAcentos } from "./buscar";
@@ -56,6 +56,8 @@ const METODOS: { valor: Metodo; nombre: string; tecla: string }[] = [
 
 // Comprobantes que piden el RNC del cliente.
 const PIDEN_RNC: TipoNcfVenta[] = ["B01", "B14", "B15"];
+// Gas Damian solo tiene autorizados en la DGII el consumo, el credito fiscal y el gubernamental electronicos.
+const TIPOS_CON_EFACTURA: TipoNcfVenta[] = ["B02", "B01", "B15"];
 
 // Campos del cliente en la caja de Gas Damian (nombre, RNC, razon social).
 const CAMPO_CLIENTE = "w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100";
@@ -812,7 +814,7 @@ export default function Caja() {
                   <label className="flex items-center gap-2">
                     <span className="shrink-0 text-xs font-medium text-slate-600">Comprobante</span>
                     <select value={tipoNcf} onChange={(e) => setTipoElegido(e.target.value as TipoNcfVenta)} className={CAMPO_CLIENTE} data-nav-ignorar>
-                      {TIPOS_NCF_VENTA.map((t) => (
+                      {TIPOS_NCF_VENTA.filter((t) => !usaEcf || TIPOS_CON_EFACTURA.includes(t)).map((t) => (
                         <option key={t} value={t}>
                           {NCF_LABELS[t]}
                         </option>

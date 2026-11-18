@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
-import { esColmado, esFritura } from "../../lib/variant";
+import { esColmado, esFritura, usaEcf } from "../../lib/variant";
 import { useAuth } from "../../lib/auth";
 import { useCaja } from "../../lib/caja";
 import CajaCerradaAviso from "../../components/CajaCerradaAviso";
@@ -167,7 +167,7 @@ export default function NuevaFactura() {
             </Select>
           )}
           <Select label="Tipo de comprobante (NCF)" value={tipoNcf} onChange={(e) => setTipoNcf(e.target.value as TipoNcfVenta)}>
-            {TIPOS_NCF_VENTA.map((t) => (
+            {TIPOS_NCF_VENTA.filter((t) => !usaEcf || ["B02", "B01", "B15"].includes(t)).map((t) => (
               <option key={t} value={t}>
                 {NCF_LABELS[t]}
               </option>
