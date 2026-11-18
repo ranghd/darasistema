@@ -206,7 +206,7 @@ export default function Configuracion() {
     <div>
       <PageHeader
         title="Configuracion"
-        subtitle={esVariantCaja ? (esAdmin ? "Conexion de esta caja, impresora y comprobantes" : "Impresora y comprobantes electronicos") : sinImpuestos ? "Datos de la empresa y usuarios" : "Datos de la empresa, tasa de ITBIS y secuencias de NCF"}
+        subtitle={esVariantCaja ? "Conexion de esta caja, impresora y comprobantes" : sinImpuestos ? "Datos de la empresa y usuarios" : "Datos de la empresa, tasa de ITBIS y secuencias de NCF"}
       />
 
       {esVariantCaja && tablaE &&<div className="mb-5 max-w-3xl">{tablaE}</div>}
@@ -339,8 +339,6 @@ export default function Configuracion() {
 
       <ImpresoraCard nombreEmpresa={config?.nombre_empresa ?? ""} />
 
-      {/* La conexion de datos la cambia solo el administrador (un cajero no debe poder desconectar la caja de la nube) */}
-      {esAdmin && (
       <Card className="mt-5 p-5">
         <h2 className="mb-1 text-sm font-semibold text-slate-700">Donde se guardan los datos</h2>
         <p className="mb-3 text-sm text-slate-500">
@@ -438,7 +436,6 @@ export default function Configuracion() {
           </div>
         </div>
       </Card>
-      )}
 
       <Modal open={open} onClose={() => setOpen(false)} title="Nueva secuencia NCF">
         <form onSubmit={crearSecuencia} className="space-y-3">
