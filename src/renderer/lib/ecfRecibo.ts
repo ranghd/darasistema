@@ -16,6 +16,12 @@ export function tituloEcf(ncf: string | null | undefined): string | null {
   return ncf ? TITULOS[ncf.slice(0, 3)] ?? null : null;
 }
 
+// Nombre del comprobante en la lista de la venta: en modo real la factura sale como E (B02 -> E32, B01 -> E31, B15 -> E45).
+const E_DE_B: Record<string, string> = { B02: "E32 - Factura de Consumo Electrónica", B01: "E31 - Factura de Crédito Fiscal Electrónica", B15: "E45 - Comprobante Gubernamental Electrónico" };
+export function etiquetaTipoVenta(tipo: string, nombreB: string, modoReal: boolean): string {
+  return modoReal && E_DE_B[tipo] ? E_DE_B[tipo] : nombreB;
+}
+
 function qrSvg(texto: string): string {
   const qr = qrcode(0, "M");
   qr.addData(texto);

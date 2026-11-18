@@ -9,6 +9,7 @@ import AvisoBorrador from "../../components/AvisoBorrador";
 import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
 import type { Cliente, FacturaLineaInput, Producto, TipoNcfVenta } from "../../lib/types";
 import { formatMoney, todayIso } from "../../lib/format";
+import { etiquetaTipoVenta } from "../../lib/ecfRecibo";
 import { NCF_LABELS, TIPOS_NCF_VENTA, VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Card, Input, PageHeader, Select } from "../../components/ui";
 
@@ -19,6 +20,11 @@ interface LineaForm extends FacturaLineaInput {
 let keySeq = 1;
 
 export default function NuevaFactura() {
+  const [ecfReal, setEcfReal] = useState(false);
+  useEffect(() => {
+    if (!usaEcf) return;
+    api.ecf.estado().then((e) => setEcfReal((e as { modo?: string }).modo === "real")).catch(() => {});
+  }, []);
   const { usuario } = useAuth();
   const { sesion, usaCaja } = useCaja();
   const navigate = useNavigate();
@@ -169,7 +175,7 @@ export default function NuevaFactura() {
           <Select label="Tipo de comprobante (NCF)" value={tipoNcf} onChange={(e) => setTipoNcf(e.target.value as TipoNcfVenta)}>
             {TIPOS_NCF_VENTA.filter((t) => !usaEcf || ["B02", "B01", "B15"].includes(t)).map((t) => (
               <option key={t} value={t}>
-                {NCF_LABELS[t]}
+                {etiquetaTipoVenta(t, NCF_LABELS[t], ecfReal)}
               </option>
             ))}
           </Select>

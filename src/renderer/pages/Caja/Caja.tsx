@@ -10,6 +10,7 @@ import AvisoBorrador from "../../components/AvisoBorrador";
 import { useBorrador, useHabiaBorrador } from "../../lib/borrador";
 import type { Cliente, EcfDocumento, MercanciaResumen, ModalidadLinea, Producto, TipoNcfVenta } from "../../lib/types";
 import { formatDate, formatMoney, todayIso } from "../../lib/format";
+import { etiquetaTipoVenta } from "../../lib/ecfRecibo";
 import { NCF_LABELS, TIPOS_NCF_VENTA, VERSION_CODIGOS_NCF } from "../../lib/ncf";
 import { Button, Modal } from "../../components/ui";
 import { esColmado, esFritura, manejaEnvases, permiteFiar, sinImpuestos, soloVentas, usaEcf, usaGrupos } from "../../lib/variant";
@@ -98,6 +99,11 @@ export default function Caja() {
   // Y si se le escribe un RNC, la factura sale con valor fiscal (B01) y el cliente se registra solo.
   const [rncCliente, setRncCliente] = useBorrador<string>("venta.rnc", "");
   // Gas Damian: el comprobante que eligio el cajero (null = el que toca solo: B01 con RNC, si no B02)
+  const [ecfReal, setEcfReal] = useState(false);
+  useEffect(() => {
+    if (!usaEcf) return;
+    api.ecf.estado().then((e) => setEcfReal((e as { modo?: string }).modo === "real")).catch(() => {});
+  }, []);
   const [tipoElegido, setTipoElegido] = useBorrador<TipoNcfVenta | null>("venta.tipoNcf", null);
   const [telefonoFiado, setTelefonoFiado] = useState("");
   // Dara Frituras: la linea a la que se le esta cambiando el precio y lo que se va escribiendo (precio final)
@@ -816,7 +822,7 @@ export default function Caja() {
                     <select value={tipoNcf} onChange={(e) => setTipoElegido(e.target.value as TipoNcfVenta)} className={CAMPO_CLIENTE} data-nav-ignorar>
                       {TIPOS_NCF_VENTA.filter((t) => !usaEcf || TIPOS_CON_EFACTURA.includes(t)).map((t) => (
                         <option key={t} value={t}>
-                          {NCF_LABELS[t]}
+                          {etiquetaTipoVenta(t, NCF_LABELS[t], ecfReal)}
                         </option>
                       ))}
                     </select>
