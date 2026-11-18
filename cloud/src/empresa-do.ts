@@ -274,7 +274,8 @@ export class Empresa extends DurableObject {
       // Con facturacion electronica encendida el numero lo da el proveedor; lo que mande la pantalla no cuenta.
       const modo = this.ecfConfig().modo;
       const { ncf_diferido: _a, ecf_modo: _b, ...limpio } = lista[0] as Record<string, unknown>;
-      lista[0] = modo === "apagado" ? limpio : { ...limpio, ncf_diferido: true, ecf_modo: modo };
+      // real: la factura espera su e-NCF. prueba: sigue con su NCF B normal y la proforma sale aparte.
+      lista[0] = modo === "apagado" ? limpio : { ...limpio, ncf_diferido: modo === "real", ecf_modo: modo };
     }
     const posAutor = CANALES_CAJA_AUTOR[canal];
     if (posAutor !== undefined) {

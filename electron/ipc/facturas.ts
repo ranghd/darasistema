@@ -42,7 +42,8 @@ function tomarSiguienteNcf(db: DB, tipo: TipoNcf): string {
 
 // La factura se hizo con comprobante electronico (tiene su fila en ecf_documentos).
 function esElectronica(db: DB, facturaId: number): boolean {
-  return !!db.prepare(`SELECT 1 FROM ecf_documentos WHERE factura_id = ? AND clase = 'FACTURA'`).get(facturaId);
+  // En modo prueba la factura es una B normal (la proforma va aparte): solo las de modo real son electronicas.
+  return !!db.prepare(`SELECT 1 FROM ecf_documentos WHERE factura_id = ? AND clase = 'FACTURA' AND modo = 'real'`).get(facturaId);
 }
 
 const MSG_NOTA_ELECTRONICA = "Esta factura es electronica: por ahora sus notas de debito o credito se emiten desde el portal de ef2.";
@@ -117,11 +118,13 @@ export function registerFacturasIpc(db: DB) {
     if (!TIPOS_NCF_VENTA.includes(tipoNcf)) throw new Error(`Tipo de comprobante no valido para una factura: ${input.tipo_ncf}. Use ${TIPOS_NCF_VENTA.map((t) => NCF_LABELS[t]).join(", ")}.`);
     // Factura electronica: el numero (e-NCF) lo asigna el proveedor al emitirla, no esta secuencia local.
     // Solo la nube lo activa (ncf_diferido + ecf_modo salen de la configuracion de la empresa, no de la pantalla).
-    const diferido = input.ncf_diferido === true && !input.sin_comprobante;
-    if (diferido) {
-      if (tipoNcf !== "B01" && tipoNcf !== "B02") throw new Error("En facturacion electronica solo se hacen Credito Fiscal y Consumo por ahora");
-      if (input.ecf_modo !== "prueba" && input.ecf_modo !== "real") throw new Error("Modo de facturacion electronica no valido");
-    }
+    // - real: la factura espera su e-NCF (ncf_diferido) y no gasta un numero B.
+    // - prueba: la venta sigue saliendo con su NCF B de siempre (es la factura valida) y ademas se manda una proforma de practica.
+    const modoEcf = input.ecf_modo === "prueba" || input.ecf_modo === "real" ? input.ecf_modo : null;
+    const esB01B02 = tipoNcf === "B01" || tipoNcf === "B02";
+    const diferido = modoEcf === "real" && input.ncf_diferido === true && !input.sin_comprobante;
+    if (diferido && !esB01B02) throw new Error("En facturacion electronica solo se hacen Credito Fiscal y Consumo por ahora");
+    const registrarEcf = !!modoEcf && !input.sin_comprobante && esB01B02 && (modoEcf === "prueba" || diferido);
     const cajaSesionId = validarSesionAbierta(db, input.caja_sesion_id);
     if (input.lineas.some((l) => l.prestado)) {
       const cli = db.prepare(`SELECT codigo FROM clientes WHERE id = ?`).get(input.cliente_id) as { codigo: string } | undefined;
@@ -191,7 +194,7 @@ export function registerFacturasIpc(db: DB) {
         });
       const facturaId = Number(infoFactura.lastInsertRowid);
       // Queda anotado de una vez que esta factura espera su comprobante electronico (31 = credito fiscal, 32 = consumo).
-      if (diferido) {
+      if (registrarEcf) {
         db.prepare(`INSERT INTO ecf_documentos (factura_id, clase, tipo, modo, estado) VALUES (?, 'FACTURA', ?, ?, 'PENDIENTE')`).run(
           facturaId,
           tipoNcf === "B01" ? "31" : "32",
