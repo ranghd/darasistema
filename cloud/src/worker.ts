@@ -166,6 +166,16 @@ async function enrutar(req: Request, env: Env): Promise<Response> {
     if (!(await registro(env).existe(codigo))) throw new ErrorHttp(404, "Empresa no encontrada");
     return json({ resultado: { codigo, borradas: await empresa(env, codigo).vaciar() } });
   }
+  const limpiar = ruta.match(/^\/admin\/empresas\/([^/]+)\/limpiar-historial$/);
+  if (limpiar && req.method === "POST") {
+    await exigirAdmin(req, env);
+    const codigo = normalizarCodigo(decodeURIComponent(limpiar[1]));
+    if (!(await registro(env).existe(codigo))) throw new ErrorHttp(404, "Empresa no encontrada");
+    // doble seguro: hay que repetir el codigo de la empresa en el cuerpo
+    const cuerpo = (await req.json().catch(() => ({}))) as { confirmar?: string };
+    if (cuerpo.confirmar !== `LIMPIAR ${codigo}`) throw new ErrorHttp(400, `Falta confirmar: envia {"confirmar":"LIMPIAR ${codigo}"}`);
+    return json({ resultado: { codigo, borradas: await empresa(env, codigo).limpiarHistorial() } });
+  }
   const borrar = ruta.match(/^\/admin\/empresas\/([^/]+)$/);
   if (borrar && req.method === "DELETE") {
     await exigirAdmin(req, env);

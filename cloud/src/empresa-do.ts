@@ -355,6 +355,51 @@ export class Empresa extends DurableObject {
     return borradas;
   }
 
+  /**
+   * Borra el historial de ventas (facturas, notas, comprobantes electronicos, cobros, cilindros prestados, cierres y movimientos de caja)
+   * y los asientos contables que esas ventas generaron. NO toca clientes, productos (ni su existencia), proveedores, compras, gastos,
+   * secuencias de NCF (para no repetir numeros), usuarios ni configuracion.
+   */
+  limpiarHistorial(): Record<string, number> {
+    // Detalles primero, despues lo principal.
+    const tablas = [
+      "factura_lineas", "notas_factura", "ecf_documentos", "cobros", "recibos_cobro",
+      "envase_movimientos", "botellas_fiadas", "envases_cliente",
+      "caja_movimientos", "caja_correcciones", "facturas", "caja_sesiones",
+    ];
+    const borradas: Record<string, number> = {};
+    this.db.transaction(() => {
+      // asientos de lo que se va a borrar (solo los que ninguna tabla que se queda usa)
+      const todas = (this.db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'`).all() as { name: string }[]).map((t) => t.name);
+      const conAsiento = (t: string) => (this.db.prepare(`PRAGMA table_info("${t}")`).all() as { name: string }[]).filter((c) => c.name === "asiento_id" || c.name === "asiento_diferencia_id").map((c) => c.name);
+      const idsAsiento = new Set<number>();
+      for (const t of tablas) {
+        for (const col of conAsiento(t)) {
+          for (const r of this.db.prepare(`SELECT "${col}" AS id FROM "${t}" WHERE "${col}" IS NOT NULL`).all() as { id: number }[]) idsAsiento.add(r.id);
+        }
+      }
+      for (const t of todas) {
+        if (tablas.includes(t) || t === "asientos" || t === "asiento_lineas") continue;
+        for (const col of conAsiento(t)) {
+          for (const r of this.db.prepare(`SELECT "${col}" AS id FROM "${t}" WHERE "${col}" IS NOT NULL`).all() as { id: number }[]) idsAsiento.delete(r.id);
+        }
+      }
+      // las nominas guardan la jornada de caja donde se pagaron: se conserva la nomina, se suelta la jornada
+      this.db.exec(`UPDATE nominas SET caja_sesion_id = NULL WHERE caja_sesion_id IS NOT NULL`);
+      for (const t of tablas) {
+        borradas[t] = (this.db.prepare(`SELECT COUNT(*) AS n FROM "${t}"`).get() as { n: number }).n;
+        this.db.exec(`DELETE FROM "${t}"`);
+      }
+      let asientos = 0;
+      for (const id of idsAsiento) {
+        this.db.prepare(`DELETE FROM asiento_lineas WHERE asiento_id = ?`).run(id);
+        asientos += this.db.prepare(`DELETE FROM asientos WHERE id = ?`).run(id).changes;
+      }
+      borradas["asientos"] = asientos;
+    })();
+    return borradas;
+  }
+
   exportar(): Record<string, unknown[]> {
     const tablas = this.db
       .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'`)
