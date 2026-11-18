@@ -23,7 +23,7 @@ export default function NuevaFactura() {
   const [ecfReal, setEcfReal] = useState(false);
   useEffect(() => {
     if (!usaEcf) return;
-    api.ecf.estado().then((e) => setEcfReal((e as { modo?: string }).modo === "real")).catch(() => {});
+    api.ecf.estado().then((e) => setEcfReal(["real", "prueba"].includes((e as { modo?: string }).modo ?? ""))).catch(() => {});
   }, []);
   const { usuario } = useAuth();
   const { sesion, usaCaja } = useCaja();

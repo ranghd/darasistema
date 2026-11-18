@@ -102,7 +102,7 @@ export default function Caja() {
   const [ecfReal, setEcfReal] = useState(false);
   useEffect(() => {
     if (!usaEcf) return;
-    api.ecf.estado().then((e) => setEcfReal((e as { modo?: string }).modo === "real")).catch(() => {});
+    api.ecf.estado().then((e) => setEcfReal(["real", "prueba"].includes((e as { modo?: string }).modo ?? ""))).catch(() => {});
   }, []);
   const [tipoElegido, setTipoElegido] = useBorrador<TipoNcfVenta | null>("venta.tipoNcf", null);
   const [telefonoFiado, setTelefonoFiado] = useState("");
