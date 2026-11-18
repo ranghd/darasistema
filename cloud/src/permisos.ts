@@ -71,6 +71,8 @@ export const CANALES_CAJERO = new Set([
   "ecf:probar",
   "ecf:sinEmitir",
   "ecf:reintentarTodas",
+  // Configuracion de la caja: los rangos E que tiene ef2 (solo lectura)
+  "ecf:rangos",
 ]);
 
 // La caja de Gas Damian y la de la fritura (yerikafr) tambien llevan el inventario. Solo esas empresas:

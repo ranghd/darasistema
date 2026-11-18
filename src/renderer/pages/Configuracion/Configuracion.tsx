@@ -72,7 +72,8 @@ export default function Configuracion() {
   const [guardandoRed, setGuardandoRed] = useState(false);
 
   async function cargar() {
-    const [c, s, r] = await Promise.all([api.config.obtener(), api.ncf.listar(), api.red.obtenerConfig()]);
+    // La caja no usa las secuencias B y la nube no se las deja leer al cajero: ahi no se piden (si no, sale "No tienes permiso")
+    const [c, s, r] = await Promise.all([api.config.obtener(), esVariantCaja && !esAdmin ? Promise.resolve([] as NcfSecuencia[]) : api.ncf.listar(), api.red.obtenerConfig()]);
     setConfig(c);
     setSecuencias(s);
     setConfigRed(r as ConfigRedUI);
