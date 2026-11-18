@@ -3,7 +3,10 @@ import { api, mensajeDeError } from "../../lib/api";
 import type { CompanyConfig, NcfSecuencia, RolUsuario, TipoNcf, Usuario } from "../../lib/types";
 import { formatDate } from "../../lib/format";
 import { NCF_LABELS, TODOS_LOS_TIPOS_NCF, VERSION_CODIGOS_NCF } from "../../lib/ncf";
-import { esVariantCaja, sinImpuestos, soloVentas } from "../../lib/variant";
+
+// Gas Damian solo usa estos comprobantes: consumo, credito fiscal, notas de debito y credito, y gubernamental.
+const TIPOS_GAS_DAMIAN: TipoNcf[] = ["B02", "B01", "B03", "B04", "B15"];
+import { esVariantCaja, sinImpuestos, soloVentas, usaEcf } from "../../lib/variant";
 import { PIE_FACTURA } from "../../lib/facturaCarta";
 import { useAuth } from "../../lib/auth";
 import { Badge, Button, Card, EmptyRow, Input, Modal, PageHeader, Select, Table } from "../../components/ui";
@@ -395,7 +398,7 @@ export default function Configuracion() {
       <Modal open={open} onClose={() => setOpen(false)} title="Nueva secuencia NCF">
         <form onSubmit={crearSecuencia} className="space-y-3">
           <Select label="Tipo de comprobante" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value as TipoNcf })}>
-            {TODOS_LOS_TIPOS_NCF.map((t) => (
+            {TODOS_LOS_TIPOS_NCF.filter((t) => !usaEcf || TIPOS_GAS_DAMIAN.includes(t)).map((t) => (
               <option key={t} value={t}>
                 {NCF_LABELS[t]}
               </option>
