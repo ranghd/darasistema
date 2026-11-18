@@ -46,7 +46,7 @@ export default function Configuracion() {
   // Gas Damian: los numeros E que la DGII autorizo (viven en ef2). Solo el administrador puede leerlos.
   const [rangosE, setRangosE] = useState<EcfRango[]>([]);
   useEffect(() => {
-    if (!usaEcf || !esAdmin) return;
+    if (!usaEcf || !(esAdmin || esVariantCaja)) return;
     api.ecf.rangos().then((r) => setRangosE(r as EcfRango[])).catch(() => {});
   }, [esAdmin]);
   const [guardando, setGuardando] = useState(false);
@@ -206,10 +206,10 @@ export default function Configuracion() {
     <div>
       <PageHeader
         title="Configuracion"
-        subtitle={esVariantCaja ? "Conexion de esta caja con el servidor" : sinImpuestos ? "Datos de la empresa y usuarios" : "Datos de la empresa, tasa de ITBIS y secuencias de NCF"}
+        subtitle={esVariantCaja ? (esAdmin ? "Conexion de esta caja, impresora y comprobantes" : "Impresora y comprobantes electronicos") : sinImpuestos ? "Datos de la empresa y usuarios" : "Datos de la empresa, tasa de ITBIS y secuencias de NCF"}
       />
 
-      {esVariantCaja && esAdmin && tablaE && <div className="mb-5 max-w-3xl">{tablaE}</div>}
+      {esVariantCaja && tablaE &&<div className="mb-5 max-w-3xl">{tablaE}</div>}
 
       {!esVariantCaja && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -339,6 +339,8 @@ export default function Configuracion() {
 
       <ImpresoraCard nombreEmpresa={config?.nombre_empresa ?? ""} />
 
+      {/* La conexion de datos la cambia solo el administrador (un cajero no debe poder desconectar la caja de la nube) */}
+      {esAdmin && (
       <Card className="mt-5 p-5">
         <h2 className="mb-1 text-sm font-semibold text-slate-700">Donde se guardan los datos</h2>
         <p className="mb-3 text-sm text-slate-500">
@@ -436,6 +438,7 @@ export default function Configuracion() {
           </div>
         </div>
       </Card>
+      )}
 
       <Modal open={open} onClose={() => setOpen(false)} title="Nueva secuencia NCF">
         <form onSubmit={crearSecuencia} className="space-y-3">

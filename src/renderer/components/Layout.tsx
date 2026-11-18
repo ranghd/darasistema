@@ -197,7 +197,8 @@ export default function Layout() {
 
   const mostrarCaja = esVariantCaja || usuario?.rol === "CAJERO";
   const nav = (soloVentas && !adminVentas ? NAV_CAJA_GAS_DAMIAN : mostrarCaja ? NAV_CAJA : esColmado ? NAV_COLMADO : NAV_COMPLETO)
-    .filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN")
+    // Configuracion: el administrador siempre; en la caja (Gas Damian) tambien el cajero, que solo ve la impresora y las secuencias E
+    .filter((g) => g.section !== "Sistema" || usuario?.rol === "ADMIN" || esVariantCaja)
     .map((g) => ({ ...g, items: g.items.filter((i) => manejaEnvases || (i.to !== "/envases" && i.to !== "/botellas-fiadas")) }))
     // Sin registrar no hay NCF: las ventas se hacen en la caja
     .map((g) => ({ ...g, items: g.items.filter((i) => !sinImpuestos || !["/facturas/nueva", "/reportes/itbis", "/notas"].includes(i.to)) }))

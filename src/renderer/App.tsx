@@ -93,7 +93,7 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
   const restringido = esVariantCaja || usuario?.rol === "CAJERO";
 
   // En Cajapunto1 el administrador entra a Configuracion solo para la conexion.
-  const rutaConexionCaja = esVariantCaja && usuario?.rol === "ADMIN" ? RUTAS_ADMIN_EXTRA.filter((r) => r.path === "/configuracion") : [];
+  const rutaConexionCaja = esVariantCaja ?RUTAS_ADMIN_EXTRA.filter((r) => r.path === "/configuracion") : [];
 
   const hijos = usuario
     ? [
