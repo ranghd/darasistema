@@ -174,12 +174,42 @@ export default function Configuracion() {
 
   if (!config) return <p className="text-sm text-slate-400">Cargando...</p>;
 
+  const tablaE = usaEcf && rangosE.length > 0 && (
+            <div className="mb-5">
+              <h2 className="mb-1 text-sm font-semibold text-slate-700">Secuencias de comprobantes electrónicos (E)</h2>
+              <p className="mb-3 text-xs text-slate-500">Autorizadas por la DGII y guardadas en ef2. Se gastan solas cuando la factura electrónica está en modo real.</p>
+              <Table columns={["Tipo", "Rango", "Actual", "Válido en ef2 hasta", "Estado"]}>
+                {rangosE.map((r) => {
+                  const agotada = r.disponibles <= 0;
+                  const pocos = !agotada && (r.disponibles <= 20 || r.porcentajeUso >= 80);
+                  return (
+                    <tr key={`${r.prefijo}-${r.desde}`}>
+                      <td className="px-4 py-2 text-xs">
+                        <span className="font-semibold">{r.prefijo}</span> - {r.nombre}
+                      </td>
+                      <td className="px-4 py-2 text-xs text-slate-500">
+                        {r.desde} - {r.hasta}
+                      </td>
+                      <td className="px-4 py-2">{r.desde + r.usados}</td>
+                      <td className="px-4 py-2 text-xs text-slate-500">{r.vence ? formatDate(r.vence) : "—"}</td>
+                      <td className="px-4 py-2">
+                        <Badge tone={agotada ? "red" : pocos ? "amber" : "green"}>{agotada ? "Agotada" : pocos ? "Quedan pocos" : "Activa"}</Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </Table>
+            </div>
+          );
+
   return (
     <div>
       <PageHeader
         title="Configuracion"
         subtitle={esVariantCaja ? "Conexion de esta caja con el servidor" : sinImpuestos ? "Datos de la empresa y usuarios" : "Datos de la empresa, tasa de ITBIS y secuencias de NCF"}
       />
+
+      {esVariantCaja && esAdmin && tablaE && <div className="mb-5 max-w-3xl">{tablaE}</div>}
 
       {!esVariantCaja && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -221,33 +251,7 @@ export default function Configuracion() {
           </Card>
 
           <div>
-          {usaEcf && rangosE.length > 0 && (
-            <div className="mb-5">
-              <h2 className="mb-1 text-sm font-semibold text-slate-700">Secuencias de comprobantes electrónicos (E)</h2>
-              <p className="mb-3 text-xs text-slate-500">Autorizadas por la DGII y guardadas en ef2. Se gastan solas cuando la factura electrónica está en modo real.</p>
-              <Table columns={["Tipo", "Rango", "Actual", "Válido en ef2 hasta", "Estado"]}>
-                {rangosE.map((r) => {
-                  const agotada = r.disponibles <= 0;
-                  const pocos = !agotada && (r.disponibles <= 20 || r.porcentajeUso >= 80);
-                  return (
-                    <tr key={`${r.prefijo}-${r.desde}`}>
-                      <td className="px-4 py-2 text-xs">
-                        <span className="font-semibold">{r.prefijo}</span> - {r.nombre}
-                      </td>
-                      <td className="px-4 py-2 text-xs text-slate-500">
-                        {r.desde} - {r.hasta}
-                      </td>
-                      <td className="px-4 py-2">{r.desde + r.usados}</td>
-                      <td className="px-4 py-2 text-xs text-slate-500">{r.vence ? formatDate(r.vence) : "—"}</td>
-                      <td className="px-4 py-2">
-                        <Badge tone={agotada ? "red" : pocos ? "amber" : "green"}>{agotada ? "Agotada" : pocos ? "Quedan pocos" : "Activa"}</Badge>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </Table>
-            </div>
-          )}
+          {tablaE}
 
           {!usaEcf && (
           <div>
