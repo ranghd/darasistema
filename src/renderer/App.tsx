@@ -99,11 +99,13 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
     ? [
         // Gas Damian Admin es Darasistema con los cilindros prestados. La caja de Gas Damian solo vende y presta cilindros
         // (la factura se sigue abriendo desde la venta para reimprimirla).
-        ...(soloVentas && !adminVentas ? RUTAS_COMUNES.filter((r) => ["/caja", "/cierre-caja", "/facturas/:id", "/factura-electronica", ...(cajaConInventario ? ["/productos"] : [])].includes(r.path)) : RUTAS_COMUNES),
+        ...(soloVentas && !adminVentas ? RUTAS_COMUNES.filter((r) => ["/caja", "/cierre-caja", "/facturas", "/facturas/:id", "/factura-electronica", ...(cajaConInventario ? ["/productos"] : [])].includes(r.path)) : RUTAS_COMUNES),
         ...(soloVentas && manejaEnvases ? [{ path: "/botellas-fiadas", element: <BotellasFiadas /> }] : []),
         ...(soloVentas && !adminVentas ? [{ path: "/gastos-caja", element: <GastosCaja /> }, ...(permiteFiar ? [{ path: "/fiados", element: <FiadosCaja /> }] : [])] : []),
         ...((adminVentas && !restringido) || cajaConInventario ? [{ path: "/categorias", element: <Categorias /> }] : []),
         ...(cajaConInventario ? RUTAS_ADMIN_EXTRA.filter((r) => ["/compras", "/proveedores", "/proveedores/:id"].includes(r.path)) : []),
+        // Gas Damian: desde la caja tambien se ven las facturas, se anulan y se hacen notas de debito y credito.
+        ...(usaEcf && soloVentas && !adminVentas ? RUTAS_ADMIN_EXTRA.filter((r) => r.path === "/notas") : []),
         ...(esFritura ? [{ path: "/piezas", element: <ControlPiezas /> }] : []),
         ...(esFritura && adminVentas && !restringido
           ? [{ path: "/reportes/precios-cambiados", element: <PreciosCambiados /> }]

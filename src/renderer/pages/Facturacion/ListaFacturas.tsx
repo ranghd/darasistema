@@ -1,4 +1,4 @@
-import { sinImpuestos } from "../../lib/variant";
+import { adminVentas, sinImpuestos, soloVentas } from "../../lib/variant";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
@@ -26,7 +26,8 @@ export default function ListaFacturas() {
         title="Facturas"
         subtitle={sinImpuestos ? "Ventas hechas en la caja" : "Facturacion de ventas con NCF e ITBIS"}
         actions={
-          !sinImpuestos && (
+          // en la caja de Gas Damian no se hacen facturas a mano: se venden desde el punto de venta
+          !sinImpuestos && !(soloVentas && !adminVentas) && (
             <Link to="/facturas/nueva">
               <Button>+ Nueva Factura</Button>
             </Link>

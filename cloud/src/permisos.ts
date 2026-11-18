@@ -60,6 +60,8 @@ export const CANALES_CAJERO = new Set([
   "fiados:fiar",
   "fiados:devolver",
   "categorias:listar",
+  // Gas Damian: la caja ve el historial de notas de debito y credito
+  "notas:listar",
   // factura electronica: la caja la emite al cobrar y ve su estado (reenviar y registrar a mano son del administrador)
   "ecf:estado",
   "ecf:obtener",

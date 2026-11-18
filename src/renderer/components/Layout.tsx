@@ -113,7 +113,7 @@ const NAV_CAJA_GAS_DAMIAN = [
       ...(permiteFiar ? [{ to: "/fiados", label: "Fiados" }] : []),
       { to: "/gastos-caja", label: "Gastos de caja" },
       { to: "/cierre-caja", label: "Cierre de Caja" },
-      ...(usaEcf ? [{ to: "/factura-electronica", label: "Factura electrónica" }] : []),
+      ...(usaEcf ? [{ to: "/facturas", label: "Facturas", end: true }, { to: "/notas", label: "Notas de credito y debito" }, { to: "/factura-electronica", label: "Factura electrónica" }] : []),
       { to: "/botellas-fiadas", label: "Cilindros prestados" },
     ],
   },
