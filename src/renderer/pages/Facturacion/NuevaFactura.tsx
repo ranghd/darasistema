@@ -172,12 +172,13 @@ export default function NuevaFactura() {
               <option value="CHEQUE">Cheque</option>
             </Select>
           )}
-          <Select label="Tipo de comprobante (NCF)" value={tipoNcf} onChange={(e) => setTipoNcf(e.target.value as TipoNcfVenta)}>
+          <Select label="Tipo de comprobante (NCF)" value={tipoNcf} onChange={(e) => (e.target.value === "E34" ? navigate("/notas") : setTipoNcf(e.target.value as TipoNcfVenta))}>
             {TIPOS_NCF_VENTA.filter((t) => !usaEcf || ["B02", "B01", "B15"].includes(t)).map((t) => (
               <option key={t} value={t}>
                 {etiquetaTipoVenta(t, NCF_LABELS[t], ecfReal)}
               </option>
             ))}
+            {ecfReal && <option value="E34">E34 - Nota de Crédito Electrónica (se hace en Notas)</option>}
           </Select>
         </Card>
 

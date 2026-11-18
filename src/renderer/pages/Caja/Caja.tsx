@@ -819,12 +819,13 @@ export default function Caja() {
                 {!sinImpuestos && (
                   <label className="flex items-center gap-2">
                     <span className="shrink-0 text-xs font-medium text-slate-600">Comprobante</span>
-                    <select value={tipoNcf} onChange={(e) => setTipoElegido(e.target.value as TipoNcfVenta)} className={CAMPO_CLIENTE} data-nav-ignorar>
+                    <select value={tipoNcf} onChange={(e) => (e.target.value === "E34" ? navigate("/notas") : setTipoElegido(e.target.value as TipoNcfVenta))} className={CAMPO_CLIENTE} data-nav-ignorar>
                       {TIPOS_NCF_VENTA.filter((t) => !usaEcf || TIPOS_CON_EFACTURA.includes(t)).map((t) => (
                         <option key={t} value={t}>
                           {etiquetaTipoVenta(t, NCF_LABELS[t], ecfReal)}
                         </option>
                       ))}
+                      {ecfReal && <option value="E34">E34 - Nota de Crédito Electrónica (se hace en Notas)</option>}
                     </select>
                   </label>
                 )}
