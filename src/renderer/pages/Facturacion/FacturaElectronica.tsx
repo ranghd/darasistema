@@ -201,7 +201,7 @@ export default function FacturaElectronica() {
                     <div className={`h-full ${pocos ? "bg-red-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(100, Math.max(2, r.porcentajeUso))}%` }} />
                   </div>
                   <p className="mt-1 text-sm text-slate-500">
-                    Del {r.prefijo}{String(r.desde).padStart(10, "0")} al {r.prefijo}{String(r.hasta).padStart(10, "0")} · {r.vence ? `vence el ${formatDate(r.vence)}` : "no vence"}
+                    Del {r.prefijo}{String(r.desde).padStart(10, "0")} al {r.prefijo}{String(r.hasta).padStart(10, "0")} · {r.vence ? `válido en ef2 hasta el ${formatDate(r.vence)}` : "sin fecha en ef2"}
                     {!r.activo && " · inactivo"}
                   </p>
                   {pocos && <p className="text-sm font-medium text-red-700">Quedan pocos: pide otro rango a la DGII antes de que se acaben.</p>}
