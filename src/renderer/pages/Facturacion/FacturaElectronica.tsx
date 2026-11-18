@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api, mensajeDeError } from "../../lib/api";
 import { formatDate, formatMoney } from "../../lib/format";
 import { avisoDeResultado, type AvisoImpresion } from "../../lib/ticket";
-import type { EcfAjustes, EcfEstado, EcfPrueba, EcfSinEmitir } from "../../lib/types";
+import type { EcfAjustes, EcfEstado, EcfPrueba, EcfRango, EcfSinEmitir } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
 import { Button, Card, Modal, PageHeader } from "../../components/ui";
 
@@ -37,6 +37,8 @@ export default function FacturaElectronica() {
   const { usuario } = useAuth();
   const esAdmin = usuario?.rol === "ADMIN";
   const [ajustes, setAjustes] = useState<EcfAjustes | null>(null);
+  const [rangos, setRangos] = useState<EcfRango[] | null>(null);
+  const [errorRangos, setErrorRangos] = useState("");
   const [confirmarReal, setConfirmarReal] = useState(false);
   const [cambiando, setCambiando] = useState(false);
   const [errorModo, setErrorModo] = useState("");
@@ -52,7 +54,15 @@ export default function FacturaElectronica() {
     setEstado((await api.ecf.estado().catch(() => ({ modo: "apagado" }))) as EcfEstado);
     setSinEmitir((await api.ecf.sinEmitir().catch(() => [])) as EcfSinEmitir[]);
     // solo el administrador puede pedirlo (a la caja la nube le diria que no y saldria como error de conexion)
-    if (esAdmin) setAjustes((await api.ecf.ajustes().catch(() => null)) as EcfAjustes | null);
+    if (esAdmin) {
+      setAjustes((await api.ecf.ajustes().catch(() => null)) as EcfAjustes | null);
+      try {
+        setRangos((await api.ecf.rangos()) as EcfRango[]);
+        setErrorRangos("");
+      } catch (e) {
+        setErrorRangos(mensajeDeError(e, "No se pudieron leer los rangos"));
+      }
+    }
   }
 
   async function cambiarModo(modo: string) {
@@ -165,6 +175,40 @@ export default function FacturaElectronica() {
           </div>
           {ajustes && ajustes.falta.length > 0 && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-amber-800">Todavía no se puede encender: falta {ajustes.falta.join(", ")}. Avisa a Darasistema.</p>}
           {errorModo && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-red-700">{errorModo}</p>}
+        </Card>
+      )}
+
+      {esAdmin && (
+        <Card className="mb-5 p-5">
+          <h2 className="text-lg font-semibold text-slate-800">Números de la factura electrónica (E)</h2>
+          <p className="mb-3 text-slate-600">Son los números que la DGII le autorizó a Damian. Se guardan en ef2 y aquí los ves.</p>
+          {errorRangos && <p className="rounded-lg bg-red-50 px-3 py-2 text-red-700">{errorRangos}</p>}
+          {rangos && rangos.length === 0 && <p className="text-slate-600">ef2 no tiene ningún rango cargado todavía.</p>}
+          <ul className="divide-y divide-slate-100">
+            {(rangos ?? []).map((r) => {
+              const pocos = r.disponibles <= 20 || r.porcentajeUso >= 80;
+              return (
+                <li key={`${r.prefijo}-${r.desde}`} className="py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-semibold text-slate-800">
+                      {r.prefijo} <span className="font-normal text-slate-600">· {r.nombre}</span>
+                    </span>
+                    <span className={pocos ? "font-semibold text-red-700" : "text-slate-700"}>
+                      Quedan {r.disponibles.toLocaleString("es-DO")} de {(r.hasta - r.desde + 1).toLocaleString("es-DO")}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div className={`h-full ${pocos ? "bg-red-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(100, Math.max(2, r.porcentajeUso))}%` }} />
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Del {r.prefijo}{String(r.desde).padStart(10, "0")} al {r.prefijo}{String(r.hasta).padStart(10, "0")} · {r.vence ? `vence el ${formatDate(r.vence)}` : "no vence"}
+                    {!r.activo && " · inactivo"}
+                  </p>
+                  {pocos && <p className="text-sm font-medium text-red-700">Quedan pocos: pide otro rango a la DGII antes de que se acaben.</p>}
+                </li>
+              );
+            })}
+          </ul>
         </Card>
       )}
 

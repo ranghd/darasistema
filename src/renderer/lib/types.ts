@@ -277,6 +277,22 @@ export interface EcfEstado {
 }
 
 
+
+// Un rango de numeros electronicos (E) autorizado por la DGII, tal como lo tiene ef2.
+export interface EcfRango {
+  prefijo: string;
+  nombre: string;
+  desde: number;
+  hasta: number;
+  usados: number;
+  disponibles: number;
+  /** 0 a 100 */
+  porcentajeUso: number;
+  /** YYYY-MM-DD o null si no vence */
+  vence: string | null;
+  activo: boolean;
+}
+
 // Pantalla del administrador: modo actual y que falta para poder encenderla.
 export interface EcfAjustes {
   modo: "apagado" | "prueba" | "real";

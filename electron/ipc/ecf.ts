@@ -3,7 +3,7 @@ import type { DB } from "../db/types";
 import { fechaHoyRD } from "../db/contabilidad";
 import { auditar } from "./caja";
 import { construirPayloadEcf, leerRespuestaEcf, type ClienteEcf, type ConfigEcf, type LineaEcf, type RespuestaEcf, type TipoEcf } from "../shared/ecf";
-import type { EcfAjustes, EcfDocumento, EcfEstado, EcfPrueba, EcfSinEmitir } from "../shared/types";
+import type { EcfAjustes, EcfDocumento, EcfEstado, EcfPrueba, EcfRango, EcfSinEmitir } from "../shared/types";
 
 // Lo que la nube le presta a estos handlers: la configuracion de la empresa y la llamada al proveedor.
 // (La base no guarda el token ni se habla con ef2 desde las computadoras de caja: todo pasa por la nube.)
@@ -242,6 +242,27 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
     auditar(db, { id: datos.autor?.id ?? null, nombre: datos.autor?.nombre ?? "Administrador" }, "ECF_CAMBIAR_MODO", "ecf", null, { de: antes, a: datos.modo });
     const a = s.ajustes();
     return { modo: datos.modo, falta: [], listo: a.tokenCargado };
+  });
+
+  // Los rangos de numeros E que tiene ef2 (lo que autorizo la DGII), para verlos en el sistema y avisar cuando quedan pocos.
+  ipcMain.handle("ecf:rangos", async (): Promise<EcfRango[]> => {
+    const s = exigirServicio();
+    const { http, cuerpo } = await s.llamar("GET", "/ecf_secuencia_api.php");
+    if (http !== 200 || !Array.isArray(cuerpo?.data)) throw new Error(`No se pudieron leer los rangos de ef2 (${cuerpo?.message ?? http})`);
+    return (cuerpo.data as any[])
+      .map((r) => ({
+        prefijo: String(r.prefijo ?? ""),
+        nombre: String(r.tipo_nombre ?? ""),
+        desde: Number(r.desde) || 0,
+        hasta: Number(r.hasta) || 0,
+        usados: Number(r.secuencias_usadas) || 0,
+        disponibles: Number(r.secuencias_disponibles) || 0,
+        porcentajeUso: Number(r.porcentaje_uso) || 0,
+        vence: typeof r.fecha_vencimiento === "string" && r.fecha_vencimiento ? r.fecha_vencimiento.slice(0, 10) : null,
+        activo: r.estado === true || r.estado === 1 || r.estado === "1",
+      }))
+      .filter((r) => r.prefijo && r.prefijo !== "E00") // el E00 es solo para las proformas de prueba
+      .sort((a, b) => a.prefijo.localeCompare(b.prefijo));
   });
 
   // ---------- Panel de factura electronica de la caja (pensado para quien no es de computadoras) ----------

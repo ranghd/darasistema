@@ -2,7 +2,7 @@
 // cuando la app corre como pagina web normal (sin Electron), para poder revisar
 // visualmente las pantallas en el navegador integrado durante el desarrollo.
 // La app real siempre usa window.api expuesto por electron/preload.ts.
-import type { EcfAjustes, EcfDocumento, EcfEstado, EcfPrueba, EcfSinEmitir, Empleado, EmpleadoInput, Nomina, NominaDetalle, NuevaNominaInput, BotellaFiadaInput, CategoriaPropia, CambioPlato, CompraPiezasInput, Mercancia, MercanciaInput, MercanciaResumen, MovimientoBotellaFiada, NotaFactura, Pieza, PlatoDia, PrecioCambiado, ReportePlato, SaldoBotellaFiada,
+import type { EcfAjustes, EcfDocumento, EcfEstado, EcfPrueba, EcfRango, EcfSinEmitir, Empleado, EmpleadoInput, Nomina, NominaDetalle, NuevaNominaInput, BotellaFiadaInput, CategoriaPropia, CambioPlato, CompraPiezasInput, Mercancia, MercanciaInput, MercanciaResumen, MovimientoBotellaFiada, NotaFactura, Pieza, PlatoDia, PrecioCambiado, ReportePlato, SaldoBotellaFiada,
   AsientoConLineas,
   Autor,
   Caja,
@@ -171,6 +171,10 @@ export const mockApi = {
     reenviar: async (_facturaId: number, _clase?: string): Promise<EcfDocumento> => { warn(); throw new Error("No disponible en vista previa"); },
     registrarManual: async (_data: { factura_id: number; ncf: string }): Promise<EcfDocumento> => { warn(); throw new Error("No disponible en vista previa"); },
     pendientes: async (): Promise<(EcfDocumento & { factura_numero: number; factura_fecha: string; factura_total: number })[]> => [],
+    rangos: async (): Promise<EcfRango[]> => [
+      { prefijo: "E31", nombre: "Factura de Credito Fiscal Electronica", desde: 1, hasta: 150, usados: 12, disponibles: 138, porcentajeUso: 8, vence: "2027-12-31", activo: true },
+      { prefijo: "E32", nombre: "Factura de Consumo Electronica", desde: 1, hasta: 50000, usados: 0, disponibles: 50000, porcentajeUso: 0, vence: null, activo: true },
+    ],
     ajustes: async (): Promise<EcfAjustes> => ({ modo: "apagado", falta: [], listo: true }),
     cambiarModo: async (_data: { modo: string; autor?: unknown }): Promise<EcfAjustes> => { warn(); return { modo: "apagado", falta: [], listo: true }; },
     probar: async (): Promise<EcfPrueba> => ({ ok: false, mensaje: "No disponible en vista previa", numero: null }),

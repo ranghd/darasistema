@@ -83,6 +83,7 @@ const api = {
     pendientes: () => invoke("ecf:pendientes"),
     probar: () => invoke("ecf:probar"),
     ajustes: () => invoke("ecf:ajustes"),
+    rangos: () => invoke("ecf:rangos"),
     cambiarModo: (data: any) => invoke("ecf:cambiarModo", data),
     sinEmitir: () => invoke("ecf:sinEmitir"),
     reintentarTodas: () => invoke("ecf:reintentarTodas"),
