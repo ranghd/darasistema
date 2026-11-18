@@ -65,6 +65,10 @@ export const CANALES_CAJERO = new Set([
   "ecf:obtener",
   "ecf:emitir",
   "ecf:consultar",
+  // panel de factura electronica de la caja: probar la conexion y reintentar lo que no salio
+  "ecf:probar",
+  "ecf:sinEmitir",
+  "ecf:reintentarTodas",
 ]);
 
 // La caja de Gas Damian y la de la fritura (yerikafr) tambien llevan el inventario. Solo esas empresas:

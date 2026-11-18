@@ -81,6 +81,9 @@ const api = {
     reenviar: (facturaId: number, clase?: string) => invoke("ecf:reenviar", facturaId, clase),
     registrarManual: (data: any) => invoke("ecf:registrarManual", data),
     pendientes: () => invoke("ecf:pendientes"),
+    probar: () => invoke("ecf:probar"),
+    sinEmitir: () => invoke("ecf:sinEmitir"),
+    reintentarTodas: () => invoke("ecf:reintentarTodas"),
   },
   mercancias: {
     guardar: (data: any) => invoke("mercancias:guardar", data),

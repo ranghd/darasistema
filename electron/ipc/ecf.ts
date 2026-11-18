@@ -3,7 +3,7 @@ import type { DB } from "../db/types";
 import { fechaHoyRD } from "../db/contabilidad";
 import { auditar } from "./caja";
 import { construirPayloadEcf, leerRespuestaEcf, type ClienteEcf, type ConfigEcf, type LineaEcf, type RespuestaEcf, type TipoEcf } from "../shared/ecf";
-import type { EcfDocumento, EcfEstado } from "../shared/types";
+import type { EcfDocumento, EcfEstado, EcfPrueba, EcfSinEmitir } from "../shared/types";
 
 // Lo que la nube le presta a estos handlers: la configuracion de la empresa y la llamada al proveedor.
 // (La base no guarda el token ni se habla con ef2 desde las computadoras de caja: todo pasa por la nube.)
@@ -212,6 +212,73 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
     if (http === 200 && estado.startsWith("acept")) marcar(db, doc.id, "ACEPTADO", null);
     else if (http === 200 && estado.startsWith("rechaz")) marcar(db, doc.id, "RECHAZADO", "La DGII rechazo el comprobante");
     return documento(db, facturaId, "FACTURA");
+  });
+
+  // ---------- Panel de factura electronica de la caja (pensado para quien no es de computadoras) ----------
+
+  // Manda una proforma de prueba a ef2: no crea ninguna venta, no toca el inventario ni el efectivo y no va a la DGII.
+  ipcMain.handle("ecf:probar", async (): Promise<EcfPrueba> => {
+    const s = exigirServicio();
+    const emisor = db.prepare(`SELECT nombre_empresa, rnc, direccion, telefono FROM company_config WHERE id = 1`).get() as { nombre_empresa: string; rnc: string | null; direccion: string | null; telefono: string | null };
+    let payload;
+    try {
+      payload = construirPayloadEcf({
+        tipo: "32",
+        proforma: true,
+        emisor: { ...emisor, rnc: emisor.rnc ?? "" },
+        config: s.config(),
+        factura: { fecha: fechaHoyRD(), condicion_pago: "CONTADO", metodo_pago: "EFECTIVO", total: 118, fianza_total: 0 },
+        lineas: [{ nombre: "Prueba de conexion", cantidad: 1, subtotal: 100, itbis: 18 }],
+        cliente: { nombre: "Consumidor Final" },
+      });
+    } catch (e: any) {
+      return { ok: false, mensaje: `Falta configurar la factura electronica (${e?.message ?? "datos del negocio"}). Avisa al administrador.`, numero: null };
+    }
+    try {
+      const { http, cuerpo } = await s.llamar("POST", "/procesar_factura.php", payload);
+      const r = leerRespuestaEcf(http, cuerpo, true);
+      if (r.estado === "PROFORMA") return { ok: true, mensaje: "Todo bien: ef2 recibio la prueba.", numero: r.ncf };
+      if (http === 401 || http === 403) return { ok: false, mensaje: "ef2 no acepto la clave del sistema. Avisa al administrador.", numero: null };
+      return { ok: false, mensaje: `ef2 no tomo la prueba${r.mensaje ? `: ${r.mensaje}` : ""}. Avisa al administrador.`, numero: null };
+    } catch (e: any) {
+      const m = String(e?.message ?? "");
+      return {
+        ok: false,
+        mensaje: m.includes("token") ? "La factura electronica no esta configurada en el servidor. Avisa al administrador." : "No hay conexion con ef2. Revisa el internet y vuelve a probar.",
+        numero: null,
+      };
+    }
+  });
+
+  // Facturas que no quedaron emitidas, listas para mostrar a la caja.
+  const sinEmitir = (): EcfSinEmitir[] =>
+    (
+      db
+        .prepare(
+          `SELECT d.factura_id, d.clase, d.estado, f.numero AS factura_numero, f.fecha AS factura_fecha, f.total AS factura_total
+           FROM ecf_documentos d JOIN facturas f ON f.id = d.factura_id
+           WHERE d.modo = 'real' AND d.estado NOT IN ('ACEPTADO','PROFORMA','EN_PROCESO')
+             AND (d.clase = 'NOTA_CREDITO' OR f.estado != 'ANULADA')
+           ORDER BY d.id DESC`
+        )
+        .all() as Omit<EcfSinEmitir, "reintentable">[]
+    ).map((x) => ({ ...x, reintentable: x.estado === "PENDIENTE" || x.estado === "ERROR" }));
+
+  ipcMain.handle("ecf:sinEmitir", (): EcfSinEmitir[] => sinEmitir());
+
+  // Reintenta todo lo que se puede reintentar sin riesgo (lo dudoso o rechazado lo ve el administrador).
+  ipcMain.handle("ecf:reintentarTodas", async () => {
+    const lista = sinEmitir().filter((x) => x.reintentable);
+    let salieron = 0;
+    for (const x of lista) {
+      try {
+        const d = await enviar(x.factura_id, x.clase);
+        if (d.estado === "ACEPTADO" || d.estado === "EN_PROCESO") salieron++;
+      } catch {
+        /* se queda en la lista con su mensaje */
+      }
+    }
+    return { intentadas: lista.length, salieron, siguenSinSalir: sinEmitir().length };
   });
 
   // Lo que no quedo emitido: para que el administrador lo vea y lo resuelva.

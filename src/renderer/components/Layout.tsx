@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { isPreviewMode } from "../lib/api";
-import { adminVentas, cajaConInventario, EDICION, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, permiteFiar, sinImpuestos, soloVentas, usaNomina } from "../lib/variant";
+import { adminVentas, cajaConInventario, EDICION, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, permiteFiar, sinImpuestos, soloVentas, usaEcf, usaNomina } from "../lib/variant";
 import { useAuth } from "../lib/auth";
 import ConnectionBanner from "./ConnectionBanner";
 import Logo from "./Logo";
@@ -19,6 +19,7 @@ const NAV_COMPLETO = [
     items: [
       { to: "/facturas/nueva", label: "Nueva Factura" },
       { to: "/facturas", label: "Facturas", end: true },
+      ...(usaEcf ? [{ to: "/factura-electronica", label: "Factura electrónica" }] : []),
       { to: "/notas", label: "Notas de credito y debito" },
       { to: "/cuentas-por-cobrar", label: "Cuentas por Cobrar" },
     ],
@@ -112,6 +113,7 @@ const NAV_CAJA_GAS_DAMIAN = [
       ...(permiteFiar ? [{ to: "/fiados", label: "Fiados" }] : []),
       { to: "/gastos-caja", label: "Gastos de caja" },
       { to: "/cierre-caja", label: "Cierre de Caja" },
+      ...(usaEcf ? [{ to: "/factura-electronica", label: "Factura electrónica" }] : []),
       { to: "/botellas-fiadas", label: "Cilindros prestados" },
     ],
   },

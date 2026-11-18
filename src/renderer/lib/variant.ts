@@ -27,6 +27,8 @@ export const cajaConInventario = APP_VARIANT === "puntoventa" || APP_VARIANT ===
 export const recuerdaSesion = APP_VARIANT === "puntoventa" || APP_VARIANT === "fritura";
 // Panel de nomina para pagar a los empleados (por ahora solo el programa del dueno de Dara Frituras).
 export const usaNomina = APP_VARIANT === "frituraadmin";
+// Factura electronica (e-CF) con ef2: solo Gas Damian (la caja y el programa del dueno). La nube decide si esta encendida.
+export const usaEcf = APP_VARIANT === "puntoventa" || APP_VARIANT === "puntoventaadmin";
 // Es para un colmado (productos con grupo y codigo de barras, sin envases).
 export const esColmado = APP_VARIANT === "colmado" || APP_VARIANT === "cajacolmado";
 // Abre, opera y cierra la caja en esta computadora.

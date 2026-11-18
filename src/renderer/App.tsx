@@ -7,7 +7,7 @@ import CierreCaja from "./pages/CierreCaja/CierreCaja";
 import CierresCaja from "./pages/CierreCaja/CierresCaja";
 import GastosCaja from "./pages/CierreCaja/GastosCaja";
 import FiadosCaja from "./pages/Caja/FiadosCaja";
-import { adminVentas, cajaConInventario, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, permiteFiar, recuerdaSesion, sinImpuestos, soloVentas, usaNomina } from "./lib/variant";
+import { adminVentas, cajaConInventario, esColmado, esFritura, esVariantCaja, manejaEnvases, operaCaja, permiteFiar, recuerdaSesion, sinImpuestos, soloVentas, usaEcf, usaNomina } from "./lib/variant";
 import Layout from "./components/Layout";
 import Login from "./pages/Login/Login";
 import ConfigurarConexion from "./pages/Configuracion/ConfigurarConexion";
@@ -22,6 +22,7 @@ import ControlEnvases from "./pages/Productos/ControlEnvases";
 import ListaFacturas from "./pages/Facturacion/ListaFacturas";
 import NuevaFactura from "./pages/Facturacion/NuevaFactura";
 import DetalleFactura from "./pages/Facturacion/DetalleFactura";
+import FacturaElectronica from "./pages/Facturacion/FacturaElectronica";
 import NotasFactura from "./pages/Facturacion/NotasFactura";
 import PreciosCambiados from "./pages/Reportes/PreciosCambiados";
 import ControlPiezas from "./pages/Caja/ControlPiezas";
@@ -56,6 +57,7 @@ const RUTAS_COMUNES = [
   { path: "/facturas", element: <ListaFacturas /> },
   { path: "/facturas/nueva", element: sinImpuestos ? <Navigate to="/facturas" replace /> : <NuevaFactura /> },
   { path: "/facturas/:id", element: <DetalleFactura /> },
+  ...(usaEcf ? [{ path: "/factura-electronica", element: <FacturaElectronica /> }] : []),
   { path: "/cuentas-por-cobrar", element: <CuentasPorCobrar /> },
   { path: "/clientes", element: <ListaClientes /> },
   { path: "/clientes/:id", element: <DetalleCliente /> },
@@ -97,7 +99,7 @@ function RutasProtegidas({ modoNube }: { modoNube: boolean }) {
     ? [
         // Gas Damian Admin es Darasistema con los cilindros prestados. La caja de Gas Damian solo vende y presta cilindros
         // (la factura se sigue abriendo desde la venta para reimprimirla).
-        ...(soloVentas && !adminVentas ? RUTAS_COMUNES.filter((r) => ["/caja", "/cierre-caja", "/facturas/:id", ...(cajaConInventario ? ["/productos"] : [])].includes(r.path)) : RUTAS_COMUNES),
+        ...(soloVentas && !adminVentas ? RUTAS_COMUNES.filter((r) => ["/caja", "/cierre-caja", "/facturas/:id", "/factura-electronica", ...(cajaConInventario ? ["/productos"] : [])].includes(r.path)) : RUTAS_COMUNES),
         ...(soloVentas && manejaEnvases ? [{ path: "/botellas-fiadas", element: <BotellasFiadas /> }] : []),
         ...(soloVentas && !adminVentas ? [{ path: "/gastos-caja", element: <GastosCaja /> }, ...(permiteFiar ? [{ path: "/fiados", element: <FiadosCaja /> }] : [])] : []),
         ...((adminVentas && !restringido) || cajaConInventario ? [{ path: "/categorias", element: <Categorias /> }] : []),

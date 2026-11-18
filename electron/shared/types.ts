@@ -334,6 +334,24 @@ export interface EcfEstado {
   modo: "apagado" | "prueba" | "real";
 }
 
+// Panel de factura electronica de la caja.
+export interface EcfPrueba {
+  ok: boolean;
+  mensaje: string;
+  /** Numero de la proforma que dio ef2 (ej. PRO0000000010). */
+  numero: string | null;
+}
+export interface EcfSinEmitir {
+  factura_id: number;
+  clase: "FACTURA" | "NOTA_CREDITO";
+  factura_numero: number;
+  factura_fecha: string;
+  factura_total: number;
+  estado: EstadoEcfDocumento;
+  /** La caja puede reintentarla sola; si no, la resuelve el administrador. */
+  reintentable: boolean;
+}
+
 export interface FiltrosHistorial {
   desde?: string;
   hasta?: string;
