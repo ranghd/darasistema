@@ -36,7 +36,14 @@ const fechaFirma = (f: string) => f.replace("T", " ").replace(/\.\d+Z?$/, "");
 export function bloqueEcf(ecf: EcfDocumento | null | undefined, ladoMm: number): string {
   if (!ecf) return "";
   if (ecf.estado === "PROFORMA") {
-    return `<div style="margin-top: 8px; text-align: center; font-weight: 700; border: 1px solid #000; padding: 3px">PRUEBA DE FACTURA ELECTRÓNICA<br>SIN VALOR FISCAL${ecf.ncf ? `<br>${html(ecf.ncf)}` : ""}</div>`;
+    // QR de muestra para ver como queda la factura electronica. Si ef2 devolvio un enlace se usa ese; si no, un texto que dice que es de prueba.
+    // En ningun caso valida nada en la DGII.
+    const contenidoQr = ecf.qr_link || `PRUEBA DE FACTURA ELECTRONICA - SIN VALOR FISCAL${ecf.ncf ? ` - ${ecf.ncf}` : ""}`;
+    return `<div style="margin-top: 8px; text-align: center">
+      <div style="width: ${ladoMm}mm; margin: 0 auto 2px">${qrSvg(contenidoQr)}</div>
+      <div style="font-weight: 700; border: 1px solid #000; padding: 3px">PRUEBA DE FACTURA ELECTRÓNICA<br>SIN VALOR FISCAL${ecf.ncf ? `<br>${html(ecf.ncf)}` : ""}</div>
+      <div style="font-size: 0.85em">QR de muestra: no valida en la DGII</div>
+    </div>`;
   }
   if ((ecf.estado === "ACEPTADO" || ecf.estado === "EN_PROCESO") && ecf.ncf) {
     return `<div style="margin-top: 8px; text-align: center">
