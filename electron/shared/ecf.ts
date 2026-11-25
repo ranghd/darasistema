@@ -250,6 +250,56 @@ const texto = (v: unknown): string | null => (typeof v === "string" && v.trim() 
 
 export const MENSAJE_PROVEEDOR_ROTO = "ef2 fallo al responder y no se sabe si el comprobante salio. Revisa en su portal antes de reenviarlo.";
 
+// ---------- recuperar un comprobante preguntandole a ef2 (cuando su respuesta no llego bien) ----------
+
+/** El ultimo numero usado de un tipo segun los rangos de ef2 (/ecf_secuencia_api.php). */
+export function ultimoNumeroUsado(rangos: any[], tipo: string): number {
+  let ultimo = 0;
+  for (const r of rangos) {
+    const usadas = Number(r?.secuencias_usadas) || 0;
+    if (r?.prefijo === `E${tipo}` && usadas > 0) ultimo = Math.max(ultimo, (Number(r.desde) || 1) + usadas - 1);
+  }
+  return ultimo;
+}
+
+export const numeroEncf = (tipo: string, n: number) => `E${tipo}${String(n).padStart(10, "0")}`;
+
+/** El comprobante que ef2 tiene guardado es el mismo que se le mando (monto, renglones, comprador y comprobante modificado). */
+export function esElMismoEnviado(guardado: any, payload: { ECF: unknown }): boolean {
+  const ecf = payload.ECF as any;
+  const encabezado = ecf.Encabezado;
+  const items: any[] = ecf.DetallesItems.Item;
+  const recibidos: any[] = Array.isArray(guardado?.items_recibidos_api) ? guardado.items_recibidos_api : [];
+  const monto = Number(guardado?.montos?.por_etapa?.monto_guardado_ef2);
+  if (Math.abs(monto - Number(encabezado.Totales.MontoTotal)) > 0.005 || recibidos.length !== items.length) return false;
+  if (soloDigitos(guardado?.comprador?.rnc) !== soloDigitos(encabezado.Comprador?.RNCComprador)) return false;
+  if ((guardado?.documento?.ncf_modificado ?? "") !== (encabezado.InformacionReferencia?.NCFModificado ?? "")) return false;
+  return items.every((item, i) => {
+    const r = recibidos[i]?.crudo ?? {};
+    return r.NombreItem === item.NombreItem && Number(r.CantidadItem) === Number(item.CantidadItem) && Number(r.MontoItem) === Number(item.MontoItem);
+  });
+}
+
+/** Convierte lo que devuelve /auditoria_factura.php en el mismo formato que una respuesta de envio. */
+export function respuestaDeAuditoria(guardado: any): RespuestaEcf {
+  const est = String(guardado?.estado_factura ?? "").toLowerCase();
+  const estado: EstadoEcf = est.startsWith("acept") ? "ACEPTADO" : est.startsWith("rechaz") ? "RECHAZADO" : "EN_PROCESO";
+  const qr = texto(guardado?.documentos?.qr_link);
+  const codigo = qr?.match(/[?&]CodigoSeguridad=([^&]+)/i)?.[1] ?? null;
+  return {
+    estado,
+    ncf: texto(guardado?.encf),
+    mensaje: estado === "RECHAZADO" ? "La DGII rechazo el comprobante" : estado === "EN_PROCESO" ? "Todavia pendiente en la DGII" : null,
+    id_proveedor: Number(guardado?.id_factura_ef2) || null,
+    track_id: texto(guardado?.track_id),
+    qr_link: qr,
+    pdf_url: texto(guardado?.documentos?.pdf_cloud_url),
+    xml_path: texto(guardado?.documentos?.xml_cloud_url),
+    codigo_seguridad: codigo ? decodeURIComponent(codigo) : null,
+    fecha_firma: texto(guardado?.totales_xml_firmado?.fecha_hora_firma),
+  };
+}
+
 /** Lee lo que devuelve /procesar_factura.php (el estado se compara por prefijo: la DGII puede agregar mensajes). */
 export function leerRespuestaEcf(http: number, cuerpo: any, esProforma: boolean): RespuestaEcf {
   const dgii = cuerpo?.dgii_info ?? {};

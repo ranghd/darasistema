@@ -2,7 +2,7 @@ import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { fechaHoyRD } from "../db/contabilidad";
 import { auditar } from "./caja";
-import { construirPayloadEcf, leerRespuestaEcf, MENSAJE_PROVEEDOR_ROTO, type ClienteEcf, type ConfigEcf, type LineaEcf, type RespuestaEcf, type TipoEcf } from "../shared/ecf";
+import { construirPayloadEcf, esElMismoEnviado, leerRespuestaEcf, MENSAJE_PROVEEDOR_ROTO, numeroEncf, respuestaDeAuditoria, ultimoNumeroUsado, type ClienteEcf, type ConfigEcf, type LineaEcf, type RespuestaEcf, type TipoEcf } from "../shared/ecf";
 import type { EcfAjustes, EcfDocumento, EcfEstado, EcfPrueba, EcfRango, EcfSinEmitir } from "../shared/types";
 
 // Lo que la nube le presta a estos handlers: la configuracion de la empresa y la llamada al proveedor.
@@ -101,8 +101,8 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
   };
 
   // Manda una factura (o su nota de credito) al proveedor. Nunca manda dos veces lo mismo: si no se sabe si la primera
-  // llego (INCIERTO), no se reenvia sola; con forzar (solo el administrador, despues de revisar el portal) si.
-  async function enviar(facturaId: number, clase: "FACTURA" | "NOTA_CREDITO", opciones: { forzar?: boolean; razon?: string } = {}): Promise<EcfDocumento> {
+  // llego (INCIERTO), no se vuelve a mandar.
+  async function enviar(facturaId: number, clase: "FACTURA" | "NOTA_CREDITO", opciones: { razon?: string } = {}): Promise<EcfDocumento> {
     const s = exigirServicio();
     const doc = documento(db, facturaId, clase);
     if (!doc) throw new Error(clase === "FACTURA" ? "Esta factura no es electronica" : "Esta factura no tiene comprobante electronico que anular");
@@ -112,10 +112,10 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
       marcar(db, doc.id, "INCIERTO", "Se corto la conexion mientras se enviaba: revisa en el portal de ef2 si se emitio");
       return documento(db, facturaId, clase)!;
     }
-    if ((doc.estado === "INCIERTO" || doc.estado === "RECHAZADO" || seRompioElProveedor(doc)) && !opciones.forzar) {
+    if ((doc.estado === "INCIERTO" || doc.estado === "RECHAZADO" || seRompioElProveedor(doc))) {
       throw new Error(
         doc.estado !== "RECHAZADO"
-          ? "No se sabe si ef2 recibio este comprobante. Revisa en su portal si ya salio antes de reenviarlo."
+          ? "No se sabe si ef2 recibio este comprobante: no se manda otra vez. Busca su numero en el portal y registralo."
           : `La DGII rechazo este comprobante (${doc.mensaje ?? "sin detalle"}). Un administrador debe revisarlo.`
       );
     }
@@ -153,6 +153,9 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
     db.prepare(`UPDATE ecf_documentos SET estado = 'ENVIANDO', intentos = intentos + 1, mensaje = NULL, actualizado_en = datetime('now','localtime') WHERE id = ?`).run(doc.id);
     db.persist();
 
+    // Por cual numero va ef2 antes de mandar: si despues contesta mal, el nuestro es uno de los que se usaron desde aqui.
+    const antes = proforma ? null : await ultimoNumero(tipo).catch(() => null);
+
     let respuesta: RespuestaEcf;
     try {
       const { http, cuerpo } = await s.llamar("POST", "/procesar_factura.php", payload);
@@ -172,6 +175,9 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
         fecha_firma: null,
       };
     }
+    if (respuesta.estado === "INCIERTO" && antes !== null) {
+      respuesta = (await recuperarEnvio(tipo, antes, payload).catch(() => null)) ?? respuesta;
+    }
     guardarRespuesta(db, doc.id, respuesta, { modo: doc.modo, clase, facturaId });
     auditar(db, { id: null, nombre: "Sistema" }, `ECF_${esNota ? "NOTA_CREDITO" : "FACTURA"}_${respuesta.estado}`, "factura", facturaId, { prueba: proforma, ncf: respuesta.ncf, mensaje: respuesta.mensaje });
     return documento(db, facturaId, clase)!;
@@ -179,12 +185,22 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
 
   ipcMain.handle("ecf:estado", (): EcfEstado => ({ modo: svc?.config().modo ?? "apagado" }));
 
-  ipcMain.handle("ecf:obtener", (_e, facturaId: number) => documento(db, facturaId, "FACTURA") ?? null);
+  ipcMain.handle("ecf:obtener", async (_e, facturaId: number) => {
+    const doc = documento(db, facturaId, "FACTURA");
+    // Un comprobante con numero pero sin QR (registrado a mano) se completa con lo que tiene ef2.
+    if (svc && doc && doc.modo === "real" && doc.ncf && !doc.qr_link && (doc.estado === "ACEPTADO" || doc.estado === "EN_PROCESO")) {
+      await consultarEnEf2(doc.id, facturaId, doc.ncf).catch(() => {});
+      return documento(db, facturaId, "FACTURA") ?? null;
+    }
+    return doc ?? null;
+  });
 
   ipcMain.handle("ecf:emitir", (_e, facturaId: number) => enviar(facturaId, "FACTURA"));
 
-  // Solo administrador: reenviar lo que quedo incierto o rechazado, despues de revisar en el portal de ef2 que no se emitio.
-  ipcMain.handle("ecf:reenviar", (_e, facturaId: number, clase?: "FACTURA" | "NOTA_CREDITO") => enviar(facturaId, clase ?? "FACTURA", { forzar: true }));
+  // Ya no se reenvia a la fuerza (salian comprobantes repetidos). El canal queda para que las versiones anteriores lo digan claro.
+  ipcMain.handle("ecf:reenviar", () => {
+    throw new Error("Reenviar esta desactivado: lo que ya se mando a ef2 no se manda otra vez. Busca su numero en el portal y registralo.");
+  });
 
   // Solo administrador: lo que ya se emitio en el portal de ef2 (por ejemplo tras un corte) se registra con su e-NCF, sin reenviar.
   ipcMain.handle("ecf:registrarManual", async (_e, datos: { factura_id: number; ncf: string; autor?: { nombre?: string } }) => {
@@ -195,21 +211,23 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
     if (!/^E(31|32|45)\d{10}$/.test(ncf)) throw new Error("El e-NCF debe verse asi: E320000000123 (la letra E, el tipo y 10 numeros)");
     const repetido = db.prepare(`SELECT f.numero FROM ecf_documentos d JOIN facturas f ON f.id = d.factura_id WHERE d.ncf = ? AND d.factura_id != ?`).get(ncf, datos.factura_id) as { numero: number } | undefined;
     if (repetido) throw new Error(`Ese e-NCF ya esta puesto en la factura ${repetido.numero}`);
-    guardarRespuesta(
-      db,
-      doc.id,
-      { estado: doc.modo === "real" ? "EN_PROCESO" : "PROFORMA", ncf, mensaje: "Registrado a mano desde el portal de ef2", id_proveedor: null, track_id: null, qr_link: null, pdf_url: null, xml_path: null, codigo_seguridad: null, fecha_firma: null },
-      { modo: doc.modo, clase: "FACTURA", facturaId: datos.factura_id }
-    );
-    auditar(db, { id: null, nombre: datos.autor?.nombre ?? "Administrador" }, "ECF_REGISTRO_MANUAL", "factura", datos.factura_id, { ncf });
+    let respuesta: RespuestaEcf = { estado: doc.modo === "real" ? "EN_PROCESO" : "PROFORMA", ncf, mensaje: "Registrado a mano desde el portal de ef2", id_proveedor: null, track_id: null, qr_link: null, pdf_url: null, xml_path: null, codigo_seguridad: null, fecha_firma: null };
     if (doc.modo === "real") {
-      db.persist();
-      try {
-        await consultarEnEf2(doc.id, ncf);
-      } catch {
-        /* sin conexion: queda "en proceso" y se puede consultar despues */
+      // Se comprueba en ef2 que ese numero exista y sea de esta venta. Sin conexion queda "en proceso" y se consulta despues.
+      const enEf2 = await buscarEnEf2(ncf).catch(() => undefined);
+      if (enEf2 === null) throw new Error("ef2 no tiene ese numero: revisa que lo hayas escrito bien");
+      if (enEf2) {
+        if (ncf.slice(1, 3) !== doc.tipo) throw new Error(`Esta factura necesita un numero E${doc.tipo}`);
+        const total = (db.prepare(`SELECT total FROM facturas WHERE id = ?`).get(datos.factura_id) as { total: number }).total;
+        const monto = Number(enEf2.montos?.por_etapa?.monto_guardado_ef2);
+        if (Number.isFinite(monto) && Math.abs(monto - total) > 0.05) {
+          throw new Error(`Ese numero es de un comprobante de RD$${monto.toFixed(2)} y esta factura es de RD$${total.toFixed(2)}`);
+        }
+        respuesta = { ...respuestaDeAuditoria(enEf2), ncf };
       }
     }
+    guardarRespuesta(db, doc.id, respuesta, { modo: doc.modo, clase: "FACTURA", facturaId: datos.factura_id });
+    auditar(db, { id: null, nombre: datos.autor?.nombre ?? "Administrador" }, "ECF_REGISTRO_MANUAL", "factura", datos.factura_id, { ncf });
     return documento(db, datos.factura_id, "FACTURA");
   });
 
@@ -223,12 +241,38 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
     return enviar(facturaId, "NOTA_CREDITO", { razon });
   });
 
-  async function consultarEnEf2(docId: number, ncf: string) {
-    const s = exigirServicio();
-    const { http, cuerpo } = await s.llamar("GET", `/auditoria_factura.php?encf=${encodeURIComponent(ncf)}&incluir_payload=false&incluir_notas=false`);
-    const estado = String(cuerpo?.facturas?.[0]?.estado_factura ?? "").toLowerCase();
-    if (http === 200 && estado.startsWith("acept")) marcar(db, docId, "ACEPTADO", null);
-    else if (http === 200 && estado.startsWith("rechaz")) marcar(db, docId, "RECHAZADO", "La DGII rechazo el comprobante");
+  /** Lo que ef2 tiene guardado de un e-NCF; null si dice que no lo tiene. Lanza si no se pudo preguntar. */
+  async function buscarEnEf2(ncf: string): Promise<any | null> {
+    const { http, cuerpo } = await exigirServicio().llamar("GET", `/auditoria_factura.php?encf=${encodeURIComponent(ncf)}&incluir_payload=false&incluir_notas=false`);
+    if (http === 200 && cuerpo?.facturas?.[0]) return cuerpo.facturas[0];
+    if ((http === 200 || http === 404) && cuerpo?.resumen?.no_encontradas > 0) return null;
+    throw new Error(`ef2 no contesto la consulta (${http})`);
+  }
+
+  async function ultimoNumero(tipo: string): Promise<number> {
+    const { http, cuerpo } = await exigirServicio().llamar("GET", "/ecf_secuencia_api.php");
+    if (http !== 200 || !Array.isArray(cuerpo?.data)) throw new Error(`No se pudieron leer los rangos de ef2 (${http})`);
+    return ultimoNumeroUsado(cuerpo.data, tipo);
+  }
+
+  // ef2 contesto mal despues de mandar: se busca entre los numeros que gasto desde entonces el que sea igual a lo enviado.
+  // Solo se toma si hay exactamente uno y no esta en otra factura; con dudas queda INCIERTO para revisarlo a mano.
+  async function recuperarEnvio(tipo: string, antes: number, payload: { ECF: unknown }): Promise<RespuestaEcf | null> {
+    const despues = await ultimoNumero(tipo);
+    if (despues - antes > 10) return null;
+    const iguales: any[] = [];
+    for (let n = antes + 1; n <= despues; n++) {
+      const ncf = numeroEncf(tipo, n);
+      if (db.prepare(`SELECT 1 FROM ecf_documentos WHERE ncf = ?`).get(ncf)) continue;
+      const guardado = await buscarEnEf2(ncf);
+      if (guardado && esElMismoEnviado(guardado, payload)) iguales.push(guardado);
+    }
+    return iguales.length === 1 ? respuestaDeAuditoria(iguales[0]) : null;
+  }
+
+  async function consultarEnEf2(docId: number, facturaId: number, ncf: string) {
+    const guardado = await buscarEnEf2(ncf);
+    if (guardado) guardarRespuesta(db, docId, { ...respuestaDeAuditoria(guardado), ncf }, { modo: "real", clase: "FACTURA", facturaId });
   }
 
   // Pregunta a ef2 en que quedo un comprobante que estaba "en proceso".
@@ -237,7 +281,7 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
     const doc = documento(db, facturaId, "FACTURA");
     if (!doc) throw new Error("Esta factura no es electronica");
     if (doc.estado !== "EN_PROCESO" || !doc.ncf) return doc;
-    await consultarEnEf2(doc.id, doc.ncf);
+    await consultarEnEf2(doc.id, facturaId, doc.ncf);
     return documento(db, facturaId, "FACTURA");
   });
 
@@ -355,13 +399,15 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
     return { intentadas: lista.length, salieron, siguenSinSalir: sinEmitir().length };
   });
 
-  // Lo que no quedo emitido: para que el administrador lo vea y lo resuelva.
+  // Lo que no quedo emitido: para que el administrador lo vea y lo resuelva. "En proceso" ya tiene su numero (ef2 lo tomo y
+  // falta que la DGII conteste), y una factura anulada no espera comprobante (salvo su nota de credito).
   ipcMain.handle("ecf:pendientes", () =>
     db
       .prepare(
         `SELECT d.*, f.numero AS factura_numero, f.fecha AS factura_fecha, f.total AS factura_total, f.estado AS factura_estado
          FROM ecf_documentos d JOIN facturas f ON f.id = d.factura_id
-         WHERE d.estado NOT IN ('ACEPTADO','PROFORMA') AND d.modo = 'real' ORDER BY d.id DESC`
+         WHERE d.estado NOT IN ('ACEPTADO','PROFORMA','EN_PROCESO') AND d.modo = 'real'
+           AND (d.clase = 'NOTA_CREDITO' OR f.estado != 'ANULADA') ORDER BY d.id DESC`
       )
       .all()
       .map((d: any) => comoSeMuestra(d))

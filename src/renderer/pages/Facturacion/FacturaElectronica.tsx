@@ -8,13 +8,13 @@ import { useAuth } from "../../lib/auth";
 import { Button, Card, Modal, PageHeader } from "../../components/ui";
 
 // Panel sencillo de la factura electronica para quien atiende la caja: se ve si todo esta bien,
-// se puede hacer una prueba (sin tocar inventario ni dinero) y se reintenta lo que no salio.
+// se puede hacer una prueba (sin tocar inventario ni dinero) y se ve lo que no salio.
 // Nada de terminos tecnicos: lo dudoso lo resuelve el administrador.
 
 const TEXTO_ESTADO: Record<string, string> = {
-  PENDIENTE: "No se pudo enviar. Toca Reintentar.",
-  ERROR: "No se pudo enviar. Toca Reintentar.",
-  INCIERTO: "No se sabe si salió. Avisa al administrador antes de volver a intentar.",
+  PENDIENTE: "No salió. Avisa al administrador.",
+  ERROR: "No salió. Avisa al administrador.",
+  INCIERTO: "No se sabe si salió. Avisa al administrador.",
   RECHAZADO: "La DGII no la aceptó. Avisa al administrador.",
 };
 
@@ -47,8 +47,6 @@ export default function FacturaElectronica() {
   const [probando, setProbando] = useState(false);
   const [prueba, setPrueba] = useState<EcfPrueba | null>(null);
   const [aviso, setAviso] = useState<AvisoImpresion | null>(null);
-  const [reintentando, setReintentando] = useState(false);
-  const [resultadoReintento, setResultadoReintento] = useState("");
 
   async function cargar() {
     setEstado((await api.ecf.estado().catch(() => ({ modo: "apagado" }))) as EcfEstado);
@@ -105,30 +103,10 @@ export default function FacturaElectronica() {
     }
   }
 
-  async function reintentarTodas() {
-    setReintentando(true);
-    setResultadoReintento("");
-    try {
-      const r = await api.ecf.reintentarTodas();
-      setResultadoReintento(
-        r.intentadas === 0
-          ? "No había nada que reintentar."
-          : r.siguenSinSalir === 0
-            ? `Listo: salieron las ${r.salieron} facturas.`
-            : `Salieron ${r.salieron}. Siguen sin salir ${r.siguenSinSalir}: avisa al administrador.`
-      );
-    } catch (e) {
-      setResultadoReintento(mensajeDeError(e, "No se pudo reintentar."));
-    } finally {
-      setReintentando(false);
-      await cargar();
-    }
-  }
-
   const modo = estado?.modo ?? "apagado";
   const hayProblemas = modo === "real" && sinEmitir.length > 0;
   const semaforo = hayProblemas
-    ? { color: "bg-red-500", titulo: `Hay ${sinEmitir.length} factura${sinEmitir.length === 1 ? "" : "s"} que no salieron`, texto: "Mira la lista de abajo y toca Reintentar." }
+    ? { color: "bg-red-500", titulo: sinEmitir.length === 1 ? "Hay 1 factura que no salió" : `Hay ${sinEmitir.length} facturas que no salieron`, texto: "Mira la lista de abajo y avisa al administrador. No vuelvas a hacer la venta." }
     : modo === "real"
       ? { color: "bg-emerald-500", titulo: "Funcionando", texto: "Cada venta sale con su factura electrónica." }
       : modo === "prueba"
@@ -258,13 +236,7 @@ export default function FacturaElectronica() {
         <Card className="p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-slate-800">Facturas que no salieron</h2>
-            {sinEmitir.some((x) => x.reintentable) && (
-              <Button onClick={reintentarTodas} disabled={reintentando}>
-                {reintentando ? "Reintentando..." : "Reintentar todas"}
-              </Button>
-            )}
           </div>
-          {resultadoReintento && <p className="mb-3 rounded-lg bg-slate-100 px-3 py-2 text-slate-700">{resultadoReintento}</p>}
           {sinEmitir.length === 0 ? (
             <p className="text-emerald-700">✔ Todas las facturas salieron bien.</p>
           ) : (
@@ -282,7 +254,7 @@ export default function FacturaElectronica() {
                       {formatMoney(x.factura_total)} · {formatDate(x.factura_fecha)}
                     </span>
                   </div>
-                  <p className={x.reintentable ? "text-amber-700" : "text-red-700"}>{TEXTO_ESTADO[x.estado] ?? "Avisa al administrador."}</p>
+                  <p className="text-red-700">{TEXTO_ESTADO[x.estado] ?? "Avisa al administrador."}</p>
                 </li>
               ))}
             </ul>

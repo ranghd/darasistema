@@ -15,14 +15,13 @@ const TEXTO: Record<EstadoEcfDocumento, { etiqueta: string; tono: "green" | "amb
 };
 
 // Comprobante electronico (e-CF) de una factura: su estado y lo que se puede hacer si no salio.
-// La caja puede reintentar un error simple; lo dudoso (INCIERTO / RECHAZADO) lo resuelve el administrador
-// despues de mirar el portal de ef2, para no emitir el mismo comprobante dos veces.
+// No hay boton para volver a mandar (salian comprobantes repetidos): si no quedo confirmado, el administrador
+// busca su numero en el portal de ef2 y lo registra.
 export default function PanelEcf({ facturaId, esAdmin, onCambio }: { facturaId: number; esAdmin: boolean; onCambio: () => void }) {
   const [ecf, setEcf] = useState<EcfDocumento | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState("");
   const [ncfManual, setNcfManual] = useState("");
-  const [confirmaReenvio, setConfirmaReenvio] = useState(false);
 
   async function cargar() {
     setEcf((await api.ecf.obtener(facturaId).catch(() => null)) as EcfDocumento | null);
@@ -76,18 +75,13 @@ export default function PanelEcf({ facturaId, esAdmin, onCambio }: { facturaId: 
               Consultar estado
             </Button>
           )}
-          {(ecf.estado === "ERROR" || ecf.estado === "PENDIENTE") && (
-            <Button disabled={ocupado} onClick={() => accion(() => api.ecf.emitir(facturaId))}>
-              {ocupado ? "Enviando..." : "Reintentar envío"}
-            </Button>
-          )}
         </div>
       </div>
       {error && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {esAdmin && (ecf.estado === "INCIERTO" || ecf.estado === "RECHAZADO" || ecf.estado === "ERROR") && (
         <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 text-sm text-slate-600">
           <p>
-            <b>Antes de hacer nada:</b> entra al portal de ef2 y busca esta factura en Facturas. Si ya aparece con número E (aunque diga Pendiente), escribe aquí ese número. Reenvíala solo si no aparece: reenviar dos veces crea dos comprobantes.
+            <b>Antes de hacer nada:</b> entra al portal de ef2 y busca esta factura en Facturas. Si ya aparece con número E (aunque diga Pendiente), escribe aquí ese número. Si no aparece, no la vuelvas a hacer: avisa a soporte.
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -98,17 +92,6 @@ export default function PanelEcf({ facturaId, esAdmin, onCambio }: { facturaId: 
             />
             <Button variant="secondary" disabled={ocupado || !ncfManual.trim()} onClick={() => accion(() => api.ecf.registrarManual({ factura_id: facturaId, ncf: ncfManual }))}>
               Ya salió: registrar e-NCF
-            </Button>
-            <Button
-              variant="danger"
-              disabled={ocupado}
-              onClick={() => {
-                if (!confirmaReenvio) return setConfirmaReenvio(true);
-                setConfirmaReenvio(false);
-                accion(() => api.ecf.reenviar(facturaId));
-              }}
-            >
-              {confirmaReenvio ? "¿Seguro que no está en ef2? Pulsa otra vez" : "No salió: reenviar a ef2"}
             </Button>
           </div>
         </div>

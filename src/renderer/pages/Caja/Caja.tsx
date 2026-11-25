@@ -136,8 +136,7 @@ export default function Caja() {
   const [recibido, setRecibido] = useState("");
   const [cobrando, setCobrando] = useState(false);
   const [confirmarCancelar, setConfirmarCancelar] = useState(false);
-  const [venta, setVenta] = useState<{ id: number; ncf: string | null; total: number; devuelta: number | null; metodo: Metodo; fiadoA?: string; aviso: AvisoImpresion | null; impresoSolo: boolean; ecf?: EcfDocumento | null; ecfError?: string } | null>(null);
-  const [reenviandoEcf, setReenviandoEcf] = useState(false);
+  const [venta, setVenta] = useState<{ id: number; ncf: string | null; total: number; devuelta: number | null; metodo: Metodo; fiadoA?: string; aviso: AvisoImpresion | null; impresoSolo: boolean; ecf?: EcfDocumento | null } | null>(null);
   const [imprimiendo, setImprimiendo] = useState(false);
 
   const enfocar = () => setTimeout(() => buscador.current?.focus(), 0);
@@ -364,19 +363,8 @@ export default function Caja() {
       })) as any;
       setPagando(false);
       // Factura electronica (Gas Damian): la nube la emite con ef2 al crear la venta y el e-NCF ya viene en la factura.
-      // Si ef2 fallo, la venta ya quedo hecha: aqui se reintenta una vez lo que se pueda y, si sigue sin salir, se avisa.
-      let ecf: EcfDocumento | null = null;
-      let ecfError = "";
-      if (soloVentas && !esFritura) {
-        ecf = (await api.ecf.obtener(factura.id).catch(() => null)) as EcfDocumento | null;
-        if (ecf && (ecf.estado === "PENDIENTE" || ecf.estado === "ERROR")) {
-          try {
-            ecf = await api.ecf.emitir(factura.id);
-          } catch (e) {
-            ecfError = mensajeDeError(e, "No se pudo emitir el comprobante electronico");
-          }
-        }
-      }
+      // La caja solo mira como quedo: no vuelve a mandar nada, para no repetir comprobantes.
+      const ecf: EcfDocumento | null = soloVentas && !esFritura ? ((await api.ecf.obtener(factura.id).catch(() => null)) as EcfDocumento | null) : null;
       const cfg = await api.impresion.obtenerConfig().catch(() => null);
       const auto = cfg?.formato === "TICKET" && cfg.imprimirAlCobrar;
       const pago = metodoPago === "EFECTIVO" ? { recibido: montoRecibido, devuelta } : null;
@@ -385,7 +373,6 @@ export default function Caja() {
         // en modo prueba el numero de la proforma (PRO...) no es el de la factura: sale el NCF de siempre
         ncf: ecf?.modo === "real" ? ecf.ncf ?? factura.ncf : factura.ncf,
         ecf,
-        ecfError,
         total: factura.total,
         devuelta: metodoPago === "EFECTIVO" ? devuelta : null,
         metodo: metodoPago,
@@ -408,20 +395,6 @@ export default function Caja() {
       enfocar();
     } finally {
       setCobrando(false);
-    }
-  }
-
-  // Reintenta la factura electronica de la venta que acaba de hacerse (cuando ef2 no la tomo).
-  async function reenviarEcf() {
-    if (!venta) return;
-    setReenviandoEcf(true);
-    try {
-      const ecf = await api.ecf.emitir(venta.id);
-      setVenta({ ...venta, ecf, ecfError: "", ncf: ecf.modo === "real" ? ecf.ncf ?? venta.ncf : venta.ncf });
-    } catch (e) {
-      setVenta({ ...venta, ecfError: mensajeDeError(e, "No se pudo emitir el comprobante electronico") });
-    } finally {
-      setReenviandoEcf(false);
     }
   }
 
@@ -1223,18 +1196,12 @@ export default function Caja() {
                 {venta.ecf.estado === "PROFORMA" ? "PRUEBA: comprobante de prueba, no va a la DGII." : venta.ecf.estado === "EN_PROCESO" ? "Comprobante electrónico enviado: la DGII lo está procesando." : "Comprobante electrónico aceptado por la DGII."}
               </p>
             )}
-            {(venta.ecfError || (venta.ecf && ["ERROR", "INCIERTO", "RECHAZADO"].includes(venta.ecf.estado))) && (
+            {venta.ecf && ["PENDIENTE", "ERROR", "INCIERTO", "RECHAZADO"].includes(venta.ecf.estado) && (
               <div className="space-y-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
                 <p>
-                  <b>La venta quedó registrada, pero NO salió el comprobante electrónico.</b> {venta.ecfError || venta.ecf?.mensaje}
+                  <b>La venta quedó registrada, pero el comprobante electrónico no quedó confirmado.</b> {venta.ecf.mensaje}
                 </p>
-                {venta.ecf?.estado === "INCIERTO" || venta.ecf?.estado === "RECHAZADO" ? (
-                  <p>Avisa al administrador antes de volver a intentarlo.</p>
-                ) : (
-                  <Button variant="secondary" onClick={reenviarEcf} disabled={reenviandoEcf}>
-                    {reenviandoEcf ? "Enviando..." : "Reintentar envío"}
-                  </Button>
-                )}
+                <p>No vuelvas a hacer la venta. Avisa al administrador.</p>
               </div>
             )}
             {venta.aviso && <p className={`rounded-lg px-3 py-2 text-sm ${venta.aviso.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{venta.aviso.texto}</p>}
