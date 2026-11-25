@@ -129,6 +129,29 @@ async function enrutar(req: Request, env: Env): Promise<Response> {
     await exigirAdmin(req, env);
     return json({ resultado: await registro(env).listar() });
   }
+  const usuarios = ruta.match(/^\/admin\/empresas\/([^/]+)\/usuarios$/);
+  if (usuarios && (req.method === "GET" || req.method === "DELETE" || req.method === "PATCH")) {
+    await exigirAdmin(req, env);
+    const codigo = normalizarCodigo(decodeURIComponent(usuarios[1]));
+    if (!(await registro(env).existe(codigo))) throw new ErrorHttp(404, "Empresa no encontrada");
+    const emp = empresa(env, codigo);
+    if (req.method === "GET") return json({ resultado: await emp.usuarios() });
+    const body = await leerJson(req);
+    if (req.method === "PATCH") {
+      try {
+        return json({ resultado: await emp.reactivarAdmin(Number(body.reactivar)) });
+      } catch (err: any) {
+        throw new ErrorHttp(400, err?.message ?? "No se pudo reactivar");
+      }
+    }
+    const ids = Array.isArray(body.ids) ? body.ids.map(Number).filter((n: number) => Number.isInteger(n)) : [];
+    if (!ids.length) throw new ErrorHttp(400, "Faltan los usuarios a eliminar");
+    try {
+      return json({ resultado: await emp.eliminarUsuarios(ids) });
+    } catch (err: any) {
+      throw new ErrorHttp(400, err?.message ?? "No se pudo eliminar");
+    }
+  }
   const datos = ruta.match(/^\/admin\/empresas\/([^/]+)\/datos$/);
   if (datos && req.method === "PATCH") {
     await exigirAdmin(req, env);

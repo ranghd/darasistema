@@ -271,6 +271,10 @@ export function leerRespuestaEcf(http: number, cuerpo: any, esProforma: boolean)
     return { ...base, estado: "EN_PROCESO", mensaje: texto(cuerpo?.estado) };
   }
   if (cuerpo?.code === "DGII_REJECTED") return { ...base, estado: "RECHAZADO", mensaje: rechazo ?? "La DGII rechazo el comprobante" };
+  // El proveedor se rompio y contesto algo que no es una respuesta (una pagina de error): pudo fallar DESPUES de emitir.
+  if (cuerpo?.respuesta_ilegible && !(http >= 400 && http < 500)) {
+    return { ...base, estado: "INCIERTO", mensaje: `ef2 fallo al responder: revisa en su portal si el comprobante salio antes de reenviarlo. (${rechazo ?? http})` };
+  }
   // Fallos donde el comprobante pudo haberse emitido igual: no se reenvia sin revisar en el portal.
   const pudoEmitirse =
     (http >= 500 && cuerpo?.code !== "NCF_ERROR" && cuerpo?.code !== "JSON_ERROR") ||

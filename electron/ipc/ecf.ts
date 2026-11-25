@@ -21,6 +21,9 @@ const ENVIANDO_MAX_MS = 3 * 60 * 1000;
 
 const ESTADOS_LISTOS = ["ACEPTADO", "PROFORMA"];
 
+// Los que quedaron anotados como ERROR cuando ef2 se rompio por dentro ("Fatal error"): tampoco se sabe si salieron.
+const seRompioElProveedor = (d: { estado: string; mensaje?: string | null }) => d.estado === "ERROR" && /Fatal error/i.test(d.mensaje ?? "");
+
 interface FilaFactura {
   id: number;
   numero: number;
@@ -104,9 +107,9 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
       marcar(db, doc.id, "INCIERTO", "Se corto la conexion mientras se enviaba: revisa en el portal de ef2 si se emitio");
       return documento(db, facturaId, clase)!;
     }
-    if ((doc.estado === "INCIERTO" || doc.estado === "RECHAZADO") && !opciones.forzar) {
+    if ((doc.estado === "INCIERTO" || doc.estado === "RECHAZADO" || seRompioElProveedor(doc)) && !opciones.forzar) {
       throw new Error(
-        doc.estado === "INCIERTO"
+        doc.estado !== "RECHAZADO"
           ? "No se sabe si ef2 recibio este comprobante. Revisa en su portal si ya salio antes de reenviarlo."
           : `La DGII rechazo este comprobante (${doc.mensaje ?? "sin detalle"}). Un administrador debe revisarlo.`
       );
@@ -306,14 +309,14 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
     (
       db
         .prepare(
-          `SELECT d.factura_id, d.clase, d.estado, f.numero AS factura_numero, f.fecha AS factura_fecha, f.total AS factura_total
+          `SELECT d.factura_id, d.clase, d.estado, d.mensaje, f.numero AS factura_numero, f.fecha AS factura_fecha, f.total AS factura_total
            FROM ecf_documentos d JOIN facturas f ON f.id = d.factura_id
            WHERE d.modo = 'real' AND d.estado NOT IN ('ACEPTADO','PROFORMA','EN_PROCESO')
              AND (d.clase = 'NOTA_CREDITO' OR f.estado != 'ANULADA')
            ORDER BY d.id DESC`
         )
-        .all() as Omit<EcfSinEmitir, "reintentable">[]
-    ).map((x) => ({ ...x, reintentable: x.estado === "PENDIENTE" || x.estado === "ERROR" }));
+        .all() as (Omit<EcfSinEmitir, "reintentable"> & { mensaje: string | null })[]
+    ).map(({ mensaje, ...x }) => ({ ...x, reintentable: (x.estado === "PENDIENTE" || x.estado === "ERROR") && !seRompioElProveedor({ estado: x.estado, mensaje }) }));
 
   ipcMain.handle("ecf:sinEmitir", (): EcfSinEmitir[] => sinEmitir());
 

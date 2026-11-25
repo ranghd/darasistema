@@ -182,7 +182,7 @@ export class Empresa extends DurableObject {
           try {
             json = JSON.parse(texto);
           } catch {
-            json = { success: false, message: texto.slice(0, 300) };
+            json = { success: false, message: texto.slice(0, 300), respuesta_ilegible: true };
           }
           return { http: r.status, cuerpo: json };
         } finally {
@@ -324,6 +324,30 @@ export class Empresa extends DurableObject {
   // (Cloudflare guarda 30 dias de historial por si hiciera falta recuperar algo.)
   // Corrige los datos del negocio (nombre, RNC, direccion, telefono) desde la administracion de Darasistema,
   // sin entrar con el usuario de la empresa. Lo demas de la configuracion queda igual.
+  // Usuarios de la empresa, para la administracion de Darasistema (sin entrar con el usuario de la empresa).
+  usuarios(): unknown[] {
+    return this.db.prepare(`SELECT id, usuario, nombre, rol, activo FROM usuarios ORDER BY id`).all();
+  }
+
+  // Reactiva un administrador desactivado (si no queda ninguno activo, nadie puede entrar a arreglarlo).
+  // Solo activa: no cambia el rol ni la contrasena, y no toca a los cajeros.
+  reactivarAdmin(id: number): unknown[] {
+    const u = this.db.prepare(`SELECT rol FROM usuarios WHERE id = ?`).get(id) as { rol: string } | undefined;
+    if (!u || u.rol !== "ADMIN") throw new Error("Ese usuario no es un administrador de esta empresa");
+    this.db.prepare(`UPDATE usuarios SET activo = 1 WHERE id = ?`).run(id);
+    return this.usuarios();
+  }
+
+  // Elimina usuarios por id, pero nunca deja la empresa sin un administrador activo.
+  eliminarUsuarios(ids: number[]): unknown[] {
+    const quedan = this.db.prepare(`SELECT COUNT(*) AS n FROM usuarios WHERE rol = 'ADMIN' AND activo = 1 AND id NOT IN (${ids.map(() => "?").join(",") || "0"})`).get(...ids) as { n: number };
+    if (!quedan.n) throw new Error("No se puede: la empresa se quedaria sin un administrador activo");
+    this.db.transaction(() => {
+      for (const id of ids) this.db.prepare(`DELETE FROM usuarios WHERE id = ?`).run(id);
+    })();
+    return this.usuarios();
+  }
+
   async datosEmpresa(cambios: { nombre_empresa?: string; rnc?: string; direccion?: string; telefono?: string }): Promise<unknown> {
     const actual = this.db.prepare(`SELECT * FROM company_config WHERE id = 1`).get() as Record<string, unknown> | undefined;
     if (!actual) throw new Error("La empresa no tiene configuracion");
@@ -402,7 +426,8 @@ export class Empresa extends DurableObject {
 
   exportar(): Record<string, unknown[]> {
     const tablas = this.db
-      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'`)
+      // En LIKE el guion bajo vale por cualquier letra: sin escaparlo, '_cf_%' tambien dejaba fuera ncf_secuencias y ecf_documentos.
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '\\_cf\\_%' ESCAPE '\\'`)
       .all() as { name: string }[];
     const resultado: Record<string, unknown[]> = {};
     for (const { name } of tablas) {
