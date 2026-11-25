@@ -248,6 +248,8 @@ export interface RespuestaEcf {
 
 const texto = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 
+export const MENSAJE_PROVEEDOR_ROTO = "ef2 fallo al responder y no se sabe si el comprobante salio. Revisa en su portal antes de reenviarlo.";
+
 /** Lee lo que devuelve /procesar_factura.php (el estado se compara por prefijo: la DGII puede agregar mensajes). */
 export function leerRespuestaEcf(http: number, cuerpo: any, esProforma: boolean): RespuestaEcf {
   const dgii = cuerpo?.dgii_info ?? {};
@@ -273,7 +275,7 @@ export function leerRespuestaEcf(http: number, cuerpo: any, esProforma: boolean)
   if (cuerpo?.code === "DGII_REJECTED") return { ...base, estado: "RECHAZADO", mensaje: rechazo ?? "La DGII rechazo el comprobante" };
   // El proveedor se rompio y contesto algo que no es una respuesta (una pagina de error): pudo fallar DESPUES de emitir.
   if (cuerpo?.respuesta_ilegible && !(http >= 400 && http < 500)) {
-    return { ...base, estado: "INCIERTO", mensaje: `ef2 fallo al responder: revisa en su portal si el comprobante salio antes de reenviarlo. (${rechazo ?? http})` };
+    return { ...base, estado: "INCIERTO", mensaje: MENSAJE_PROVEEDOR_ROTO };
   }
   // Fallos donde el comprobante pudo haberse emitido igual: no se reenvia sin revisar en el portal.
   const pudoEmitirse =

@@ -2,7 +2,7 @@ import { ipcMain } from "electron";
 import type { DB } from "../db/types";
 import { fechaHoyRD } from "../db/contabilidad";
 import { auditar } from "./caja";
-import { construirPayloadEcf, leerRespuestaEcf, type ClienteEcf, type ConfigEcf, type LineaEcf, type RespuestaEcf, type TipoEcf } from "../shared/ecf";
+import { construirPayloadEcf, leerRespuestaEcf, MENSAJE_PROVEEDOR_ROTO, type ClienteEcf, type ConfigEcf, type LineaEcf, type RespuestaEcf, type TipoEcf } from "../shared/ecf";
 import type { EcfAjustes, EcfDocumento, EcfEstado, EcfPrueba, EcfRango, EcfSinEmitir } from "../shared/types";
 
 // Lo que la nube le presta a estos handlers: la configuracion de la empresa y la llamada al proveedor.
@@ -39,7 +39,12 @@ interface FilaFactura {
 }
 
 function documento(db: DB, facturaId: number, clase: "FACTURA" | "NOTA_CREDITO"): EcfDocumento | undefined {
-  return db.prepare(`SELECT * FROM ecf_documentos WHERE factura_id = ? AND clase = ?`).get(facturaId, clase) as EcfDocumento | undefined;
+  const d = db.prepare(`SELECT * FROM ecf_documentos WHERE factura_id = ? AND clase = ?`).get(facturaId, clase) as EcfDocumento | undefined;
+  return d && comoSeMuestra(d);
+}
+
+function comoSeMuestra<T extends { estado: string; mensaje?: string | null }>(d: T): T {
+  return seRompioElProveedor(d) ? { ...d, estado: "INCIERTO", mensaje: MENSAJE_PROVEEDOR_ROTO } : d;
 }
 
 function guardarRespuesta(db: DB, id: number, r: RespuestaEcf, extra: { modo: string; clase: string; facturaId: number }) {
@@ -182,19 +187,29 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
   ipcMain.handle("ecf:reenviar", (_e, facturaId: number, clase?: "FACTURA" | "NOTA_CREDITO") => enviar(facturaId, clase ?? "FACTURA", { forzar: true }));
 
   // Solo administrador: lo que ya se emitio en el portal de ef2 (por ejemplo tras un corte) se registra con su e-NCF, sin reenviar.
-  ipcMain.handle("ecf:registrarManual", (_e, datos: { factura_id: number; ncf: string; autor?: { nombre?: string } }) => {
+  ipcMain.handle("ecf:registrarManual", async (_e, datos: { factura_id: number; ncf: string; autor?: { nombre?: string } }) => {
     const doc = documento(db, datos.factura_id, "FACTURA");
     if (!doc) throw new Error("Esta factura no es electronica");
     if (ESTADOS_LISTOS.includes(doc.estado)) throw new Error("Esta factura ya tiene su comprobante");
     const ncf = String(datos.ncf ?? "").trim().toUpperCase();
     if (!/^E(31|32|45)\d{10}$/.test(ncf)) throw new Error("El e-NCF debe verse asi: E320000000123 (la letra E, el tipo y 10 numeros)");
+    const repetido = db.prepare(`SELECT f.numero FROM ecf_documentos d JOIN facturas f ON f.id = d.factura_id WHERE d.ncf = ? AND d.factura_id != ?`).get(ncf, datos.factura_id) as { numero: number } | undefined;
+    if (repetido) throw new Error(`Ese e-NCF ya esta puesto en la factura ${repetido.numero}`);
     guardarRespuesta(
       db,
       doc.id,
-      { estado: doc.modo === "real" ? "ACEPTADO" : "PROFORMA", ncf, mensaje: "Registrado a mano desde el portal de ef2", id_proveedor: null, track_id: null, qr_link: null, pdf_url: null, xml_path: null, codigo_seguridad: null, fecha_firma: null },
+      { estado: doc.modo === "real" ? "EN_PROCESO" : "PROFORMA", ncf, mensaje: "Registrado a mano desde el portal de ef2", id_proveedor: null, track_id: null, qr_link: null, pdf_url: null, xml_path: null, codigo_seguridad: null, fecha_firma: null },
       { modo: doc.modo, clase: "FACTURA", facturaId: datos.factura_id }
     );
     auditar(db, { id: null, nombre: datos.autor?.nombre ?? "Administrador" }, "ECF_REGISTRO_MANUAL", "factura", datos.factura_id, { ncf });
+    if (doc.modo === "real") {
+      db.persist();
+      try {
+        await consultarEnEf2(doc.id, ncf);
+      } catch {
+        /* sin conexion: queda "en proceso" y se puede consultar despues */
+      }
+    }
     return documento(db, datos.factura_id, "FACTURA");
   });
 
@@ -208,16 +223,21 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
     return enviar(facturaId, "NOTA_CREDITO", { razon });
   });
 
+  async function consultarEnEf2(docId: number, ncf: string) {
+    const s = exigirServicio();
+    const { http, cuerpo } = await s.llamar("GET", `/auditoria_factura.php?encf=${encodeURIComponent(ncf)}&incluir_payload=false&incluir_notas=false`);
+    const estado = String(cuerpo?.facturas?.[0]?.estado_factura ?? "").toLowerCase();
+    if (http === 200 && estado.startsWith("acept")) marcar(db, docId, "ACEPTADO", null);
+    else if (http === 200 && estado.startsWith("rechaz")) marcar(db, docId, "RECHAZADO", "La DGII rechazo el comprobante");
+  }
+
   // Pregunta a ef2 en que quedo un comprobante que estaba "en proceso".
   ipcMain.handle("ecf:consultar", async (_e, facturaId: number) => {
     const s = exigirServicio();
     const doc = documento(db, facturaId, "FACTURA");
     if (!doc) throw new Error("Esta factura no es electronica");
     if (doc.estado !== "EN_PROCESO" || !doc.ncf) return doc;
-    const { http, cuerpo } = await s.llamar("GET", `/auditoria_factura.php?encf=${encodeURIComponent(doc.ncf)}&incluir_payload=false&incluir_notas=false`);
-    const estado = String(cuerpo?.facturas?.[0]?.estado_factura ?? "").toLowerCase();
-    if (http === 200 && estado.startsWith("acept")) marcar(db, doc.id, "ACEPTADO", null);
-    else if (http === 200 && estado.startsWith("rechaz")) marcar(db, doc.id, "RECHAZADO", "La DGII rechazo el comprobante");
+    await consultarEnEf2(doc.id, doc.ncf);
     return documento(db, facturaId, "FACTURA");
   });
 
@@ -344,5 +364,6 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
          WHERE d.estado NOT IN ('ACEPTADO','PROFORMA') AND d.modo = 'real' ORDER BY d.id DESC`
       )
       .all()
+      .map((d: any) => comoSeMuestra(d))
   );
 }

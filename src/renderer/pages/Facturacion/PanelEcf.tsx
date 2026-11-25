@@ -22,6 +22,7 @@ export default function PanelEcf({ facturaId, esAdmin, onCambio }: { facturaId: 
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState("");
   const [ncfManual, setNcfManual] = useState("");
+  const [confirmaReenvio, setConfirmaReenvio] = useState(false);
 
   async function cargar() {
     setEcf((await api.ecf.obtener(facturaId).catch(() => null)) as EcfDocumento | null);
@@ -86,7 +87,7 @@ export default function PanelEcf({ facturaId, esAdmin, onCambio }: { facturaId: 
       {esAdmin && (ecf.estado === "INCIERTO" || ecf.estado === "RECHAZADO" || ecf.estado === "ERROR") && (
         <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 text-sm text-slate-600">
           <p>
-            <b>Antes de hacer nada:</b> entra al portal de ef2 y busca esta factura en Facturas. Si ya salió, escribe aquí su e-NCF. Si no salió, reenvíala.
+            <b>Antes de hacer nada:</b> entra al portal de ef2 y busca esta factura en Facturas. Si ya aparece con número E (aunque diga Pendiente), escribe aquí ese número. Reenvíala solo si no aparece: reenviar dos veces crea dos comprobantes.
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -98,8 +99,16 @@ export default function PanelEcf({ facturaId, esAdmin, onCambio }: { facturaId: 
             <Button variant="secondary" disabled={ocupado || !ncfManual.trim()} onClick={() => accion(() => api.ecf.registrarManual({ factura_id: facturaId, ncf: ncfManual }))}>
               Ya salió: registrar e-NCF
             </Button>
-            <Button variant="danger" disabled={ocupado} onClick={() => accion(() => api.ecf.reenviar(facturaId))}>
-              No salió: reenviar a ef2
+            <Button
+              variant="danger"
+              disabled={ocupado}
+              onClick={() => {
+                if (!confirmaReenvio) return setConfirmaReenvio(true);
+                setConfirmaReenvio(false);
+                accion(() => api.ecf.reenviar(facturaId));
+              }}
+            >
+              {confirmaReenvio ? "¿Seguro que no está en ef2? Pulsa otra vez" : "No salió: reenviar a ef2"}
             </Button>
           </div>
         </div>
