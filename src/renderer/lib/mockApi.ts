@@ -170,6 +170,8 @@ export const mockApi = {
     consultar: async (_facturaId: number): Promise<EcfDocumento | null> => null,
     reenviar: async (_facturaId: number, _clase?: string): Promise<EcfDocumento> => { warn(); throw new Error("No disponible en vista previa"); },
     registrarManual: async (_data: { factura_id: number; ncf: string }): Promise<EcfDocumento> => { warn(); throw new Error("No disponible en vista previa"); },
+    obtenerNota: async (_facturaId: number): Promise<EcfDocumento | null> => null,
+    enviarNota: async (_facturaId: number): Promise<EcfDocumento> => { warn(); throw new Error("No disponible en vista previa"); },
     pendientes: async (): Promise<(EcfDocumento & { factura_numero: number; factura_fecha: string; factura_total: number })[]> => [],
     rangos: async (): Promise<EcfRango[]> => [
       { prefijo: "E31", nombre: "Factura de Credito Fiscal Electronica", desde: 1, hasta: 150, usados: 12, disponibles: 138, porcentajeUso: 8, vence: "2027-12-31", activo: true },

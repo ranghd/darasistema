@@ -135,7 +135,7 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
         tipo: "34",
         emisor,
         config,
-        factura,
+        factura: { ...factura, fecha: fechaHoyRD() }, // la nota sale con la fecha de hoy; la de la original va en la referencia
         lineas,
         cliente,
         referencia: {
@@ -270,10 +270,38 @@ export function registerEcfIpc(db: DB, svc: ServicioEcf | null = null) {
     return iguales.length === 1 ? respuestaDeAuditoria(iguales[0]) : null;
   }
 
-  async function consultarEnEf2(docId: number, facturaId: number, ncf: string) {
+  async function consultarEnEf2(docId: number, facturaId: number, ncf: string, clase: "FACTURA" | "NOTA_CREDITO" = "FACTURA") {
     const guardado = await buscarEnEf2(ncf);
-    if (guardado) guardarRespuesta(db, docId, { ...respuestaDeAuditoria(guardado), ncf }, { modo: "real", clase: "FACTURA", facturaId });
+    if (guardado) guardarRespuesta(db, docId, { ...respuestaDeAuditoria(guardado), ncf }, { modo: "real", clase, facturaId });
   }
+
+  // La nota de credito de una factura (si tiene), para verla en el detalle. Si estaba "en proceso" se pregunta en que quedo.
+  ipcMain.handle("ecf:obtenerNota", async (_e, facturaId: number) => {
+    const nota = documento(db, facturaId, "NOTA_CREDITO");
+    if (svc && nota?.estado === "EN_PROCESO" && nota.ncf) {
+      await consultarEnEf2(nota.id, facturaId, nota.ncf, "NOTA_CREDITO").catch(() => {});
+    }
+    return documento(db, facturaId, "NOTA_CREDITO") ?? null;
+  });
+
+  // Solo administrador: envia la nota de credito (anulacion total) de una factura ya anulada en el sistema que la DGII acepto
+  // y que se quedo sin nota (por ejemplo, se anulo antes de tener su e-NCF). Nunca manda dos veces: lo dudoso no se repite.
+  ipcMain.handle("ecf:enviarNota", async (_e, facturaId: number) => {
+    const factura = db.prepare(`SELECT estado FROM facturas WHERE id = ?`).get(facturaId) as { estado: string } | undefined;
+    if (!factura) throw new Error("Factura no encontrada");
+    if (factura.estado !== "ANULADA") throw new Error("Primero anula la factura: la nota de credito es para facturas anuladas");
+    let original = documento(db, facturaId, "FACTURA");
+    if (!original || original.modo !== "real" || !original.ncf) throw new Error("Esta factura no tiene e-NCF: no hay nada que anular en la DGII");
+    if (original.estado === "EN_PROCESO") {
+      await consultarEnEf2(original.id, facturaId, original.ncf).catch(() => {});
+      original = documento(db, facturaId, "FACTURA")!;
+    }
+    if (original.estado !== "ACEPTADO") throw new Error("La DGII todavia no ha aceptado esta factura: consulta su estado mas tarde");
+    if (!documento(db, facturaId, "NOTA_CREDITO")) {
+      db.prepare(`INSERT INTO ecf_documentos (factura_id, clase, tipo, modo, estado) VALUES (?, 'NOTA_CREDITO', '34', 'real', 'PENDIENTE')`).run(facturaId);
+    }
+    return enviar(facturaId, "NOTA_CREDITO", { razon: "Anulacion de factura" });
+  });
 
   // Pregunta a ef2 en que quedo un comprobante que estaba "en proceso".
   ipcMain.handle("ecf:consultar", async (_e, facturaId: number) => {

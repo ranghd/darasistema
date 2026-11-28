@@ -17,18 +17,23 @@ const TEXTO: Record<EstadoEcfDocumento, { etiqueta: string; tono: "green" | "amb
 // Comprobante electronico (e-CF) de una factura: su estado y lo que se puede hacer si no salio.
 // No hay boton para volver a mandar (salian comprobantes repetidos): si no quedo confirmado, el administrador
 // busca su numero en el portal de ef2 y lo registra.
-export default function PanelEcf({ facturaId, esAdmin, onCambio }: { facturaId: number; esAdmin: boolean; onCambio: () => void }) {
+export default function PanelEcf({ facturaId, esAdmin, anulada, onCambio }: { facturaId: number; esAdmin: boolean; anulada: boolean; onCambio: () => void }) {
   const [ecf, setEcf] = useState<EcfDocumento | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState("");
   const [ncfManual, setNcfManual] = useState("");
+  const [nota, setNota] = useState<EcfDocumento | null>(null);
+  const [confirmaNota, setConfirmaNota] = useState(false);
 
   async function cargar() {
     setEcf((await api.ecf.obtener(facturaId).catch(() => null)) as EcfDocumento | null);
+    // la nota de credito solo importa en una factura anulada (y la ve el administrador)
+    setNota(anulada && esAdmin ? ((await api.ecf.obtenerNota(facturaId).catch(() => null)) as EcfDocumento | null) : null);
   }
   useEffect(() => {
+    setConfirmaNota(false);
     cargar();
-  }, [facturaId]);
+  }, [facturaId, anulada]);
 
   async function accion(fn: () => Promise<unknown>) {
     setOcupado(true);
@@ -94,6 +99,40 @@ export default function PanelEcf({ facturaId, esAdmin, onCambio }: { facturaId: 
               Ya salió: registrar e-NCF
             </Button>
           </div>
+        </div>
+      )}
+      {esAdmin && anulada && ecf.modo === "real" && ecf.ncf && (
+        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 text-sm text-slate-600">
+          <p className="font-semibold text-slate-700">Nota de crédito ante la DGII</p>
+          {nota && (nota.estado === "ACEPTADO" || nota.estado === "EN_PROCESO") ? (
+            <p>
+              <span className="font-mono">{nota.ncf}</span>: {nota.estado === "ACEPTADO" ? "aceptada por la DGII." : "enviada, la DGII la está procesando."}
+            </p>
+          ) : nota && (nota.estado === "INCIERTO" || nota.estado === "ENVIANDO" || nota.estado === "RECHAZADO") ? (
+            <p className="text-red-700">
+              {nota.estado === "ENVIANDO" ? "Se está enviando." : nota.mensaje} Búscala en el portal de ef2; no hagas otra.
+            </p>
+          ) : ecf.estado === "ACEPTADO" ? (
+            <>
+              <p>
+                Esta factura está anulada aquí, pero <span className="font-mono">{ecf.ncf}</span> sigue válida ante la DGII. La nota de crédito la anula por el total.
+              </p>
+              {nota?.mensaje && <p className="text-red-700">{nota.mensaje}</p>}
+              <Button
+                variant="danger"
+                disabled={ocupado}
+                onClick={() => {
+                  if (!confirmaNota) return setConfirmaNota(true);
+                  setConfirmaNota(false);
+                  accion(() => api.ecf.enviarNota(facturaId));
+                }}
+              >
+                {ocupado ? "Enviando..." : confirmaNota ? "¿Seguro? Es un documento real: pulsa otra vez" : "Enviar nota de crédito"}
+              </Button>
+            </>
+          ) : (
+            <p>Cuando la DGII acepte <span className="font-mono">{ecf.ncf}</span> podrás enviar la nota de crédito.</p>
+          )}
         </div>
       )}
     </Card>

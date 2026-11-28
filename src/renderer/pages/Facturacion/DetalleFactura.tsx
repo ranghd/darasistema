@@ -239,7 +239,7 @@ export default function DetalleFactura() {
         </p>
       )}
 
-      <PanelEcf facturaId={factura.id} esAdmin={usuario?.rol === "ADMIN"} onCambio={cargar} />
+      <PanelEcf facturaId={factura.id} esAdmin={usuario?.rol === "ADMIN"} anulada={factura.estado === "ANULADA"} onCambio={cargar} />
 
       <div className="mb-5 flex items-center gap-3 print:hidden">
         <Badge tone={factura.estado === "PAGADA" ? "green" : factura.estado === "ANULADA" ? "red" : "amber"}>{factura.estado}</Badge>
